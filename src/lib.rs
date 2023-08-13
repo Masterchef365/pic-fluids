@@ -37,9 +37,9 @@ impl UserState for ClientState {
 
         Self {
             dt: 0.001,
-            solver_iters: 100,
-            stiffness: 0.01,
-            gravity: 0.01,
+            solver_iters: 50,
+            stiffness: 0.0,
+            gravity: 10.,
             sim,
         }
     }
@@ -171,7 +171,7 @@ const OFFSET_V: Vec2 = Vec2::new(0.5, 0.);
 
 /// Insert information such as velocity and pressure into the grid
 fn particles_to_grid(particles: &[Particle], grid: &mut Array2D<GridCell>) {
-    // Set pressure to zero
+    // Clear the grid
     grid.data_mut().iter_mut().for_each(|c| *c = GridCell::default());
 
     // Accumulate velocity on grid
@@ -199,7 +199,7 @@ fn particles_to_grid(particles: &[Particle], grid: &mut Array2D<GridCell>) {
     });
     grid.data_mut().iter_mut().for_each(|c| c.pressure = 0.);
 
-    // Now we actuall set the pressure
+    // Now we actually set the pressure
     for part in particles {
         scatter(part.pos, grid, |c, w| c.pressure += w);
     }
@@ -224,7 +224,7 @@ fn grid_tl(pos: Vec2) -> GridPos {
 }
 
 /// Returns the grid positions corresponding to [tl, tr, bl, br]
-fn grid_neighborhood(tl @ (i, j): GridPos) -> [GridPos; 4] {
+fn grid_neighborhood(_tl @ (i, j): GridPos) -> [GridPos; 4] {
     [(i, j), (i + 1, j), (i, j + 1), (i + 1, j + 1)]
 }
 
@@ -260,8 +260,8 @@ fn solve_incompressibility(
 ) {
     // TODO: Use Jacobi method instead!
     for _ in 0..iterations {
-        for i in 1..grid.width() - 2 {
-            for j in 1..grid.height() - 2 {
+        for i in 1..grid.width() - 1 {
+            for j in 1..grid.height() - 1 {
                 let horiz_div = grid[(i + 1, j)].vel.x - grid[(i, j)].vel.x;
                 let vert_div = grid[(i, j + 1)].vel.y - grid[(i, j)].vel.y;
                 let total_div = horiz_div + vert_div;
