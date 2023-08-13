@@ -339,7 +339,7 @@ fn enforce_grid_boundary(grid: &mut Array2D<GridCell>) {
 
 fn enforce_particle_radius(particles: &mut [Particle], radius: f32) {
     let mut points: Vec<Vec2> = particles.iter().map(|p| p.pos).collect();
-    let mut accel = QueryAccelerator::new(&points, radius);
+    let mut accel = QueryAccelerator::new(&points, radius * 2.);
 
     let mut rng = rng();
 
