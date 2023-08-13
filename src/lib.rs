@@ -35,13 +35,13 @@ impl UserState for ClientState {
 
         sched.add_system(Self::update).build();
 
-        let sim = Sim::new(100, 100, 2_000, 1e-1);
+        let sim = Sim::new(100, 100, 2_000, 1.);
 
         Self {
             dt: 0.05,
-            solver_iters: 50,
-            stiffness: 1.,
-            gravity: 10.,
+            solver_iters: 100,
+            stiffness: 0.,
+            gravity: 1.,
             sim,
         }
     }
@@ -123,7 +123,7 @@ impl Sim {
             })
             .collect();
 
-        let rest_density = n_particles as f32 / ((width - 2) * (height - 2)) as f32;
+        let rest_density = 1.;
 
         Sim {
             particles,
@@ -140,6 +140,14 @@ impl Sim {
         enforce_particle_radius(&mut self.particles, self.particle_size);
         enforce_particle_pos(&mut self.particles, &self.grid);
 
+        /*
+        for part in &mut self.particles {
+            if part.pos.x > 80. {
+                part.vel += dt * 30.;
+            }
+        }
+        */
+
         // Step grid
         particles_to_grid(&self.particles, &mut self.grid);
         enforce_grid_boundary(&mut self.grid);
@@ -147,7 +155,7 @@ impl Sim {
             &mut self.grid,
             solver_iters,
             self.rest_density,
-            1.9,
+            1.0,
             stiffness,
         );
         grid_to_particles(&mut self.particles, &self.grid);
@@ -269,26 +277,33 @@ fn solve_incompressibility(
     overrelaxation: f32,
     stiffness: f32,
 ) {
-    // TODO: Use Jacobi method instead!
-    for _ in 0..iterations {
+    let mut tmp = grid.clone();
+
+    for step in 0..iterations {
         for i in 0..grid.width() - 1 {
             for j in 0..grid.height() - 1 {
-                let horiz_div = grid[(i + 1, j)].vel.x - grid[(i, j)].vel.x;
-                let vert_div = grid[(i, j + 1)].vel.y - grid[(i, j)].vel.y;
-                let total_div = horiz_div + vert_div;
+                let checkerboard = (i & 1) ^ (j & 1) ^ (step & 1);
+                if checkerboard == 0 {
+                    let horiz_div = grid[(i + 1, j)].vel.x - grid[(i, j)].vel.x;
+                    let vert_div = grid[(i, j + 1)].vel.y - grid[(i, j)].vel.y;
+                    let total_div = horiz_div + vert_div;
 
-                let pressure_contrib = stiffness * (grid[(i, j)].pressure - rest_density);
-                let d = overrelaxation * total_div - pressure_contrib;
-                let d = d / 4.;
+                    let pressure_contrib = stiffness * (grid[(i, j)].pressure - rest_density);
+                    let d = overrelaxation * total_div - pressure_contrib;
+                    let d = d / 4.;
 
-                grid[(i, j)].vel.x += d;
-                grid[(i + 1, j)].vel.x -= d;
-                grid[(i, j)].vel.y += d;
-                grid[(i, j + 1)].vel.y -= d;
+                    tmp[(i, j)].vel.x = grid[(i, j)].vel.x + d;
+                    tmp[(i + 1, j)].vel.x = grid[(i + 1, j)].vel.x - d;
+
+                    tmp[(i, j)].vel.y = grid[(i, j)].vel.y + d;
+                    tmp[(i, j + 1)].vel.y = grid[(i, j + 1)].vel.y - d;
+
+                }
             }
         }
 
         enforce_grid_boundary(grid);
+        std::mem::swap(&mut tmp, grid);
     }
 }
 
@@ -325,19 +340,28 @@ fn enforce_grid_boundary(grid: &mut Array2D<GridCell>) {
 fn enforce_particle_radius(particles: &mut [Particle], radius: f32) {
     let mut points: Vec<Vec2> = particles.iter().map(|p| p.pos).collect();
     let mut accel = QueryAccelerator::new(&points, radius);
-    for i in 0..particles.len() {
-        let pos = points[i];
-        let mut total_diff = Vec2::ZERO;
-        for neighbor in accel.query_neighbors(&points, i, pos) {
-            let diff = pos - points[neighbor];
 
-            if diff.length() != 0.0 {
-                total_diff = (radius - diff.length()) * -diff.normalize();
-                break;
+    let mut rng = rng();
+
+    let mut neigh = vec![];
+    for i in 0..particles.len() {
+        neigh.clear();
+        neigh.extend(accel.query_neighbors(&points, i, points[i]));
+
+        if let Some(&neighbor) = neigh.choose(&mut rng) {
+            let diff = points[neighbor] - points[i];
+            let dist = diff.length();
+            if dist > 0. {
+                let norm = diff.normalize();
+                let needed_dist = radius * 2. - dist;
+                let prev_pos = points[i];
+                let prev_neighbor = points[neighbor];
+                points[i] -= norm * needed_dist / 2.;
+                points[neighbor] += norm * needed_dist / 2.;
+                accel.replace_point(i, prev_pos, points[i]);
+                accel.replace_point(neighbor, prev_neighbor, points[neighbor]);
             }
         }
-        points[i] += total_diff;
-        accel.replace_point(i, pos, points[i]);
     }
 
     particles.iter_mut().zip(&points).for_each(|(part, point)| part.pos = *point);
