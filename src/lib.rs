@@ -4,7 +4,7 @@ use cimvr_common::{
     render::{Mesh, MeshHandle, Primitive, Render, UploadMesh, Vertex},
     Transform,
 };
-use cimvr_engine_interface::{make_app_state, pcg::Pcg, pkg_namespace, prelude::*, dbg};
+use cimvr_engine_interface::{dbg, make_app_state, pcg::Pcg, pkg_namespace, prelude::*};
 use rand::prelude::*;
 
 mod array2d;
@@ -130,10 +130,14 @@ impl Sim {
     }
 
     pub fn step(&mut self, dt: f32, solver_iters: usize, stiffness: f32, gravity: f32) {
+        // Step particles
         apply_global_force(&mut self.particles, Vec2::new(0., -gravity), dt);
         step_particles(&mut self.particles, dt);
         enforce_particle_pos(&mut self.particles, &self.grid);
+
+        // Step grid
         particles_to_grid(&self.particles, &mut self.grid);
+        enforce_grid_boundary(&mut self.grid);
         solve_incompressibility(
             &mut self.grid,
             solver_iters,
@@ -172,7 +176,9 @@ const OFFSET_V: Vec2 = Vec2::new(0.5, 0.);
 /// Insert information such as velocity and pressure into the grid
 fn particles_to_grid(particles: &[Particle], grid: &mut Array2D<GridCell>) {
     // Clear the grid
-    grid.data_mut().iter_mut().for_each(|c| *c = GridCell::default());
+    grid.data_mut()
+        .iter_mut()
+        .for_each(|c| *c = GridCell::default());
 
     // Accumulate velocity on grid
     // Here we abuse the pressure of each grid cell to divide correctly
@@ -293,5 +299,18 @@ fn enforce_particle_pos(particles: &mut [Particle], grid: &Array2D<GridCell>) {
         // Ensure particles are within the grid
         part.pos.x = part.pos.x.clamp(1.0, (grid.width() - 2) as f32);
         part.pos.y = part.pos.y.clamp(1.0, (grid.height() - 2) as f32);
+    }
+}
+
+fn enforce_grid_boundary(grid: &mut Array2D<GridCell>) {
+    let (w, h) = (grid.width(), grid.height());
+    for y in 0..h {
+        grid[(0, y)].vel.x = 0.0;
+        grid[(w - 1, y)].vel.x = 0.0;
+    }
+
+    for x in 0..w {
+        grid[(x, 0)].vel.y = 0.0;
+        grid[(0, h - 1)].vel.y = 0.0;
     }
 }
