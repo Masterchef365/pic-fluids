@@ -1,3 +1,5 @@
+pub type GridPos = (usize, usize);
+
 #[derive(Clone)]
 pub struct Array2D<T> {
     width: usize,
@@ -28,7 +30,7 @@ impl<T> Array2D<T> {
         &mut self.data
     }
 
-    fn calc_index(&self, (x, y): (usize, usize)) -> usize {
+    fn calc_index(&self, (x, y): GridPos) -> usize {
         debug_assert!(x < self.width);
         debug_assert!(y < self.width);
         x + y * self.width
@@ -43,15 +45,15 @@ impl<T> Array2D<T> {
     }
 }
 
-impl<T> std::ops::Index<(usize, usize)> for Array2D<T> {
+impl<T> std::ops::Index<GridPos> for Array2D<T> {
     type Output = T;
-    fn index(&self, pos: (usize, usize)) -> &T {
+    fn index(&self, pos: GridPos) -> &T {
         &self.data[self.calc_index(pos)]
     }
 }
 
-impl<T> std::ops::IndexMut<(usize, usize)> for Array2D<T> {
-    fn index_mut(&mut self, pos: (usize, usize)) -> &mut T {
+impl<T> std::ops::IndexMut<GridPos> for Array2D<T> {
+    fn index_mut(&mut self, pos: GridPos) -> &mut T {
         let idx = self.calc_index(pos);
         &mut self.data[idx]
     }
