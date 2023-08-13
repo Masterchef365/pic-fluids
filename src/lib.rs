@@ -35,13 +35,13 @@ impl UserState for ClientState {
 
         sched.add_system(Self::update).build();
 
-        let sim = Sim::new(100, 100, 2_000, 0.75);
+        let sim = Sim::new(100, 100, 1_00, 1.0);
 
         Self {
             dt: 0.05,
             solver_iters: 100,
-            stiffness: 1.,
-            gravity: 10.,
+            stiffness: 2.,
+            gravity: 9.8,
             sim,
         }
     }
