@@ -5,9 +5,11 @@ use cimvr_common::{
     Transform,
 };
 use cimvr_engine_interface::{dbg, make_app_state, pcg::Pcg, pkg_namespace, prelude::*};
+use query_accel::QueryAccelerator;
 use rand::prelude::*;
 
 mod array2d;
+mod query_accel;
 
 struct ClientState {
     // Sim state
@@ -33,7 +35,7 @@ impl UserState for ClientState {
 
         sched.add_system(Self::update).build();
 
-        let sim = Sim::new(100, 100, 2_000);
+        let sim = Sim::new(100, 100, 2_000, 1e-1);
 
         Self {
             dt: 0.05,
@@ -85,6 +87,7 @@ struct Sim {
     grid: Array2D<GridCell>,
     /// Rest density, in particles/unit^2
     rest_density: f32,
+    particle_size: f32,
 }
 
 #[derive(Copy, Clone, Debug, Default)]
@@ -104,7 +107,7 @@ struct Particle {
 }
 
 impl Sim {
-    pub fn new(width: usize, height: usize, n_particles: usize) -> Self {
+    pub fn new(width: usize, height: usize, n_particles: usize, particle_size: f32,) -> Self {
         // Uniformly placed, random particles
         let mut rng = rng();
         let particles = (0..n_particles)
@@ -126,6 +129,7 @@ impl Sim {
             particles,
             grid: Array2D::new(width, height),
             rest_density,
+            particle_size,
         }
     }
 
@@ -133,6 +137,7 @@ impl Sim {
         // Step particles
         apply_global_force(&mut self.particles, Vec2::new(0., -gravity), dt);
         step_particles(&mut self.particles, dt);
+        enforce_particle_radius(&mut self.particles, self.particle_size);
         enforce_particle_pos(&mut self.particles, &self.grid);
 
         // Step grid
@@ -315,4 +320,25 @@ fn enforce_grid_boundary(grid: &mut Array2D<GridCell>) {
         grid[(x, 0)].vel.y = 0.0;
         grid[(0, h - 1)].vel.y = 0.0;
     }
+}
+
+fn enforce_particle_radius(particles: &mut [Particle], radius: f32) {
+    let mut points: Vec<Vec2> = particles.iter().map(|p| p.pos).collect();
+    let mut accel = QueryAccelerator::new(&points, radius);
+    for i in 0..particles.len() {
+        let pos = points[i];
+        let mut total_diff = Vec2::ZERO;
+        for neighbor in accel.query_neighbors(&points, i, pos) {
+            let diff = pos - points[neighbor];
+
+            if diff.length() != 0.0 {
+                total_diff = (radius - diff.length()) * -diff.normalize();
+                break;
+            }
+        }
+        points[i] += total_diff;
+        accel.replace_point(i, pos, points[i]);
+    }
+
+    particles.iter_mut().zip(&points).for_each(|(part, point)| part.pos = *point);
 }
