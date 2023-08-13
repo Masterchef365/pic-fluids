@@ -38,9 +38,9 @@ impl UserState for ClientState {
         let sim = Sim::new(100, 100, 1_00, 1.0);
 
         Self {
-            dt: 0.05,
+            dt: 0.1,
             solver_iters: 100,
-            stiffness: 2.,
+            stiffness: 3.,
             gravity: 9.8,
             sim,
         }
@@ -87,7 +87,7 @@ struct Sim {
     grid: Array2D<GridCell>,
     /// Rest density, in particles/unit^2
     rest_density: f32,
-    particle_size: f32,
+    particle_radius: f32,
 }
 
 #[derive(Copy, Clone, Debug, Default)]
@@ -107,7 +107,7 @@ struct Particle {
 }
 
 impl Sim {
-    pub fn new(width: usize, height: usize, n_particles: usize, particle_size: f32,) -> Self {
+    pub fn new(width: usize, height: usize, n_particles: usize, particle_radius: f32) -> Self {
         // Uniformly placed, random particles
         let mut rng = rng();
         let particles = (0..n_particles)
@@ -123,13 +123,17 @@ impl Sim {
             })
             .collect();
 
-        let rest_density = particle_size.powi(-2);
+        // Assuming perfect hexagonal packing, 
+        let packing_density = std::f32::consts::PI / 2. / 3_f32.sqrt();
+        let particle_area = std::f32::consts::PI * particle_radius.powi(2);
+        // Packing efficiency * (1 / particle area) = particles / area
+        let rest_density = packing_density / particle_area;
 
         Sim {
             particles,
             grid: Array2D::new(width, height),
             rest_density,
-            particle_size,
+            particle_radius,
         }
     }
 
@@ -137,8 +141,14 @@ impl Sim {
         // Step particles
         apply_global_force(&mut self.particles, Vec2::new(0., -gravity), dt);
         step_particles(&mut self.particles, dt);
-        enforce_particle_radius(&mut self.particles, self.particle_size);
+        enforce_particle_radius(&mut self.particles, self.particle_radius);
         enforce_particle_pos(&mut self.particles, &self.grid);
+
+        let pos = Vec2::new(10., 90.);
+        let vel = Vec2::new(0., -20.);
+        //if rng().gen_bool(0.2) {
+            self.particles.push(Particle { pos, vel });
+        //}
 
         /*
         for part in &mut self.particles {
@@ -151,7 +161,7 @@ impl Sim {
         // Step grid
         particles_to_grid(&self.particles, &mut self.grid);
         enforce_grid_boundary(&mut self.grid);
-        solve_incompressibility(
+        solve_incompressibility_jacobi(
             &mut self.grid,
             solver_iters,
             self.rest_density,
@@ -270,7 +280,45 @@ fn scatter<T>(pos: Vec2, grid: &mut Array2D<T>, mut f: impl FnMut(&mut T, f32)) 
 }
 
 /// Solve incompressibility on the grid cells, includinge contribution from presssure
-fn solve_incompressibility(
+fn solve_incompressibility_jacobi(
+    grid: &mut Array2D<GridCell>,
+    iterations: usize,
+    rest_density: f32,
+    overrelaxation: f32,
+    stiffness: f32,
+) {
+    let mut tmp = grid.clone();
+
+    for step in 0..iterations {
+        for i in 0..grid.width() - 1 {
+            for j in 0..grid.height() - 1 {
+                let checkerboard = (i & 1) ^ (j & 1) ^ (step & 1);
+                if checkerboard == 0 {
+                    let horiz_div = grid[(i + 1, j)].vel.x - grid[(i, j)].vel.x;
+                    let vert_div = grid[(i, j + 1)].vel.y - grid[(i, j)].vel.y;
+                    let total_div = horiz_div + vert_div;
+
+                    let pressure_contrib = stiffness * (grid[(i, j)].pressure - rest_density);
+                    let d = overrelaxation * total_div - pressure_contrib;
+                    let d = d / 4.;
+
+                    tmp[(i, j)].vel.x = grid[(i, j)].vel.x + d;
+                    tmp[(i + 1, j)].vel.x = grid[(i + 1, j)].vel.x - d;
+
+                    tmp[(i, j)].vel.y = grid[(i, j)].vel.y + d;
+                    tmp[(i, j + 1)].vel.y = grid[(i, j + 1)].vel.y - d;
+
+                }
+            }
+        }
+
+        enforce_grid_boundary(grid);
+        std::mem::swap(&mut tmp, grid);
+    }
+}
+
+/// Solve incompressibility on the grid cells, includinge contribution from presssure
+fn solve_incompressibility_gauss_seidel(
     grid: &mut Array2D<GridCell>,
     iterations: usize,
     rest_density: f32,
@@ -299,6 +347,8 @@ fn solve_incompressibility(
         enforce_grid_boundary(grid);
     }
 }
+
+
 
 fn grid_to_particles(particles: &mut [Particle], grid: &Array2D<GridCell>) {
     for part in particles {
