@@ -36,9 +36,9 @@ impl UserState for ClientState {
         let sim = Sim::new(100, 100, 2_000);
 
         Self {
-            dt: 0.001,
+            dt: 0.05,
             solver_iters: 50,
-            stiffness: 0.0,
+            stiffness: 1.,
             gravity: 10.,
             sim,
         }
@@ -142,8 +142,8 @@ impl Sim {
             &mut self.grid,
             solver_iters,
             self.rest_density,
-            stiffness,
             1.9,
+            stiffness,
         );
         grid_to_particles(&mut self.particles, &self.grid);
     }
@@ -266,8 +266,8 @@ fn solve_incompressibility(
 ) {
     // TODO: Use Jacobi method instead!
     for _ in 0..iterations {
-        for i in 1..grid.width() - 1 {
-            for j in 1..grid.height() - 1 {
+        for i in 0..grid.width() - 1 {
+            for j in 0..grid.height() - 1 {
                 let horiz_div = grid[(i + 1, j)].vel.x - grid[(i, j)].vel.x;
                 let vert_div = grid[(i, j + 1)].vel.y - grid[(i, j)].vel.y;
                 let total_div = horiz_div + vert_div;
@@ -282,6 +282,8 @@ fn solve_incompressibility(
                 grid[(i, j + 1)].vel.y -= d;
             }
         }
+
+        enforce_grid_boundary(grid);
     }
 }
 
