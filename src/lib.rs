@@ -40,7 +40,7 @@ impl UserState for ClientState {
         Self {
             dt: 0.05,
             solver_iters: 100,
-            stiffness: 0.,
+            stiffness: 1.,
             gravity: 1.,
             sim,
         }
@@ -277,33 +277,26 @@ fn solve_incompressibility(
     overrelaxation: f32,
     stiffness: f32,
 ) {
-    let mut tmp = grid.clone();
-
-    for step in 0..iterations {
+    // TODO: Use Jacobi method instead!
+    for _ in 0..iterations {
         for i in 0..grid.width() - 1 {
             for j in 0..grid.height() - 1 {
-                let checkerboard = (i & 1) ^ (j & 1) ^ (step & 1);
-                if checkerboard == 0 {
-                    let horiz_div = grid[(i + 1, j)].vel.x - grid[(i, j)].vel.x;
-                    let vert_div = grid[(i, j + 1)].vel.y - grid[(i, j)].vel.y;
-                    let total_div = horiz_div + vert_div;
+                let horiz_div = grid[(i + 1, j)].vel.x - grid[(i, j)].vel.x;
+                let vert_div = grid[(i, j + 1)].vel.y - grid[(i, j)].vel.y;
+                let total_div = horiz_div + vert_div;
 
-                    let pressure_contrib = stiffness * (grid[(i, j)].pressure - rest_density);
-                    let d = overrelaxation * total_div - pressure_contrib;
-                    let d = d / 4.;
+                let pressure_contrib = stiffness * (grid[(i, j)].pressure - rest_density);
+                let d = overrelaxation * total_div - pressure_contrib;
+                let d = d / 4.;
 
-                    tmp[(i, j)].vel.x = grid[(i, j)].vel.x + d;
-                    tmp[(i + 1, j)].vel.x = grid[(i + 1, j)].vel.x - d;
-
-                    tmp[(i, j)].vel.y = grid[(i, j)].vel.y + d;
-                    tmp[(i, j + 1)].vel.y = grid[(i, j + 1)].vel.y - d;
-
-                }
+                grid[(i, j)].vel.x += d;
+                grid[(i + 1, j)].vel.x -= d;
+                grid[(i, j)].vel.y += d;
+                grid[(i, j + 1)].vel.y -= d;
             }
         }
 
         enforce_grid_boundary(grid);
-        std::mem::swap(&mut tmp, grid);
     }
 }
 
