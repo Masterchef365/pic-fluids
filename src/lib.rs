@@ -72,10 +72,10 @@ struct Sim {
 
 #[derive(Copy, Clone, Debug, Default)]
 struct GridCell {
-    /// Velocity of the faces represented by this cell
+    /// Flow rate through the top and left faces of this cell
     vel: Vec2,
     /// Pressure inside this cell
-    p: f32,
+    pressure: f32,
 }
 
 #[derive(Copy, Clone, Debug, Default)]
@@ -88,6 +88,7 @@ struct Particle {
 
 impl Sim {
     pub fn new(width: usize, height: usize, n_particles: usize) -> Self {
+        // Uniformly placed, random particles
         let mut rng = rng();
         let particles = (0..n_particles)
             .map(|_| {
@@ -111,10 +112,11 @@ impl Sim {
         }
     }
 
-    pub fn step(&mut self, dt: f32, solver_iters: usize, stiffness: f32) {
+    pub fn step(&mut self, dt: f32, solver_iters: usize, stiffness: f32, gravity: f32) {
+        apply_global_force(&mut self.particles, Vec2::new(0., -gravity), dt);
         step_particles(&mut self.particles, dt);
         particles_to_grid(&self.particles, &mut self.grid);
-        solve_incompressibility(&mut self.grid, solver_iters, self.rest_density, stiffness);
+        solve_incompressibility(&mut self.grid, solver_iters, self.rest_density, stiffness, 1.9);
         grid_to_particles(&mut self.particles, &self.grid);
     }
 }
@@ -131,18 +133,46 @@ fn step_particles(particles: &mut [Particle], dt: f32) {
     }
 }
 
+/// Apply a force to all particles, e.g. gravity
+fn apply_global_force(particles: &mut [Particle], g: Vec2, dt: f32) {
+    for part in particles {
+        part.vel += g * dt;
+    }
+}
+
 fn particles_to_grid(
     particles: &[Particle],
     grid: &mut Array2D<GridCell>,
 ) {
 }
 
+/// Solve incompressibility on the grid cells, includinge contribution from presssure
 fn solve_incompressibility(
     grid: &mut Array2D<GridCell>,
     iterations: usize,
     rest_density: f32,
+    overrelaxation: f32,
     stiffness: f32,
 ) {
+    // TODO: Use Jacobi method instead!
+    for _ in 0..iterations {
+        for i in 1..grid.width() - 2 {
+            for j in 1..grid.height() - 2 {
+                let horiz_div = grid[(i + 1, j)].vel.x - grid[(i, j)].vel.x;
+                let vert_div = grid[(i, j + 1)].vel.y - grid[(i, j)].vel.y;
+                let total_div = horiz_div + vert_div;
+
+                let pressure_contrib = stiffness * (grid[(i, j)].pressure - rest_density);
+                let d = overrelaxation * total_div - pressure_contrib;
+                let d = d / 4.;
+
+                grid[(i, j)].vel.x += d;
+                grid[(i+1, j)].vel.x -= d;
+                grid[(i, j)].vel.y += d;
+                grid[(i, j+1)].vel.y -= d;
+            }
+        }
+    }
 }
 
 fn grid_to_particles(
@@ -150,5 +180,3 @@ fn grid_to_particles(
     grid: &Array2D<GridCell>,
 ) {
 }
-
-
