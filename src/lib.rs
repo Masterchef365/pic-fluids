@@ -4,9 +4,8 @@ use cimvr_common::{
     render::{Mesh, MeshHandle, Primitive, Render, UploadMesh, Vertex},
     Transform,
 };
-use cimvr_engine_interface::{make_app_state, pcg::Pcg, pkg_namespace, prelude::*};
+use cimvr_engine_interface::{make_app_state, pcg::Pcg, pkg_namespace, prelude::*, dbg};
 use rand::prelude::*;
-use zwohash::HashMap;
 
 mod array2d;
 
@@ -48,13 +47,13 @@ impl UserState for ClientState {
 
 impl ClientState {
     fn update(&mut self, io: &mut EngineIo, _query: &mut QueryResult) {
-        self.sim.step(self.dt, self.solver_iters, self.stiffness, self.gravity);
+        self.sim
+            .step(self.dt, self.solver_iters, self.stiffness, self.gravity);
 
         io.send(&UploadMesh {
             mesh: particles_mesh(&self.sim.particles),
             id: POINTS_RDR,
         });
-
     }
 }
 
@@ -63,7 +62,16 @@ fn particles_mesh(particles: &[Particle]) -> Mesh {
     Mesh {
         vertices: particles
             .iter()
-            .map(|p| Vertex::new([(p.pos.x / DOWNSCALE) * 2. - 1., 0., (p.pos.y / DOWNSCALE) * 2. - 1.], [1.; 3]))
+            .map(|p| {
+                Vertex::new(
+                    [
+                        (p.pos.x / DOWNSCALE) * 2. - 1.,
+                        0.,
+                        (p.pos.y / DOWNSCALE) * 2. - 1.,
+                    ],
+                    [1.; 3],
+                )
+            })
             .collect(),
         indices: (0..particles.len() as u32).collect(),
     }
@@ -124,6 +132,7 @@ impl Sim {
     pub fn step(&mut self, dt: f32, solver_iters: usize, stiffness: f32, gravity: f32) {
         apply_global_force(&mut self.particles, Vec2::new(0., -gravity), dt);
         step_particles(&mut self.particles, dt);
+        enforce_particle_pos(&mut self.particles, &self.grid);
         particles_to_grid(&self.particles, &mut self.grid);
         solve_incompressibility(
             &mut self.grid,
@@ -163,7 +172,7 @@ const OFFSET_V: Vec2 = Vec2::new(0.5, 0.);
 /// Insert information such as velocity and pressure into the grid
 fn particles_to_grid(particles: &[Particle], grid: &mut Array2D<GridCell>) {
     // Set pressure to zero
-    grid.data_mut().iter_mut().for_each(|c| c.pressure = 0.);
+    grid.data_mut().iter_mut().for_each(|c| *c = GridCell::default());
 
     // Accumulate velocity on grid
     // Here we abuse the pressure of each grid cell to divide correctly
@@ -272,8 +281,17 @@ fn solve_incompressibility(
 
 fn grid_to_particles(particles: &mut [Particle], grid: &Array2D<GridCell>) {
     for part in particles {
+        // Interpolate velocity onto particles
         let vel_x = gather(part.pos - OFFSET_U, grid, |c| c.vel.x);
         let vel_y = gather(part.pos - OFFSET_V, grid, |c| c.vel.y);
         part.vel = Vec2::new(vel_x, vel_y);
+    }
+}
+
+fn enforce_particle_pos(particles: &mut [Particle], grid: &Array2D<GridCell>) {
+    for part in particles {
+        // Ensure particles are within the grid
+        part.pos.x = part.pos.x.clamp(1.0, (grid.width() - 2) as f32);
+        part.pos.y = part.pos.y.clamp(1.0, (grid.height() - 2) as f32);
     }
 }
