@@ -1,0 +1,19 @@
+[package]
+name = "pic-fluids"
+version = "0.1.0"
+edition = "2021"
+
+[lib]
+crate-type = ["cdylib"]
+
+[dependencies]
+#cimvr_common = { git = "https://github.com/ChatImproVR/iteration0.git", branch = "main" }
+#cimvr_engine_interface  = { git = "https://github.com/ChatImproVR/iteration0.git", branch = "main" }
+serde = { version = "1", features = ["derive"] }
+zwohash = "0.1.2"
+
+cimvr_common = { path = "../chatimprovr/common" }
+cimvr_engine_interface = { path = "../chatimprovr/engine_interface" }
+
+rand = { version = "0.8", default-features = false, features = ["small_rng"] }
+rand_distr = { version = "0.4", default-features = false }
