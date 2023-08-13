@@ -10,7 +10,16 @@ use zwohash::HashMap;
 
 mod array2d;
 
-struct ClientState;
+struct ClientState {
+    // Sim state
+    sim: Sim,
+
+    // Settings
+    dt: f32,
+    solver_iters: usize,
+    stiffness: f32,
+    gravity: f32,
+}
 
 make_app_state!(ClientState, DummyUserState);
 
@@ -18,11 +27,6 @@ const POINTS_RDR: MeshHandle = MeshHandle::new(pkg_namespace!("Points"));
 
 impl UserState for ClientState {
     fn new(io: &mut EngineIo, sched: &mut EngineSchedule<Self>) -> Self {
-        io.send(&UploadMesh {
-            mesh: cube(),
-            id: POINTS_RDR,
-        });
-
         io.create_entity()
             .add_component(Transform::default())
             .add_component(Render::new(POINTS_RDR).primitive(Primitive::Points))
@@ -30,34 +34,39 @@ impl UserState for ClientState {
 
         sched.add_system(Self::update).build();
 
-        Self
+        let sim = Sim::new(100, 100, 2_000);
+
+        Self {
+            dt: 0.001,
+            solver_iters: 100,
+            stiffness: 0.01,
+            gravity: 0.01,
+            sim,
+        }
     }
 }
 
 impl ClientState {
-    fn update(&mut self, io: &mut EngineIo, _query: &mut QueryResult) {}
+    fn update(&mut self, io: &mut EngineIo, _query: &mut QueryResult) {
+        self.sim.step(self.dt, self.solver_iters, self.stiffness, self.gravity);
+
+        io.send(&UploadMesh {
+            mesh: particles_mesh(&self.sim.particles),
+            id: POINTS_RDR,
+        });
+
+    }
 }
 
-fn cube() -> Mesh {
-    let size = 0.25;
-
-    let vertices = vec![
-        Vertex::new([-size, -size, -size], [0.0, 1.0, 1.0]),
-        Vertex::new([size, -size, -size], [1.0, 0.0, 1.0]),
-        Vertex::new([size, size, -size], [1.0, 1.0, 0.0]),
-        Vertex::new([-size, size, -size], [0.0, 1.0, 1.0]),
-        Vertex::new([-size, -size, size], [1.0, 0.0, 1.0]),
-        Vertex::new([size, -size, size], [1.0, 1.0, 0.0]),
-        Vertex::new([size, size, size], [0.0, 1.0, 1.0]),
-        Vertex::new([-size, size, size], [1.0, 0.0, 1.0]),
-    ];
-
-    let indices = vec![
-        3, 1, 0, 2, 1, 3, 2, 5, 1, 6, 5, 2, 6, 4, 5, 7, 4, 6, 7, 0, 4, 3, 0, 7, 7, 2, 3, 6, 2, 7,
-        0, 5, 4, 1, 5, 0,
-    ];
-
-    Mesh { vertices, indices }
+fn particles_mesh(particles: &[Particle]) -> Mesh {
+    const DOWNSCALE: f32 = 100.;
+    Mesh {
+        vertices: particles
+            .iter()
+            .map(|p| Vertex::new([(p.pos.x / DOWNSCALE) * 2. - 1., 0., (p.pos.y / DOWNSCALE) * 2. - 1.], [1.; 3]))
+            .collect(),
+        indices: (0..particles.len() as u32).collect(),
+    }
 }
 
 #[derive(Clone)]
