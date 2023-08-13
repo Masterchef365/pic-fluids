@@ -35,13 +35,13 @@ impl UserState for ClientState {
 
         sched.add_system(Self::update).build();
 
-        let sim = Sim::new(100, 100, 2_000, 1.);
+        let sim = Sim::new(100, 100, 2_000, 0.75);
 
         Self {
             dt: 0.05,
             solver_iters: 100,
             stiffness: 1.,
-            gravity: 1.,
+            gravity: 10.,
             sim,
         }
     }
@@ -123,7 +123,7 @@ impl Sim {
             })
             .collect();
 
-        let rest_density = 1.;
+        let rest_density = particle_size.powi(-2);
 
         Sim {
             particles,
@@ -143,7 +143,7 @@ impl Sim {
         /*
         for part in &mut self.particles {
             if part.pos.x > 80. {
-                part.vel += dt * 30.;
+                part.vel += dt * 9.;
             }
         }
         */
