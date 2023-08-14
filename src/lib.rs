@@ -2,7 +2,8 @@ use array2d::{Array2D, GridPos};
 use cimvr_common::{
     glam::Vec2,
     render::{Mesh, MeshHandle, Primitive, Render, UploadMesh, Vertex},
-    Transform, ui::{GuiInputMessage, GuiTab, egui::DragValue},
+    ui::{egui::DragValue, GuiInputMessage, GuiTab},
+    Transform,
 };
 use cimvr_engine_interface::{dbg, make_app_state, pcg::Pcg, pkg_namespace, prelude::*};
 use query_accel::QueryAccelerator;
@@ -20,10 +21,15 @@ struct ClientState {
     solver_iters: usize,
     stiffness: f32,
     gravity: f32,
+    solver: IncompressibilitySolver,
 
     width: usize,
     height: usize,
     n_particles: usize,
+    calc_rest_density_from_radius: bool,
+
+    well: bool,
+    source: bool,
 
     ui: GuiTab,
 }
@@ -41,32 +47,58 @@ impl UserState for ClientState {
 
         sched.add_system(Self::update).build();
 
-        sched.add_system(Self::update_gui).subscribe::<GuiInputMessage>().build();
+        sched
+            .add_system(Self::update_gui)
+            .subscribe::<GuiInputMessage>()
+            .build();
 
         let width = 100;
         let height = 100;
         let n_particles = 500;
         let particle_radius = 1.0;
         let sim = Sim::new(width, height, n_particles, particle_radius);
-;
         Self {
-            dt: 0.1,
+            calc_rest_density_from_radius: true,
+            dt: 0.2,
             solver_iters: 100,
-            stiffness: 3.,
+            stiffness: 5.,
             gravity: 9.8,
             sim,
             ui: GuiTab::new(io, "PIC Fluids"),
             width,
             height,
-            n_particles
+            n_particles,
+            solver: IncompressibilitySolver::GaussSeidel,
+            well: false,
+            source: false,
         }
     }
 }
 
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum IncompressibilitySolver {
+    Jacobi,
+    GaussSeidel,
+}
+
 impl ClientState {
     fn update(&mut self, io: &mut EngineIo, _query: &mut QueryResult) {
+        if self.source {
+            let pos = Vec2::new(10., 90.);
+            let vel = Vec2::new(0., -20.);
+            self.sim.particles.push(Particle { pos, vel });
+        }
+
+        if self.well {
+            for part in &mut self.sim.particles {
+                if part.pos.x < 20. {
+                    part.vel += self.dt * 9.;
+                }
+            }
+        }
+
         self.sim
-            .step(self.dt, self.solver_iters, self.stiffness, self.gravity);
+            .step(self.dt, self.solver_iters, self.stiffness, self.gravity, self.solver);
 
         io.send(&UploadMesh {
             mesh: particles_mesh(&self.sim.particles),
@@ -77,20 +109,77 @@ impl ClientState {
     fn update_gui(&mut self, io: &mut EngineIo, _query: &mut QueryResult) {
         self.ui.show(io, |ui| {
             ui.add(DragValue::new(&mut self.stiffness).prefix("Stiffness: "));
-            ui.add(DragValue::new(&mut self.dt).prefix("Δt (time step): ").speed(1e-3));
+            ui.add(
+                DragValue::new(&mut self.dt)
+                .prefix("Δt (time step): ")
+                .speed(1e-3),
+            );
             ui.add(DragValue::new(&mut self.solver_iters).prefix("Solver iterations: "));
-            ui.add(DragValue::new(&mut self.gravity).prefix("Gravity: ").speed(1e-2));
-            ui.add(DragValue::new(&mut self.sim.rest_density).prefix("Rest density: ").speed(1e-2));
-            ui.add(DragValue::new(&mut self.sim.particle_radius).prefix("Particle radius: ").speed(1e-1));
+            ui.add(
+                DragValue::new(&mut self.gravity)
+                .prefix("Gravity: ")
+                .speed(1e-2),
+            );
+            ui.add(
+                DragValue::new(&mut self.sim.particle_radius)
+                .prefix("Particle radius: ")
+                .speed(1e-2)
+                .clamp_range(1e-2..=1.0),
+            );
+            ui.horizontal(|ui| {
+                ui.add(
+                    DragValue::new(&mut self.sim.rest_density)
+                    .prefix("Rest density: ")
+                    .speed(1e-2),
+                );
+                ui.checkbox(&mut self.calc_rest_density_from_radius, "From radius");
+                if self.calc_rest_density_from_radius {
+                    self.sim.rest_density = calc_rest_density(self.sim.particle_radius);
+                }
+            });
 
             ui.separator();
-            ui.add(DragValue::new(&mut self.width).prefix("Width: ").clamp_range(1..=usize::MAX));
-            ui.add(DragValue::new(&mut self.height).prefix("Height: ").clamp_range(1..=usize::MAX));
-            ui.add(DragValue::new(&mut self.n_particles).prefix("# of particles: ").clamp_range(1..=usize::MAX).speed(4));
+            ui.strong("Incompressibility Solver");
+            ui.add(
+                DragValue::new(&mut self.sim.over_relax)
+                .prefix("Over-relaxation: ")
+                .speed(1e-1),
+            );
+            ui.horizontal(|ui| {
+                ui.selectable_value(&mut self.solver, IncompressibilitySolver::Jacobi, "Jacobi");
+                ui.selectable_value(&mut self.solver, IncompressibilitySolver::GaussSeidel, "Gauss Seidel");
+            });
+
+            ui.separator();
+            ui.add(
+                DragValue::new(&mut self.width)
+                .prefix("Width: ")
+                .clamp_range(1..=usize::MAX),
+            );
+            ui.add(
+                DragValue::new(&mut self.height)
+                .prefix("Height: ")
+                .clamp_range(1..=usize::MAX),
+            );
+            ui.add(
+                DragValue::new(&mut self.n_particles)
+                .prefix("# of particles: ")
+                .clamp_range(1..=usize::MAX)
+                .speed(4),
+            );
 
             if ui.button("Reset").clicked() {
-                self.sim = Sim::new(self.width, self.height, self.n_particles, self.sim.particle_radius);
+                self.sim = Sim::new(
+                    self.width,
+                    self.height,
+                    self.n_particles,
+                    self.sim.particle_radius,
+                );
             }
+
+            ui.separator();
+            ui.checkbox(&mut self.source, "Particle source");
+            ui.checkbox(&mut self.well, "Particle well");
         });
     }
 }
@@ -103,14 +192,14 @@ fn particles_mesh(particles: &[Particle]) -> Mesh {
             .map(|p| {
                 Vertex::new(
                     [
-                        (p.pos.x / DOWNSCALE) * 2. - 1.,
-                        0.,
-                        (p.pos.y / DOWNSCALE) * 2. - 1.,
+                    (p.pos.x / DOWNSCALE) * 2. - 1.,
+                    0.,
+                    (p.pos.y / DOWNSCALE) * 2. - 1.,
                     ],
                     [1.; 3],
                 )
             })
-            .collect(),
+        .collect(),
         indices: (0..particles.len() as u32).collect(),
     }
 }
@@ -124,6 +213,7 @@ struct Sim {
     /// Rest density, in particles/unit^2
     rest_density: f32,
     particle_radius: f32,
+    over_relax: f32,
 }
 
 #[derive(Copy, Clone, Debug, Default)]
@@ -142,6 +232,13 @@ struct Particle {
     vel: Vec2,
 }
 
+fn calc_rest_density(particle_radius: f32) -> f32 {
+    // Assume hexagonal packing
+    let packing_density = std::f32::consts::PI / 2. / 3_f32.sqrt();
+    let particle_area = std::f32::consts::PI * particle_radius.powi(2);
+    packing_density / particle_area
+}
+
 impl Sim {
     pub fn new(width: usize, height: usize, n_particles: usize, particle_radius: f32) -> Self {
         // Uniformly placed, random particles
@@ -157,55 +254,50 @@ impl Sim {
                     vel: Vec2::ZERO,
                 }
             })
-            .collect();
+        .collect();
 
-        // Assuming perfect hexagonal packing, 
-        let packing_density = std::f32::consts::PI / 2. / 3_f32.sqrt();
-        let particle_area = std::f32::consts::PI * particle_radius.powi(2);
+        // Assuming perfect hexagonal packing,
         // Packing efficiency * (1 / particle area) = particles / area
-        let rest_density = packing_density / particle_area;
 
         Sim {
             particles,
             grid: Array2D::new(width, height),
-            rest_density,
+            rest_density: calc_rest_density(particle_radius),
             particle_radius,
+            over_relax: 1.5,
         }
     }
 
-    pub fn step(&mut self, dt: f32, solver_iters: usize, stiffness: f32, gravity: f32) {
+    pub fn step(
+        &mut self,
+        dt: f32,
+        solver_iters: usize,
+        stiffness: f32,
+        gravity: f32,
+        solver: IncompressibilitySolver,
+    ) {
         // Step particles
         apply_global_force(&mut self.particles, Vec2::new(0., -gravity), dt);
         step_particles(&mut self.particles, dt);
         enforce_particle_radius(&mut self.particles, self.particle_radius);
         enforce_particle_pos(&mut self.particles, &self.grid);
 
-        /*
-        let pos = Vec2::new(10., 90.);
-        let vel = Vec2::new(0., -20.);
-        if rng().gen_bool(0.2) {
-            self.particles.push(Particle { pos, vel });
-        }
-        */
-
-        /*
-        for part in &mut self.particles {
-            if part.pos.x > 80. {
-                part.vel += dt * 9.;
-            }
-        }
-        */
-
         // Step grid
         particles_to_grid(&self.particles, &mut self.grid);
         enforce_grid_boundary(&mut self.grid);
-        solve_incompressibility_gauss_seidel(
+        let solver_fn = match solver {
+            IncompressibilitySolver::Jacobi => solve_incompressibility_jacobi,
+            IncompressibilitySolver::GaussSeidel => solve_incompressibility_gauss_seidel,
+        };
+
+        solver_fn(
             &mut self.grid,
             solver_iters,
             self.rest_density,
-            1.0,
+            self.over_relax,
             stiffness,
         );
+
         grid_to_particles(&mut self.particles, &self.grid);
     }
 }
@@ -345,7 +437,6 @@ fn solve_incompressibility_jacobi(
 
                     tmp[(i, j)].vel.y = grid[(i, j)].vel.y + d;
                     tmp[(i, j + 1)].vel.y = grid[(i, j + 1)].vel.y - d;
-
                 }
             }
         }
@@ -386,8 +477,6 @@ fn solve_incompressibility_gauss_seidel(
     }
 }
 
-
-
 fn grid_to_particles(particles: &mut [Particle], grid: &Array2D<GridCell>) {
     for part in particles {
         // Interpolate velocity onto particles
@@ -401,9 +490,9 @@ fn enforce_particle_pos(particles: &mut [Particle], grid: &Array2D<GridCell>) {
     for part in particles {
         // Ensure particles are within the grid
         let min_x = 1.0;
-        let max_x = (grid.width() - 2) as f32;
+        let max_x = (grid.width() - 1) as f32;
         let min_y = 1.0;
-        let max_y = (grid.height() - 2) as f32;
+        let max_y = (grid.height() - 1) as f32;
 
         if part.pos.x < min_x {
             part.pos.x = min_x;
@@ -444,7 +533,7 @@ fn enforce_particle_radius(particles: &mut [Particle], radius: f32) {
     let mut points: Vec<Vec2> = particles.iter().map(|p| p.pos).collect();
     let mut accel = QueryAccelerator::new(&points, radius * 2.);
 
-    let mut rng = rng();
+    //let mut rng = rng();
 
     let mut neigh = vec![];
     for i in 0..particles.len() {
@@ -467,5 +556,8 @@ fn enforce_particle_radius(particles: &mut [Particle], radius: f32) {
         }
     }
 
-    particles.iter_mut().zip(&points).for_each(|(part, point)| part.pos = *point);
-}
+    particles
+        .iter_mut()
+        .zip(&points)
+        .for_each(|(part, point)| part.pos = *point);
+    }
