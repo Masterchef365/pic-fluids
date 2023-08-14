@@ -2,7 +2,7 @@ use array2d::{Array2D, GridPos};
 use cimvr_common::{
     glam::Vec2,
     render::{Mesh, MeshHandle, Primitive, Render, UploadMesh, Vertex},
-    Transform,
+    Transform, ui::{GuiInputMessage, GuiTab, egui::DragValue},
 };
 use cimvr_engine_interface::{dbg, make_app_state, pcg::Pcg, pkg_namespace, prelude::*};
 use query_accel::QueryAccelerator;
@@ -20,6 +20,8 @@ struct ClientState {
     solver_iters: usize,
     stiffness: f32,
     gravity: f32,
+
+    ui: GuiTab,
 }
 
 make_app_state!(ClientState, DummyUserState);
@@ -35,6 +37,8 @@ impl UserState for ClientState {
 
         sched.add_system(Self::update).build();
 
+        sched.add_system(Self::update_gui).subscribe::<GuiInputMessage>().build();
+
         let sim = Sim::new(100, 100, 1_00, 1.0);
 
         Self {
@@ -43,6 +47,7 @@ impl UserState for ClientState {
             stiffness: 3.,
             gravity: 9.8,
             sim,
+            ui: GuiTab::new(io, "PIC Fluids"),
         }
     }
 }
@@ -55,6 +60,16 @@ impl ClientState {
         io.send(&UploadMesh {
             mesh: particles_mesh(&self.sim.particles),
             id: POINTS_RDR,
+        });
+    }
+
+    fn update_gui(&mut self, io: &mut EngineIo, _query: &mut QueryResult) {
+        self.ui.show(io, |ui| {
+            ui.add(DragValue::new(&mut self.stiffness).prefix("Stiffness: "));
+            ui.add(DragValue::new(&mut self.dt).prefix("Δt (time step): ").speed(1e-3));
+            ui.add(DragValue::new(&mut self.solver_iters).prefix("Solver iterations: "));
+            ui.add(DragValue::new(&mut self.sim.rest_density).prefix("Rest density: ").speed(1e-2));
+            ui.add(DragValue::new(&mut self.sim.particle_radius).prefix("Particle radius: ").speed(1e-1));
         });
     }
 }
