@@ -427,10 +427,10 @@ fn particles_to_grid(particles: &[Particle], grid: &mut Array2D<GridCell>) {
 ///
 /// Panics if coordinates are inverted
 fn weights(pos: Vec2) -> [f32; 4] {
-    let left = pos.x.fract();
-    let right = 1. - left;
-    let top = pos.y.fract();
-    let bottom = 1. - top;
+    let right = pos.x.fract();
+    let left = 1. - right;
+    let bottom = pos.y.fract();
+    let top = 1. - bottom;
 
     [top * left, top * right, bottom * left, bottom * right]
 }
@@ -480,9 +480,12 @@ fn solve_incompressibility_jacobi(
     for step in 0..iterations {
         for i in 0..grid.width() - 1 {
             for j in 0..grid.height() - 1 {
-                let has_particles = grid[(i, j)].pressure > 0.;
+                let local_pressure = grid[(i, j)].pressure;
+                let has_particles = local_pressure > 0.;
+
                 let checkerboard = (i & 1) ^ (j & 1) ^ (step & 1);
-                if checkerboard == 0 && has_particles {
+
+                    if checkerboard == 0 && has_particles {
                     let horiz_div = grid[(i + 1, j)].vel.x - grid[(i, j)].vel.x;
                     let vert_div = grid[(i, j + 1)].vel.y - grid[(i, j)].vel.y;
                     let total_div = horiz_div + vert_div;
@@ -667,14 +670,16 @@ fn draw_grid(mesh: &mut Mesh, grid: &Array2D<GridCell>) {
     let color = [0.05; 3];
 
     for y in 0..=grid.height() {
-        let mut vertex = |pt: Vec2| mesh.push_vertex(Vertex::new(simspace_to_modelspace(pt), color));
+        let mut vertex =
+            |pt: Vec2| mesh.push_vertex(Vertex::new(simspace_to_modelspace(pt), color));
         let a = vertex(Vec2::new(0., y as f32));
         let b = vertex(Vec2::new(grid.width() as f32, y as f32));
         mesh.push_indices(&[a, b]);
     }
 
     for x in 0..=grid.width() {
-        let mut vertex = |pt: Vec2| mesh.push_vertex(Vertex::new(simspace_to_modelspace(pt), color));
+        let mut vertex =
+            |pt: Vec2| mesh.push_vertex(Vertex::new(simspace_to_modelspace(pt), color));
         let a = vertex(Vec2::new(x as f32, 0.));
         let b = vertex(Vec2::new(x as f32, grid.height() as f32));
         mesh.push_indices(&[a, b]);
