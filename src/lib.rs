@@ -28,6 +28,7 @@ struct ClientState {
     n_particles: usize,
     calc_rest_density_from_radius: bool,
     show_grid: bool,
+    grid_vel_scale: f32,
     pause: bool,
 
     well: bool,
@@ -82,6 +83,7 @@ impl UserState for ClientState {
             source: false,
             show_grid: false,
             pause: false,
+            grid_vel_scale: 0.05,
         }
     }
 }
@@ -127,7 +129,7 @@ impl ClientState {
 
         let mut lines = Mesh::new();
         if self.show_grid {
-            draw_grid_arrows(&mut lines, &self.sim.grid);
+            draw_grid_arrows(&mut lines, &self.sim.grid, self.grid_vel_scale);
         }
 
         io.send(&UploadMesh {
@@ -168,7 +170,15 @@ impl ClientState {
                 }
             });
             ui.checkbox(&mut self.pause, "Pause");
-            ui.checkbox(&mut self.show_grid, "Show grid");
+            ui.horizontal(|ui| {
+                ui.checkbox(&mut self.show_grid, "Show grid");
+                ui.add(
+                    DragValue::new(&mut self.grid_vel_scale)
+                        .prefix("Scale: ")
+                        .speed(1e-2)
+                        .clamp_range(0.0..=f32::INFINITY),
+                )
+            });
 
             ui.separator();
             ui.strong("Incompressibility Solver");
@@ -613,15 +623,13 @@ fn draw_arrow(mesh: &mut Mesh, pos: Vec2, dir: Vec2, color: [f32; 3], flanges: f
     mesh.push_indices(&[p1, p2, p2, f1, p2, f2]);
 }
 
-fn draw_grid_arrows(mesh: &mut Mesh, grid: &Array2D<GridCell>) {
+fn draw_grid_arrows(mesh: &mut Mesh, grid: &Array2D<GridCell>, vel_scale: f32) {
     for i in 0..grid.width() {
         for j in 0..grid.height() {
             let c = grid[(i, j)];
             let v = Vec2::new(i as f32, j as f32);
 
             let flanges = 0.5;
-            let vel_scale = 0.05;
-
             draw_arrow(
                 mesh,
                 v + OFFSET_U,
