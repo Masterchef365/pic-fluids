@@ -30,6 +30,7 @@ struct ClientState {
     show_grid: bool,
     grid_vel_scale: f32,
     pause: bool,
+    single_step: bool,
 
     well: bool,
     source: bool,
@@ -69,6 +70,7 @@ impl UserState for ClientState {
 
         Self {
             calc_rest_density_from_radius: true,
+            single_step: false,
             dt: 0.02,
             solver_iters: 100,
             stiffness: 1.,
@@ -97,7 +99,7 @@ enum IncompressibilitySolver {
 impl ClientState {
     fn update(&mut self, io: &mut EngineIo, _query: &mut QueryResult) {
         // Update
-        if !self.pause {
+        if !self.pause || self.single_step {
             if self.source {
                 let pos = Vec2::new(10., 90.);
                 let vel = Vec2::new(0., -20.);
@@ -119,6 +121,8 @@ impl ClientState {
                 self.gravity,
                 self.solver,
             );
+
+            self.single_step = false;
         }
 
         // Display
@@ -169,7 +173,10 @@ impl ClientState {
                     self.sim.rest_density = calc_rest_density(self.sim.particle_radius);
                 }
             });
-            ui.checkbox(&mut self.pause, "Pause");
+            ui.horizontal(|ui| {
+                ui.checkbox(&mut self.pause, "Pause");
+                self.single_step |= ui.button("Step").clicked();
+            });
             ui.horizontal(|ui| {
                 ui.checkbox(&mut self.show_grid, "Show grid");
                 ui.add(
