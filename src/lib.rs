@@ -65,16 +65,16 @@ impl UserState for ClientState {
 
         let width = 100;
         let height = 100;
-        let n_particles = 500;
+        let n_particles = 10_000;
         let particle_radius = 0.36;
         let sim = Sim::new(width, height, n_particles, particle_radius);
 
         Self {
             calc_rest_density_from_radius: true,
             single_step: false,
-            dt: 0.02,
+            dt: 0.04,
             solver_iters: 100,
-            stiffness: 1.,
+            stiffness: 3.,
             gravity: 9.8,
             sim,
             ui: GuiTab::new(io, "PIC Fluids"),
