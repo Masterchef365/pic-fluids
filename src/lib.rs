@@ -27,6 +27,7 @@ struct ClientState {
     height: usize,
     n_particles: usize,
     calc_rest_density_from_radius: bool,
+    show_arrows: bool,
     show_grid: bool,
     grid_vel_scale: f32,
     pause: bool,
@@ -83,9 +84,10 @@ impl UserState for ClientState {
             solver: IncompressibilitySolver::GaussSeidel,
             well: false,
             source: false,
-            show_grid: false,
+            show_arrows: false,
             pause: false,
             grid_vel_scale: 0.05,
+            show_grid: false,
         }
     }
 }
@@ -132,8 +134,11 @@ impl ClientState {
         });
 
         let mut lines = Mesh::new();
-        if self.show_grid {
+        if self.show_arrows {
             draw_grid_arrows(&mut lines, &self.sim.grid, self.grid_vel_scale);
+        }
+        if self.show_grid {
+            draw_grid(&mut lines, &self.sim.grid)
         }
 
         io.send(&UploadMesh {
@@ -177,8 +182,9 @@ impl ClientState {
                 ui.checkbox(&mut self.pause, "Pause");
                 self.single_step |= ui.button("Step").clicked();
             });
+            ui.checkbox(&mut self.show_grid, "Show grid");
             ui.horizontal(|ui| {
-                ui.checkbox(&mut self.show_grid, "Show grid");
+                ui.checkbox(&mut self.show_arrows, "Show arrows");
                 ui.add(
                     DragValue::new(&mut self.grid_vel_scale)
                         .prefix("Scale: ")
@@ -654,5 +660,23 @@ fn draw_grid_arrows(mesh: &mut Mesh, grid: &Array2D<GridCell>, vel_scale: f32) {
                 flanges,
             );
         }
+    }
+}
+
+fn draw_grid(mesh: &mut Mesh, grid: &Array2D<GridCell>) {
+    let color = [0.05; 3];
+
+    for y in 0..=grid.height() {
+        let mut vertex = |pt: Vec2| mesh.push_vertex(Vertex::new(simspace_to_modelspace(pt), color));
+        let a = vertex(Vec2::new(0., y as f32));
+        let b = vertex(Vec2::new(grid.width() as f32, y as f32));
+        mesh.push_indices(&[a, b]);
+    }
+
+    for x in 0..=grid.width() {
+        let mut vertex = |pt: Vec2| mesh.push_vertex(Vertex::new(simspace_to_modelspace(pt), color));
+        let a = vertex(Vec2::new(x as f32, 0.));
+        let b = vertex(Vec2::new(x as f32, grid.height() as f32));
+        mesh.push_indices(&[a, b]);
     }
 }
