@@ -104,7 +104,8 @@ impl ClientState {
         if !self.pause || self.single_step {
             if self.source {
                 let pos = Vec2::new(10., 90.);
-                let vel = Vec2::new(0., -20.);
+                //let vel = Vec2::new(0., -20.);
+                let vel = Vec2::ZERO;
                 self.sim.particles.push(Particle { pos, vel });
             }
 
@@ -418,7 +419,7 @@ fn particles_to_grid(particles: &[Particle], grid: &mut Array2D<GridCell>) {
 
     // Now we actually set the pressure
     for part in particles {
-        scatter(part.pos, grid, |c, w| c.pressure += w);
+        grid[grid_tl(part.pos)].pressure += 1.;
     }
 }
 
@@ -485,7 +486,7 @@ fn solve_incompressibility_jacobi(
 
                 let checkerboard = (i & 1) ^ (j & 1) ^ (step & 1);
 
-                    if checkerboard == 0 && has_particles {
+                if checkerboard == 0 && has_particles {
                     let horiz_div = grid[(i + 1, j)].vel.x - grid[(i, j)].vel.x;
                     let vert_div = grid[(i, j + 1)].vel.y - grid[(i, j)].vel.y;
                     let total_div = horiz_div + vert_div;
