@@ -21,16 +21,16 @@ struct ClientState {
     stiffness: f32,
     gravity: f32,
 
+    width: usize,
+    height: usize,
+    n_particles: usize,
+
     ui: GuiTab,
 }
 
 make_app_state!(ClientState, DummyUserState);
 
 const POINTS_RDR: MeshHandle = MeshHandle::new(pkg_namespace!("Points"));
-
-fn new_sim() -> Sim {
-    Sim::new(100, 100, 1_000, 1.0)
-}
 
 impl UserState for ClientState {
     fn new(io: &mut EngineIo, sched: &mut EngineSchedule<Self>) -> Self {
@@ -43,8 +43,12 @@ impl UserState for ClientState {
 
         sched.add_system(Self::update_gui).subscribe::<GuiInputMessage>().build();
 
-        let sim = new_sim();
-
+        let width = 100;
+        let height = 100;
+        let n_particles = 500;
+        let particle_radius = 1.0;
+        let sim = Sim::new(width, height, n_particles, particle_radius);
+;
         Self {
             dt: 0.1,
             solver_iters: 100,
@@ -52,6 +56,9 @@ impl UserState for ClientState {
             gravity: 9.8,
             sim,
             ui: GuiTab::new(io, "PIC Fluids"),
+            width,
+            height,
+            n_particles
         }
     }
 }
@@ -75,8 +82,14 @@ impl ClientState {
             ui.add(DragValue::new(&mut self.gravity).prefix("Gravity: ").speed(1e-2));
             ui.add(DragValue::new(&mut self.sim.rest_density).prefix("Rest density: ").speed(1e-2));
             ui.add(DragValue::new(&mut self.sim.particle_radius).prefix("Particle radius: ").speed(1e-1));
+
+            ui.separator();
+            ui.add(DragValue::new(&mut self.width).prefix("Width: ").clamp_range(1..=usize::MAX));
+            ui.add(DragValue::new(&mut self.height).prefix("Height: ").clamp_range(1..=usize::MAX));
+            ui.add(DragValue::new(&mut self.n_particles).prefix("# of particles: ").clamp_range(1..=usize::MAX).speed(4));
+
             if ui.button("Reset").clicked() {
-                self.sim = new_sim();
+                self.sim = Sim::new(self.width, self.height, self.n_particles, self.sim.particle_radius);
             }
         });
     }
@@ -394,22 +407,22 @@ fn enforce_particle_pos(particles: &mut [Particle], grid: &Array2D<GridCell>) {
 
         if part.pos.x < min_x {
             part.pos.x = min_x;
-            part.vel.x = 0.;
+            part.vel.x *= -1.;
         }
 
         if part.pos.x > max_x {
             part.pos.x = max_x;
-            part.vel.x = 0.;
+            part.vel.x *= -1.;
         }
 
         if part.pos.y < min_y {
             part.pos.y = min_y;
-            part.vel.y = 0.;
+            part.vel.y *= -1.;
         }
 
         if part.pos.y > max_y {
             part.pos.y = max_y;
-            part.vel.y = 0.;
+            part.vel.y *= -1.;
         }
     }
 }
@@ -435,10 +448,10 @@ fn enforce_particle_radius(particles: &mut [Particle], radius: f32) {
 
     let mut neigh = vec![];
     for i in 0..particles.len() {
-        neigh.clear();
+        //neigh.clear();
         neigh.extend(accel.query_neighbors(&points, i, points[i]));
 
-        if let Some(&neighbor) = neigh.choose(&mut rng) {
+        for neighbor in neigh.drain(..) {
             let diff = points[neighbor] - points[i];
             let dist = diff.length();
             if dist > 0. {
