@@ -124,7 +124,7 @@ impl ClientState {
                 DragValue::new(&mut self.sim.particle_radius)
                 .prefix("Particle radius: ")
                 .speed(1e-2)
-                .clamp_range(1e-2..=1.0),
+                .clamp_range(1e-2..=5.0),
             );
             ui.horizontal(|ui| {
                 ui.add(
@@ -430,7 +430,7 @@ fn solve_incompressibility_jacobi(
                     let total_div = horiz_div + vert_div;
 
                     let pressure_contrib = stiffness * (grid[(i, j)].pressure - rest_density);
-                    let d = overrelaxation * total_div - pressure_contrib;
+                    let d = overrelaxation * (total_div - pressure_contrib);
                     let d = d / 4.;
 
                     tmp[(i, j)].vel.x = grid[(i, j)].vel.x + d;
@@ -491,9 +491,9 @@ fn enforce_particle_pos(particles: &mut [Particle], grid: &Array2D<GridCell>) {
     for part in particles {
         // Ensure particles are within the grid
         let min_x = 1.0;
-        let max_x = (grid.width() - 1) as f32;
+        let max_x = (grid.width() - 2) as f32;
         let min_y = 1.0;
-        let max_y = (grid.height() - 1) as f32;
+        let max_y = (grid.height() - 2) as f32;
 
         if part.pos.x < min_x {
             part.pos.x = min_x;
