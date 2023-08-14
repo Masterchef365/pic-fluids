@@ -97,8 +97,13 @@ impl ClientState {
             }
         }
 
-        self.sim
-            .step(self.dt, self.solver_iters, self.stiffness, self.gravity, self.solver);
+        self.sim.step(
+            self.dt,
+            self.solver_iters,
+            self.stiffness,
+            self.gravity,
+            self.solver,
+        );
 
         io.send(&UploadMesh {
             mesh: particles_mesh(&self.sim.particles),
@@ -111,26 +116,26 @@ impl ClientState {
             ui.add(DragValue::new(&mut self.stiffness).prefix("Stiffness: "));
             ui.add(
                 DragValue::new(&mut self.dt)
-                .prefix("Δt (time step): ")
-                .speed(1e-3),
+                    .prefix("Δt (time step): ")
+                    .speed(1e-3),
             );
             ui.add(DragValue::new(&mut self.solver_iters).prefix("Solver iterations: "));
             ui.add(
                 DragValue::new(&mut self.gravity)
-                .prefix("Gravity: ")
-                .speed(1e-2),
+                    .prefix("Gravity: ")
+                    .speed(1e-2),
             );
             ui.add(
                 DragValue::new(&mut self.sim.particle_radius)
-                .prefix("Particle radius: ")
-                .speed(1e-2)
-                .clamp_range(1e-2..=5.0),
+                    .prefix("Particle radius: ")
+                    .speed(1e-2)
+                    .clamp_range(1e-2..=5.0),
             );
             ui.horizontal(|ui| {
                 ui.add(
                     DragValue::new(&mut self.sim.rest_density)
-                    .prefix("Rest density: ")
-                    .speed(1e-2),
+                        .prefix("Rest density: ")
+                        .speed(1e-2),
                 );
                 ui.checkbox(&mut self.calc_rest_density_from_radius, "From radius");
                 if self.calc_rest_density_from_radius {
@@ -142,31 +147,35 @@ impl ClientState {
             ui.strong("Incompressibility Solver");
             ui.add(
                 DragValue::new(&mut self.sim.over_relax)
-                .prefix("Over-relaxation: ")
-                .speed(1e-2)
-                .clamp_range(0.0..=1.95)
+                    .prefix("Over-relaxation: ")
+                    .speed(1e-2)
+                    .clamp_range(0.0..=1.95),
             );
             ui.horizontal(|ui| {
                 ui.selectable_value(&mut self.solver, IncompressibilitySolver::Jacobi, "Jacobi");
-                ui.selectable_value(&mut self.solver, IncompressibilitySolver::GaussSeidel, "Gauss Seidel");
+                ui.selectable_value(
+                    &mut self.solver,
+                    IncompressibilitySolver::GaussSeidel,
+                    "Gauss Seidel",
+                );
             });
 
             ui.separator();
             ui.add(
                 DragValue::new(&mut self.width)
-                .prefix("Width: ")
-                .clamp_range(1..=usize::MAX),
+                    .prefix("Width: ")
+                    .clamp_range(1..=usize::MAX),
             );
             ui.add(
                 DragValue::new(&mut self.height)
-                .prefix("Height: ")
-                .clamp_range(1..=usize::MAX),
+                    .prefix("Height: ")
+                    .clamp_range(1..=usize::MAX),
             );
             ui.add(
                 DragValue::new(&mut self.n_particles)
-                .prefix("# of particles: ")
-                .clamp_range(1..=usize::MAX)
-                .speed(4),
+                    .prefix("# of particles: ")
+                    .clamp_range(1..=usize::MAX)
+                    .speed(4),
             );
 
             if ui.button("Reset").clicked() {
@@ -193,14 +202,14 @@ fn particles_mesh(particles: &[Particle]) -> Mesh {
             .map(|p| {
                 Vertex::new(
                     [
-                    (p.pos.x / DOWNSCALE) * 2. - 1.,
-                    0.,
-                    (p.pos.y / DOWNSCALE) * 2. - 1.,
+                        (p.pos.x / DOWNSCALE) * 2. - 1.,
+                        0.,
+                        (p.pos.y / DOWNSCALE) * 2. - 1.,
                     ],
                     [1.; 3],
                 )
             })
-        .collect(),
+            .collect(),
         indices: (0..particles.len() as u32).collect(),
     }
 }
@@ -255,7 +264,7 @@ impl Sim {
                     vel: Vec2::ZERO,
                 }
             })
-        .collect();
+            .collect();
 
         // Assuming perfect hexagonal packing,
         // Packing efficiency * (1 / particle area) = particles / area
@@ -561,4 +570,4 @@ fn enforce_particle_radius(particles: &mut [Particle], radius: f32) {
         .iter_mut()
         .zip(&points)
         .for_each(|(part, point)| part.pos = *point);
-    }
+}
