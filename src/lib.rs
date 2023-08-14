@@ -2,7 +2,7 @@ use array2d::{Array2D, GridPos};
 use cimvr_common::{
     glam::Vec2,
     render::{Mesh, MeshHandle, Primitive, Render, UploadMesh, Vertex},
-    ui::{egui::DragValue, GuiInputMessage, GuiTab},
+    ui::{egui::{DragValue, Slider}, GuiInputMessage, GuiTab},
     Transform,
 };
 use cimvr_engine_interface::{make_app_state, pcg::Pcg, pkg_namespace, prelude::*};
@@ -32,6 +32,7 @@ struct ClientState {
     grid_vel_scale: f32,
     pause: bool,
     single_step: bool,
+    pic_flip_ratio: f32,
 
     well: bool,
     source: bool,
@@ -70,6 +71,7 @@ impl UserState for ClientState {
         let sim = Sim::new(width, height, n_particles, particle_radius);
 
         Self {
+            pic_flip_ratio: 0.95,
             calc_rest_density_from_radius: true,
             single_step: false,
             dt: 0.04,
@@ -122,6 +124,7 @@ impl ClientState {
                 self.solver_iters,
                 self.stiffness,
                 self.gravity,
+                self.pic_flip_ratio,
                 self.solver,
             );
 
@@ -150,6 +153,7 @@ impl ClientState {
 
     fn update_gui(&mut self, io: &mut EngineIo, _query: &mut QueryResult) {
         self.ui.show(io, |ui| {
+            ui.add(Slider::new(&mut self.pic_flip_ratio, 0.0..=1.0).text("PIC - FLIP"));
             ui.add(DragValue::new(&mut self.stiffness).prefix("Stiffness: "));
             ui.add(
                 DragValue::new(&mut self.dt)
@@ -334,6 +338,7 @@ impl Sim {
         solver_iters: usize,
         stiffness: f32,
         gravity: f32,
+        pic_flip_ratio: f32,
         solver: IncompressibilitySolver,
     ) {
         // Step particles
@@ -349,6 +354,7 @@ impl Sim {
             IncompressibilitySolver::GaussSeidel => solve_incompressibility_gauss_seidel,
         };
 
+        let old_vel = self.grid.clone();
         solver_fn(
             &mut self.grid,
             solver_iters,
@@ -357,7 +363,7 @@ impl Sim {
             stiffness,
         );
 
-        grid_to_particles(&mut self.particles, &self.grid);
+        grid_to_particles(&mut self.particles, &self.grid, &old_vel, pic_flip_ratio);
     }
 }
 
@@ -542,12 +548,22 @@ fn solve_incompressibility_gauss_seidel(
     }
 }
 
-fn grid_to_particles(particles: &mut [Particle], grid: &Array2D<GridCell>) {
+fn grid_to_particles(particles: &mut [Particle], grid: &Array2D<GridCell>, old_grid: &Array2D<GridCell>, pic_flip_ratio: f32) {
     for part in particles {
         // Interpolate velocity onto particles
-        let vel_x = gather(part.pos - OFFSET_U, grid, |c| c.vel.x);
-        let vel_y = gather(part.pos - OFFSET_V, grid, |c| c.vel.y);
-        part.vel = Vec2::new(vel_x, vel_y);
+        let new_vel_x = gather(part.pos - OFFSET_U, grid, |c| c.vel.x);
+        let new_vel_y = gather(part.pos - OFFSET_V, grid, |c| c.vel.y);
+        let new_vel = Vec2::new(new_vel_x, new_vel_y);
+
+        let old_vel_x = gather(part.pos - OFFSET_U, old_grid, |c| c.vel.x);
+        let old_vel_y = gather(part.pos - OFFSET_V, old_grid, |c| c.vel.y);
+        let old_vel = Vec2::new(old_vel_x, old_vel_y);
+
+        let d_vel = new_vel - old_vel;
+        let flip = part.vel + d_vel;
+        let pic = new_vel;
+        part.vel = pic.lerp(flip, pic_flip_ratio);
+
     }
 }
 
