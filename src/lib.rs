@@ -64,14 +64,14 @@ impl UserState for ClientState {
         let width = 100;
         let height = 100;
         let n_particles = 500;
-        let particle_radius = 1.0;
+        let particle_radius = 0.36;
         let sim = Sim::new(width, height, n_particles, particle_radius);
 
         Self {
             calc_rest_density_from_radius: true,
-            dt: 0.2,
+            dt: 0.02,
             solver_iters: 100,
-            stiffness: 5.,
+            stiffness: 1.,
             gravity: 9.8,
             sim,
             ui: GuiTab::new(io, "PIC Fluids"),
@@ -504,18 +504,20 @@ fn solve_incompressibility_gauss_seidel(
     for _ in 0..iterations {
         for i in 0..grid.width() - 1 {
             for j in 0..grid.height() - 1 {
-                let horiz_div = grid[(i + 1, j)].vel.x - grid[(i, j)].vel.x;
-                let vert_div = grid[(i, j + 1)].vel.y - grid[(i, j)].vel.y;
-                let total_div = horiz_div + vert_div;
+                if grid[(i, j)].pressure > 0. {
+                    let horiz_div = grid[(i + 1, j)].vel.x - grid[(i, j)].vel.x;
+                    let vert_div = grid[(i, j + 1)].vel.y - grid[(i, j)].vel.y;
+                    let total_div = horiz_div + vert_div;
 
-                let pressure_contrib = stiffness * (grid[(i, j)].pressure - rest_density);
-                let d = overrelaxation * total_div - pressure_contrib;
-                let d = d / 4.;
+                    let pressure_contrib = stiffness * (grid[(i, j)].pressure - rest_density);
+                    let d = overrelaxation * total_div - pressure_contrib;
+                    let d = d / 4.;
 
-                grid[(i, j)].vel.x += d;
-                grid[(i + 1, j)].vel.x -= d;
-                grid[(i, j)].vel.y += d;
-                grid[(i, j + 1)].vel.y -= d;
+                    grid[(i, j)].vel.x += d;
+                    grid[(i + 1, j)].vel.x -= d;
+                    grid[(i, j)].vel.y += d;
+                    grid[(i, j + 1)].vel.y -= d;
+                }
             }
         }
 
