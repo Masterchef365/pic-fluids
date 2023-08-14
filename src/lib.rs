@@ -330,7 +330,6 @@ impl Sim {
 
         // Step grid
         particles_to_grid(&self.particles, &mut self.grid);
-        enforce_grid_boundary(&mut self.grid);
         let solver_fn = match solver {
             IncompressibilitySolver::Jacobi => solve_incompressibility_jacobi,
             IncompressibilitySolver::GaussSeidel => solve_incompressibility_gauss_seidel,
@@ -468,14 +467,15 @@ fn solve_incompressibility_jacobi(
     for step in 0..iterations {
         for i in 0..grid.width() - 1 {
             for j in 0..grid.height() - 1 {
+                let has_particles = grid[(i, j)].pressure > 0.;
                 let checkerboard = (i & 1) ^ (j & 1) ^ (step & 1);
-                if checkerboard == 0 {
+                if checkerboard == 0 && has_particles {
                     let horiz_div = grid[(i + 1, j)].vel.x - grid[(i, j)].vel.x;
                     let vert_div = grid[(i, j + 1)].vel.y - grid[(i, j)].vel.y;
                     let total_div = horiz_div + vert_div;
 
                     let pressure_contrib = stiffness * (grid[(i, j)].pressure - rest_density);
-                    let d = overrelaxation * (total_div - pressure_contrib);
+                    let d = overrelaxation * total_div - pressure_contrib;
                     let d = d / 4.;
 
                     tmp[(i, j)].vel.x = grid[(i, j)].vel.x + d;
