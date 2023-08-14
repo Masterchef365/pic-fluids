@@ -143,7 +143,8 @@ impl ClientState {
             ui.add(
                 DragValue::new(&mut self.sim.over_relax)
                 .prefix("Over-relaxation: ")
-                .speed(1e-1),
+                .speed(1e-2)
+                .clamp_range(0.0..=1.95)
             );
             ui.horizontal(|ui| {
                 ui.selectable_value(&mut self.solver, IncompressibilitySolver::Jacobi, "Jacobi");
