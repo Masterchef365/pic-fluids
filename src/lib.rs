@@ -27,6 +27,8 @@ struct ClientState {
     height: usize,
     n_particles: usize,
     calc_rest_density_from_radius: bool,
+    show_grid: bool,
+    pause: bool,
 
     well: bool,
     source: bool,
@@ -78,6 +80,8 @@ impl UserState for ClientState {
             solver: IncompressibilitySolver::GaussSeidel,
             well: false,
             source: false,
+            show_grid: false,
+            pause: false,
         }
     }
 }
@@ -90,35 +94,41 @@ enum IncompressibilitySolver {
 
 impl ClientState {
     fn update(&mut self, io: &mut EngineIo, _query: &mut QueryResult) {
-        if self.source {
-            let pos = Vec2::new(10., 90.);
-            let vel = Vec2::new(0., -20.);
-            self.sim.particles.push(Particle { pos, vel });
-        }
+        // Update
+        if !self.pause {
+            if self.source {
+                let pos = Vec2::new(10., 90.);
+                let vel = Vec2::new(0., -20.);
+                self.sim.particles.push(Particle { pos, vel });
+            }
 
-        if self.well {
-            for part in &mut self.sim.particles {
-                if part.pos.x < 20. {
-                    part.vel += self.dt * 9.;
+            if self.well {
+                for part in &mut self.sim.particles {
+                    if part.pos.x < 20. {
+                        part.vel += self.dt * 9.;
+                    }
                 }
             }
+
+            self.sim.step(
+                self.dt,
+                self.solver_iters,
+                self.stiffness,
+                self.gravity,
+                self.solver,
+            );
         }
 
-        self.sim.step(
-            self.dt,
-            self.solver_iters,
-            self.stiffness,
-            self.gravity,
-            self.solver,
-        );
-
+        // Display
         io.send(&UploadMesh {
             mesh: particles_mesh(&self.sim.particles),
             id: POINTS_RDR,
         });
 
         let mut lines = Mesh::new();
-        draw_grid_arrows(&mut lines, &self.sim.grid);
+        if self.show_grid {
+            draw_grid_arrows(&mut lines, &self.sim.grid);
+        }
 
         io.send(&UploadMesh {
             mesh: lines,
@@ -157,6 +167,8 @@ impl ClientState {
                     self.sim.rest_density = calc_rest_density(self.sim.particle_radius);
                 }
             });
+            ui.checkbox(&mut self.pause, "Pause");
+            ui.checkbox(&mut self.show_grid, "Show grid");
 
             ui.separator();
             ui.strong("Incompressibility Solver");
@@ -615,14 +627,14 @@ fn draw_grid_arrows(mesh: &mut Mesh, grid: &Array2D<GridCell>) {
                 v + OFFSET_U,
                 Vec2::X * c.vel.x * vel_scale,
                 [1., 0.1, 0.1],
-                flanges
+                flanges,
             );
             draw_arrow(
                 mesh,
                 v + OFFSET_V,
                 Vec2::Y * c.vel.y * vel_scale,
                 [0.01, 0.3, 1.],
-                flanges
+                flanges,
             );
         }
     }
