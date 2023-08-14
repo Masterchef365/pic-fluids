@@ -28,6 +28,10 @@ make_app_state!(ClientState, DummyUserState);
 
 const POINTS_RDR: MeshHandle = MeshHandle::new(pkg_namespace!("Points"));
 
+fn new_sim() -> Sim {
+    Sim::new(100, 100, 1_000, 1.0)
+}
+
 impl UserState for ClientState {
     fn new(io: &mut EngineIo, sched: &mut EngineSchedule<Self>) -> Self {
         io.create_entity()
@@ -39,7 +43,7 @@ impl UserState for ClientState {
 
         sched.add_system(Self::update_gui).subscribe::<GuiInputMessage>().build();
 
-        let sim = Sim::new(100, 100, 1_00, 1.0);
+        let sim = new_sim();
 
         Self {
             dt: 0.1,
@@ -68,8 +72,12 @@ impl ClientState {
             ui.add(DragValue::new(&mut self.stiffness).prefix("Stiffness: "));
             ui.add(DragValue::new(&mut self.dt).prefix("Δt (time step): ").speed(1e-3));
             ui.add(DragValue::new(&mut self.solver_iters).prefix("Solver iterations: "));
+            ui.add(DragValue::new(&mut self.gravity).prefix("Gravity: ").speed(1e-2));
             ui.add(DragValue::new(&mut self.sim.rest_density).prefix("Rest density: ").speed(1e-2));
             ui.add(DragValue::new(&mut self.sim.particle_radius).prefix("Particle radius: ").speed(1e-1));
+            if ui.button("Reset").clicked() {
+                self.sim = new_sim();
+            }
         });
     }
 }
@@ -159,11 +167,13 @@ impl Sim {
         enforce_particle_radius(&mut self.particles, self.particle_radius);
         enforce_particle_pos(&mut self.particles, &self.grid);
 
+        /*
         let pos = Vec2::new(10., 90.);
         let vel = Vec2::new(0., -20.);
-        //if rng().gen_bool(0.2) {
+        if rng().gen_bool(0.2) {
             self.particles.push(Particle { pos, vel });
-        //}
+        }
+        */
 
         /*
         for part in &mut self.particles {
@@ -176,7 +186,7 @@ impl Sim {
         // Step grid
         particles_to_grid(&self.particles, &mut self.grid);
         enforce_grid_boundary(&mut self.grid);
-        solve_incompressibility_jacobi(
+        solve_incompressibility_gauss_seidel(
             &mut self.grid,
             solver_iters,
             self.rest_density,
@@ -327,8 +337,8 @@ fn solve_incompressibility_jacobi(
             }
         }
 
-        enforce_grid_boundary(grid);
         std::mem::swap(&mut tmp, grid);
+        enforce_grid_boundary(grid);
     }
 }
 
@@ -377,8 +387,30 @@ fn grid_to_particles(particles: &mut [Particle], grid: &Array2D<GridCell>) {
 fn enforce_particle_pos(particles: &mut [Particle], grid: &Array2D<GridCell>) {
     for part in particles {
         // Ensure particles are within the grid
-        part.pos.x = part.pos.x.clamp(1.0, (grid.width() - 2) as f32);
-        part.pos.y = part.pos.y.clamp(1.0, (grid.height() - 2) as f32);
+        let min_x = 1.0;
+        let max_x = (grid.width() - 2) as f32;
+        let min_y = 1.0;
+        let max_y = (grid.height() - 2) as f32;
+
+        if part.pos.x < min_x {
+            part.pos.x = min_x;
+            part.vel.x = 0.;
+        }
+
+        if part.pos.x > max_x {
+            part.pos.x = max_x;
+            part.vel.x = 0.;
+        }
+
+        if part.pos.y < min_y {
+            part.pos.y = min_y;
+            part.vel.y = 0.;
+        }
+
+        if part.pos.y > max_y {
+            part.pos.y = max_y;
+            part.vel.y = 0.;
+        }
     }
 }
 
