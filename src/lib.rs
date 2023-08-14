@@ -5,7 +5,7 @@ use cimvr_common::{
     ui::{egui::DragValue, GuiInputMessage, GuiTab},
     Transform,
 };
-use cimvr_engine_interface::{dbg, make_app_state, pcg::Pcg, pkg_namespace, prelude::*};
+use cimvr_engine_interface::{make_app_state, pcg::Pcg, pkg_namespace, prelude::*};
 use query_accel::QueryAccelerator;
 use rand::prelude::*;
 
@@ -37,12 +37,18 @@ struct ClientState {
 make_app_state!(ClientState, DummyUserState);
 
 const POINTS_RDR: MeshHandle = MeshHandle::new(pkg_namespace!("Points"));
+const LINES_RDR: MeshHandle = MeshHandle::new(pkg_namespace!("Lines"));
 
 impl UserState for ClientState {
     fn new(io: &mut EngineIo, sched: &mut EngineSchedule<Self>) -> Self {
         io.create_entity()
             .add_component(Transform::default())
             .add_component(Render::new(POINTS_RDR).primitive(Primitive::Points))
+            .build();
+
+        io.create_entity()
+            .add_component(Transform::default())
+            .add_component(Render::new(LINES_RDR).primitive(Primitive::Lines))
             .build();
 
         sched.add_system(Self::update).build();
@@ -57,6 +63,7 @@ impl UserState for ClientState {
         let n_particles = 500;
         let particle_radius = 1.0;
         let sim = Sim::new(width, height, n_particles, particle_radius);
+
         Self {
             calc_rest_density_from_radius: true,
             dt: 0.2,
@@ -108,6 +115,14 @@ impl ClientState {
         io.send(&UploadMesh {
             mesh: particles_mesh(&self.sim.particles),
             id: POINTS_RDR,
+        });
+
+        let mut lines = Mesh::new();
+        draw_grid_arrows(&mut lines, &self.sim.grid);
+
+        io.send(&UploadMesh {
+            mesh: lines,
+            id: LINES_RDR,
         });
     }
 
@@ -194,21 +209,20 @@ impl ClientState {
     }
 }
 
+const SIM_TO_MODEL_DOWNSCALE: f32 = 100.;
+fn simspace_to_modelspace(pos: Vec2) -> [f32; 3] {
+    [
+        (pos.x / SIM_TO_MODEL_DOWNSCALE) * 2. - 1.,
+        0.,
+        (pos.y / SIM_TO_MODEL_DOWNSCALE) * 2. - 1.,
+    ]
+}
+
 fn particles_mesh(particles: &[Particle]) -> Mesh {
-    const DOWNSCALE: f32 = 100.;
     Mesh {
         vertices: particles
             .iter()
-            .map(|p| {
-                Vertex::new(
-                    [
-                        (p.pos.x / DOWNSCALE) * 2. - 1.,
-                        0.,
-                        (p.pos.y / DOWNSCALE) * 2. - 1.,
-                    ],
-                    [1.; 3],
-                )
-            })
+            .map(|p| Vertex::new(simspace_to_modelspace(p.pos), [1.; 3]))
             .collect(),
         indices: (0..particles.len() as u32).collect(),
     }
@@ -570,4 +584,46 @@ fn enforce_particle_radius(particles: &mut [Particle], radius: f32) {
         .iter_mut()
         .zip(&points)
         .for_each(|(part, point)| part.pos = *point);
+}
+
+fn draw_arrow(mesh: &mut Mesh, pos: Vec2, dir: Vec2, color: [f32; 3], flanges: f32) {
+    let mut vertex = |pt: Vec2| mesh.push_vertex(Vertex::new(simspace_to_modelspace(pt), color));
+
+    let p1 = vertex(pos);
+
+    let end = pos + dir;
+    let p2 = vertex(end);
+
+    let angle = 0.3;
+    let f1 = vertex(end - flanges * dir.rotate(Vec2::from_angle(angle)));
+    let f2 = vertex(end - flanges * dir.rotate(Vec2::from_angle(-angle)));
+
+    mesh.push_indices(&[p1, p2, p2, f1, p2, f2]);
+}
+
+fn draw_grid_arrows(mesh: &mut Mesh, grid: &Array2D<GridCell>) {
+    for i in 0..grid.width() {
+        for j in 0..grid.height() {
+            let c = grid[(i, j)];
+            let v = Vec2::new(i as f32, j as f32);
+
+            let flanges = 0.5;
+            let vel_scale = 0.05;
+
+            draw_arrow(
+                mesh,
+                v + OFFSET_U,
+                Vec2::X * c.vel.x * vel_scale,
+                [1., 0.1, 0.1],
+                flanges
+            );
+            draw_arrow(
+                mesh,
+                v + OFFSET_V,
+                Vec2::Y * c.vel.y * vel_scale,
+                [0.01, 0.3, 1.],
+                flanges
+            );
+        }
+    }
 }
