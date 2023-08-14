@@ -5,7 +5,7 @@ use cimvr_common::{
     ui::{egui::{DragValue, Slider}, GuiInputMessage, GuiTab},
     Transform,
 };
-use cimvr_engine_interface::{make_app_state, pcg::Pcg, pkg_namespace, prelude::*};
+use cimvr_engine_interface::{dbg, make_app_state, pcg::Pcg, pkg_namespace, prelude::*};
 use query_accel::QueryAccelerator;
 use rand::prelude::*;
 
@@ -66,7 +66,7 @@ impl UserState for ClientState {
 
         let width = 100;
         let height = 100;
-        let n_particles = 10_000;
+        let n_particles = 1;
         let particle_radius = 0.36;
         let sim = Sim::new(width, height, n_particles, particle_radius);
 
@@ -86,8 +86,8 @@ impl UserState for ClientState {
             solver: IncompressibilitySolver::GaussSeidel,
             well: false,
             source: false,
-            show_arrows: false,
-            pause: false,
+            show_arrows: true,
+            pause: true,
             grid_vel_scale: 0.05,
             show_grid: false,
         }
