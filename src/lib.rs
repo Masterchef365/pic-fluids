@@ -108,7 +108,8 @@ impl ClientState {
                 let pos = Vec2::new(10., 90.);
                 //let vel = Vec2::new(0., -20.);
                 let vel = Vec2::ZERO;
-                self.sim.particles.push(Particle { pos, vel });
+                let deriv = [Vec2::ZERO; 2];
+                self.sim.particles.push(Particle { pos, vel, deriv });
             }
 
             if self.well {
@@ -294,6 +295,8 @@ struct Particle {
     pos: Vec2,
     /// Velocity
     vel: Vec2,
+    /// Velocity derivatives
+    deriv: [Vec2; 2],
 }
 
 fn calc_rest_density(particle_radius: f32) -> f32 {
@@ -316,6 +319,7 @@ impl Sim {
                 Particle {
                     pos,
                     vel: Vec2::ZERO,
+                    deriv: [Vec2::ZERO; 2],
                 }
             })
             .collect();
@@ -354,7 +358,7 @@ impl Sim {
             IncompressibilitySolver::GaussSeidel => solve_incompressibility_gauss_seidel,
         };
 
-        let old_vel = self.grid.clone();
+        //let old_vel = self.grid.clone();
         solver_fn(
             &mut self.grid,
             solver_iters,
@@ -363,7 +367,7 @@ impl Sim {
             stiffness,
         );
 
-        grid_to_particles(&mut self.particles, &self.grid, &old_vel, pic_flip_ratio);
+        grid_to_particles(&mut self.particles, &self.grid);
     }
 }
 
@@ -398,11 +402,13 @@ fn particles_to_grid(particles: &[Particle], grid: &mut Array2D<GridCell>) {
         .iter_mut()
         .for_each(|c| *c = GridCell::default());
 
+
     // Accumulate velocity on grid
-    // Here we abuse the pressure of each grid cell to divide correctly
+    // Here we abuse the pressure of each grid cell to by mass correctly
     for part in particles {
-        scatter(part.pos - OFFSET_U, grid, |c, w| c.vel.x += w * part.vel.x);
-        scatter(part.pos - OFFSET_U, grid, |c, w| c.pressure += w);
+        let u_pos = part.pos - OFFSET_U;
+        scatter(u_pos, grid, |c, n, w| c.vel.x += w * (part.vel.x + (index_to_pos(n) - u_pos).dot(part.deriv[0])));
+        scatter(u_pos, grid, |c, _, w| c.pressure += w);
     }
     grid.data_mut().iter_mut().for_each(|c| {
         if c.pressure != 0.0 {
@@ -413,8 +419,9 @@ fn particles_to_grid(particles: &[Particle], grid: &mut Array2D<GridCell>) {
 
     // And then we do again for u
     for part in particles {
-        scatter(part.pos - OFFSET_V, grid, |c, w| c.vel.y += w * part.vel.y);
-        scatter(part.pos - OFFSET_V, grid, |c, w| c.pressure += w);
+        let v_pos = part.pos - OFFSET_V;
+        scatter(v_pos, grid, |c, n, w| c.vel.y += w * (part.vel.y + (index_to_pos(n) - v_pos).dot(part.deriv[1])));
+        scatter(v_pos, grid, |c, _, w| c.pressure += w);
     }
     grid.data_mut().iter_mut().for_each(|c| {
         if c.pressure != 0.0 {
@@ -464,13 +471,25 @@ fn gather<T>(pos: Vec2, grid: &Array2D<T>, f: fn(&T) -> f32) -> f32 {
     total
 }
 
+/// Performs a weighted sum of the grid field chosen by f
+fn gather_vector(pos: Vec2, f: impl Fn(GridPos) -> Vec2) -> Vec2 {
+    let neighbors = grid_neighborhood(grid_tl(pos));
+
+    let mut total = Vec2::ZERO;
+    for n in neighbors {
+        total += f(n);
+    }
+    total
+}
+
+
 /// Performs a weighted accumulation on the grid field chosen by f
-fn scatter<T>(pos: Vec2, grid: &mut Array2D<T>, mut f: impl FnMut(&mut T, f32)) {
+fn scatter<T>(pos: Vec2, grid: &mut Array2D<T>, mut f: impl FnMut(&mut T, GridPos, f32)) {
     let weights = weights(pos);
     let neighbors = grid_neighborhood(grid_tl(pos));
 
     for (w, n) in weights.into_iter().zip(neighbors) {
-        f(&mut grid[n], w);
+        f(&mut grid[n], n, w);
     }
 }
 
@@ -548,22 +567,25 @@ fn solve_incompressibility_gauss_seidel(
     }
 }
 
-fn grid_to_particles(particles: &mut [Particle], grid: &Array2D<GridCell>, old_grid: &Array2D<GridCell>, pic_flip_ratio: f32) {
+/// Inverse of grid_id
+fn index_to_pos((i, j): GridPos) -> Vec2 {
+    Vec2::new(i as f32, j as f32)
+}
+
+fn grid_to_particles(particles: &mut [Particle], grid: &Array2D<GridCell>) {
     for part in particles {
+        let u_pos = part.pos - OFFSET_U;
+        let v_pos = part.pos - OFFSET_V;
+
         // Interpolate velocity onto particles
-        let new_vel_x = gather(part.pos - OFFSET_U, grid, |c| c.vel.x);
-        let new_vel_y = gather(part.pos - OFFSET_V, grid, |c| c.vel.y);
-        let new_vel = Vec2::new(new_vel_x, new_vel_y);
+        part.vel = Vec2::new(
+            gather(u_pos, grid, |c| c.vel.x),
+            gather(v_pos, grid, |c| c.vel.y),
+        );
 
-        let old_vel_x = gather(part.pos - OFFSET_U, old_grid, |c| c.vel.x);
-        let old_vel_y = gather(part.pos - OFFSET_V, old_grid, |c| c.vel.y);
-        let old_vel = Vec2::new(old_vel_x, old_vel_y);
-
-        let d_vel = new_vel - old_vel;
-        let flip = part.vel + d_vel;
-        let pic = new_vel;
-        part.vel = pic.lerp(flip, pic_flip_ratio);
-
+        // Interpolate grid vectors
+        part.deriv[0] = gather_vector(u_pos, |p| grid[p].vel.x * (index_to_pos(p) - u_pos).normalize());
+        part.deriv[1] = gather_vector(v_pos, |p| grid[p].vel.y * (index_to_pos(p) - v_pos).normalize());
     }
 }
 
