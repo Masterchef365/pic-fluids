@@ -32,7 +32,7 @@ struct ClientState {
     grid_vel_scale: f32,
     pause: bool,
     single_step: bool,
-    pic_flip_ratio: f32,
+    pic_apic_ratio: f32,
 
     well: bool,
     source: bool,
@@ -66,12 +66,12 @@ impl UserState for ClientState {
 
         let width = 100;
         let height = 100;
-        let n_particles = 1;
+        let n_particles = 5000;
         let particle_radius = 0.36;
         let sim = Sim::new(width, height, n_particles, particle_radius);
 
         Self {
-            pic_flip_ratio: 0.95,
+            pic_apic_ratio: 1.0,
             calc_rest_density_from_radius: true,
             single_step: false,
             dt: 0.04,
@@ -125,7 +125,7 @@ impl ClientState {
                 self.solver_iters,
                 self.stiffness,
                 self.gravity,
-                self.pic_flip_ratio,
+                self.pic_apic_ratio,
                 self.solver,
             );
 
@@ -154,7 +154,7 @@ impl ClientState {
 
     fn update_gui(&mut self, io: &mut EngineIo, _query: &mut QueryResult) {
         self.ui.show(io, |ui| {
-            ui.add(Slider::new(&mut self.pic_flip_ratio, 0.0..=1.0).text("PIC - FLIP"));
+            ui.add(Slider::new(&mut self.pic_apic_ratio, 0.0..=1.0).text("PIC - APIC"));
             ui.add(DragValue::new(&mut self.stiffness).prefix("Stiffness: "));
             ui.add(
                 DragValue::new(&mut self.dt)
@@ -342,7 +342,7 @@ impl Sim {
         solver_iters: usize,
         stiffness: f32,
         gravity: f32,
-        pic_flip_ratio: f32,
+        pic_apic_ratio: f32,
         solver: IncompressibilitySolver,
     ) {
         // Step particles
@@ -352,7 +352,7 @@ impl Sim {
         enforce_particle_pos(&mut self.particles, &self.grid);
 
         // Step grid
-        particles_to_grid(&self.particles, &mut self.grid);
+        particles_to_grid(&self.particles, &mut self.grid, pic_apic_ratio);
         let solver_fn = match solver {
             IncompressibilitySolver::Jacobi => solve_incompressibility_jacobi,
             IncompressibilitySolver::GaussSeidel => solve_incompressibility_gauss_seidel,
@@ -396,7 +396,7 @@ const OFFSET_U: Vec2 = Vec2::new(0., 0.5);
 const OFFSET_V: Vec2 = Vec2::new(0.5, 0.);
 
 /// Insert information such as velocity and pressure into the grid
-fn particles_to_grid(particles: &[Particle], grid: &mut Array2D<GridCell>) {
+fn particles_to_grid(particles: &[Particle], grid: &mut Array2D<GridCell>, pic_apic_ratio: f32) {
     // Clear the grid
     grid.data_mut()
         .iter_mut()
@@ -407,7 +407,7 @@ fn particles_to_grid(particles: &[Particle], grid: &mut Array2D<GridCell>) {
     // Here we abuse the pressure of each grid cell to by mass correctly
     for part in particles {
         let u_pos = part.pos - OFFSET_U;
-        scatter(u_pos, grid, |c, n, w| c.vel.x += w * (part.vel.x + (index_to_pos(n) - u_pos).dot(part.deriv[0])));
+        scatter(u_pos, grid, |c, n, w| c.vel.x += w * (part.vel.x + (index_to_pos(n) - u_pos).dot(part.deriv[0]) * pic_apic_ratio));
         scatter(u_pos, grid, |c, _, w| c.pressure += w);
     }
     grid.data_mut().iter_mut().for_each(|c| {
@@ -420,7 +420,7 @@ fn particles_to_grid(particles: &[Particle], grid: &mut Array2D<GridCell>) {
     // And then we do again for u
     for part in particles {
         let v_pos = part.pos - OFFSET_V;
-        scatter(v_pos, grid, |c, n, w| c.vel.y += w * (part.vel.y + (index_to_pos(n) - v_pos).dot(part.deriv[1])));
+        scatter(v_pos, grid, |c, n, w| c.vel.y += w * (part.vel.y + (index_to_pos(n) - v_pos).dot(part.deriv[1]) * pic_apic_ratio));
         scatter(v_pos, grid, |c, _, w| c.pressure += w);
     }
     grid.data_mut().iter_mut().for_each(|c| {
