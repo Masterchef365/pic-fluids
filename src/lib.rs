@@ -84,7 +84,7 @@ impl UserState for ClientState {
             dt: 0.04,
             solver_iters: 100,
             stiffness: 3.,
-            gravity: 9.8,
+            gravity: 0.,
             sim,
             ui: GuiTab::new(io, "PIC Fluids"),
             width,
@@ -298,7 +298,7 @@ impl ClientState {
                             }
                             Field::InterMaxDist => ui.add(
                                 DragValue::new(&mut behav.inter_max_dist)
-                                    .clamp_range(0.0..=1.0)
+                                    .clamp_range(0.0..=4.0)
                                     .speed(1e-2),
                             ),
                             Field::DefaultRepulse => {
@@ -306,7 +306,7 @@ impl ClientState {
                             }
                             Field::InterThreshold => ui.add(
                                 DragValue::new(&mut behav.inter_threshold)
-                                    .clamp_range(0.0..=1.0)
+                                    .clamp_range(0.0..=4.0)
                                     .speed(1e-2),
                             ),
                         };
@@ -745,7 +745,7 @@ fn enforce_particle_radius(particles: &mut [Particle], radius: f32) {
 }
 
 fn particle_interactions(particles: &mut [Particle], cfg: &LifeConfig, dt: f32) {
-    let mut points: Vec<Vec2> = particles.iter().map(|p| p.pos).collect();
+    let points: Vec<Vec2> = particles.iter().map(|p| p.pos).collect();
     let accel = QueryAccelerator::new(&points, cfg.max_interaction_radius());
 
     for i in 0..particles.len() {
@@ -947,7 +947,7 @@ impl LifeConfig {
         let behaviours = (0..rule_count.pow(2))
             .map(|_| {
                 let mut behav = Behaviour::default();
-                behav.inter_strength = rng.gen_range(-15.0..=15.0);
+                behav.inter_strength = rng.gen_range(-20.0..=20.0);
                 behav
             })
             .collect();
@@ -963,7 +963,7 @@ impl Default for Behaviour {
             default_repulse: 0.,
             inter_threshold: 0.5,
             inter_strength: 1.,
-            inter_max_dist: 1.0,
+            inter_max_dist: 2.0,
         }
     }
 }
