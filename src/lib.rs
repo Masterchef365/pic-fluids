@@ -35,7 +35,7 @@ struct ClientState {
     pic_apic_ratio: f32,
 
     well: bool,
-    source: bool,
+    source: usize,
 
     ui: GuiTab,
 }
@@ -85,7 +85,7 @@ impl UserState for ClientState {
             n_particles,
             solver: IncompressibilitySolver::GaussSeidel,
             well: false,
-            source: false,
+            source: 0,
             show_arrows: true,
             pause: true,
             grid_vel_scale: 0.05,
@@ -104,7 +104,7 @@ impl ClientState {
     fn update(&mut self, io: &mut EngineIo, _query: &mut QueryResult) {
         // Update
         if !self.pause || self.single_step {
-            if self.source {
+            for _ in 0..self.source {
                 let pos = Vec2::new(10., 90.);
                 //let vel = Vec2::new(0., -20.);
                 let vel = Vec2::ZERO;
@@ -244,7 +244,7 @@ impl ClientState {
             }
 
             ui.separator();
-            ui.checkbox(&mut self.source, "Particle source");
+            ui.add(DragValue::new(&mut self.source).prefix("Particle source: "));
             ui.checkbox(&mut self.well, "Particle well");
         });
     }
