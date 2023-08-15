@@ -982,6 +982,9 @@ impl LifeConfig {
             .map(|_| {
                 let mut behav = Behaviour::default();
                 behav.inter_strength = rng.gen_range(-20.0..=20.0);
+                if behav.inter_strength < 0. {
+                    behav.inter_strength *= 10.;
+                }
                 behav
             })
             .collect();
