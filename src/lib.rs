@@ -2,7 +2,10 @@ use array2d::{Array2D, GridPos};
 use cimvr_common::{
     glam::Vec2,
     render::{Mesh, MeshHandle, Primitive, Render, UploadMesh, Vertex},
-    ui::{egui::{DragValue, Slider}, GuiInputMessage, GuiTab},
+    ui::{
+        egui::{DragValue, Slider},
+        GuiInputMessage, GuiTab,
+    },
     Transform,
 };
 use cimvr_engine_interface::{make_app_state, pcg::Pcg, pkg_namespace, prelude::*};
@@ -33,6 +36,7 @@ struct ClientState {
     pause: bool,
     single_step: bool,
     pic_flip_ratio: f32,
+    selected_field: Field,
 
     well: bool,
     source: bool,
@@ -68,9 +72,12 @@ impl UserState for ClientState {
         let height = 100;
         let n_particles = 10_000;
         let particle_radius = 0.36;
-        let sim = Sim::new(width, height, n_particles, particle_radius);
+
+        let life = LifeConfig::random(3);
+        let sim = Sim::new(width, height, n_particles, particle_radius, life);
 
         Self {
+            selected_field: Field::InterStrength,
             pic_flip_ratio: 0.95,
             calc_rest_density_from_radius: true,
             single_step: false,
@@ -104,12 +111,14 @@ impl ClientState {
     fn update(&mut self, io: &mut EngineIo, _query: &mut QueryResult) {
         // Update
         if !self.pause || self.single_step {
+            /*
             if self.source {
                 let pos = Vec2::new(10., 90.);
                 //let vel = Vec2::new(0., -20.);
                 let vel = Vec2::ZERO;
                 self.sim.particles.push(Particle { pos, vel });
             }
+            */
 
             if self.well {
                 for part in &mut self.sim.particles {
@@ -133,7 +142,7 @@ impl ClientState {
 
         // Display
         io.send(&UploadMesh {
-            mesh: particles_mesh(&self.sim.particles),
+            mesh: particles_mesh(&self.sim.particles, &self.sim.life),
             id: POINTS_RDR,
         });
 
@@ -239,12 +248,67 @@ impl ClientState {
                     self.height,
                     self.n_particles,
                     self.sim.particle_radius,
+                    self.sim.life.clone(),
                 );
             }
 
             ui.separator();
             ui.checkbox(&mut self.source, "Particle source");
             ui.checkbox(&mut self.well, "Particle well");
+
+            ui.separator();
+            ui.horizontal(|ui| {
+                ui.selectable_value(&mut self.selected_field, Field::DefaultRepulse, "Default repulsion");
+                ui.selectable_value(
+                    &mut self.selected_field,
+                    Field::InterThreshold,
+                    "Interaction threshold",
+                );
+            });
+            ui.horizontal(|ui| {
+                ui.selectable_value(&mut self.selected_field, Field::InterStrength, "Interaction Strength");
+                ui.selectable_value(
+                    &mut self.selected_field,
+                    Field::InterMaxDist,
+                    "Interaction max distance",
+                );
+            });
+
+            // Top row
+            //ui.label("Life");
+            ui.label("");
+            for color in &mut self.sim.life.colors {
+                ui.color_edit_button_rgb(color);
+            }
+            ui.end_row();
+
+            // Grid
+            let len = self.sim.life.colors.len();
+            for (row_idx, color) in self.sim.life.colors.iter_mut().enumerate() {
+                ui.color_edit_button_rgb(color);
+                for column in 0..len {
+                    let behav = &mut self.sim.life.behaviours[column + row_idx * len];
+                    match self.selected_field {
+                        Field::InterStrength => {
+                            ui.add(DragValue::new(&mut behav.inter_strength).speed(1e-2))
+                        }
+                        Field::InterMaxDist => ui.add(
+                            DragValue::new(&mut behav.inter_max_dist)
+                                .clamp_range(0.0..=1.0)
+                                .speed(1e-2),
+                        ),
+                        Field::DefaultRepulse => {
+                            ui.add(DragValue::new(&mut behav.default_repulse).speed(1e-2))
+                        }
+                        Field::InterThreshold => ui.add(
+                            DragValue::new(&mut behav.inter_threshold)
+                                .clamp_range(0.0..=1.0)
+                                .speed(1e-2),
+                        ),
+                    };
+                }
+                ui.end_row();
+            }
         });
     }
 }
@@ -258,11 +322,11 @@ fn simspace_to_modelspace(pos: Vec2) -> [f32; 3] {
     ]
 }
 
-fn particles_mesh(particles: &[Particle]) -> Mesh {
+fn particles_mesh(particles: &[Particle], life: &LifeConfig) -> Mesh {
     Mesh {
         vertices: particles
             .iter()
-            .map(|p| Vertex::new(simspace_to_modelspace(p.pos), [1.; 3]))
+            .map(|p| Vertex::new(simspace_to_modelspace(p.pos), life.colors[p.color as usize]))
             .collect(),
         indices: (0..particles.len() as u32).collect(),
     }
@@ -278,6 +342,7 @@ struct Sim {
     rest_density: f32,
     particle_radius: f32,
     over_relax: f32,
+    life: LifeConfig,
 }
 
 #[derive(Copy, Clone, Debug, Default)]
@@ -294,6 +359,8 @@ struct Particle {
     pos: Vec2,
     /// Velocity
     vel: Vec2,
+    /// Particle type
+    color: ParticleType,
 }
 
 fn calc_rest_density(particle_radius: f32) -> f32 {
@@ -304,7 +371,13 @@ fn calc_rest_density(particle_radius: f32) -> f32 {
 }
 
 impl Sim {
-    pub fn new(width: usize, height: usize, n_particles: usize, particle_radius: f32) -> Self {
+    pub fn new(
+        width: usize,
+        height: usize,
+        n_particles: usize,
+        particle_radius: f32,
+        life: LifeConfig,
+    ) -> Self {
         // Uniformly placed, random particles
         let mut rng = rng();
         let particles = (0..n_particles)
@@ -313,9 +386,11 @@ impl Sim {
                     rng.gen_range(1.0..=(width - 2) as f32),
                     rng.gen_range(1.0..=(height - 2) as f32),
                 );
+                let color = rng.gen_range(0..life.colors.len() as u8);
                 Particle {
                     pos,
                     vel: Vec2::ZERO,
+                    color,
                 }
             })
             .collect();
@@ -324,6 +399,7 @@ impl Sim {
         // Packing efficiency * (1 / particle area) = particles / area
 
         Sim {
+            life,
             particles,
             grid: Array2D::new(width, height),
             rest_density: calc_rest_density(particle_radius),
@@ -343,6 +419,7 @@ impl Sim {
     ) {
         // Step particles
         apply_global_force(&mut self.particles, Vec2::new(0., -gravity), dt);
+        particle_interactions(&mut self.particles, &mut self.life);
         step_particles(&mut self.particles, dt);
         enforce_particle_radius(&mut self.particles, self.particle_radius);
         enforce_particle_pos(&mut self.particles, &self.grid);
@@ -548,7 +625,12 @@ fn solve_incompressibility_gauss_seidel(
     }
 }
 
-fn grid_to_particles(particles: &mut [Particle], grid: &Array2D<GridCell>, old_grid: &Array2D<GridCell>, pic_flip_ratio: f32) {
+fn grid_to_particles(
+    particles: &mut [Particle],
+    grid: &Array2D<GridCell>,
+    old_grid: &Array2D<GridCell>,
+    pic_flip_ratio: f32,
+) {
     for part in particles {
         // Interpolate velocity onto particles
         let new_vel_x = gather(part.pos - OFFSET_U, grid, |c| c.vel.x);
@@ -563,7 +645,6 @@ fn grid_to_particles(particles: &mut [Particle], grid: &Array2D<GridCell>, old_g
         let flip = part.vel + d_vel;
         let pic = new_vel;
         part.vel = pic.lerp(flip, pic_flip_ratio);
-
     }
 }
 
@@ -643,6 +724,10 @@ fn enforce_particle_radius(particles: &mut [Particle], radius: f32) {
         .for_each(|(part, point)| part.pos = *point);
 }
 
+fn particle_interactions(particles: &mut [Particle], cfg: &LifeConfig) {
+    todo!()
+}
+
 fn draw_arrow(mesh: &mut Mesh, pos: Vec2, dir: Vec2, color: [f32; 3], flanges: f32) {
     let mut vertex = |pt: Vec2| mesh.push_vertex(Vertex::new(simspace_to_modelspace(pt), color));
 
@@ -706,4 +791,148 @@ fn draw_grid(mesh: &mut Mesh, grid: &Array2D<GridCell>) {
         let b = vertex(Vec2::new(x as f32, grid.height() as f32));
         mesh.push_indices(&[a, b]);
     }
+}
+
+/// Display colors and physical behaviour coefficients
+#[derive(Clone, Debug)]
+pub struct LifeConfig {
+    /// Colors of each type
+    pub colors: Vec<[f32; 3]>,
+    /// Behaviour matrix
+    pub behaviours: Vec<Behaviour>,
+}
+
+pub type ParticleType = u8;
+
+#[derive(Clone, Copy, Debug)]
+pub struct Behaviour {
+    /// Magnitude of the default repulsion force
+    pub default_repulse: f32,
+    /// Zero point between default repulsion and particle interaction (0 to 1)
+    pub inter_threshold: f32,
+    /// Interaction peak strength
+    pub inter_strength: f32,
+    /// Maximum distance of particle interaction (0 to 1)
+    pub inter_max_dist: f32,
+}
+
+impl Behaviour {
+    /// Returns the force on this particle
+    ///
+    /// Distance is in the range `0.0..=1.0`
+    pub fn force(&self, dist: f32) -> f32 {
+        if dist < self.inter_threshold {
+            let f = dist / self.inter_threshold;
+            (1. - f) * -self.default_repulse
+        } else if dist > self.inter_max_dist {
+            0.0
+        } else {
+            let x = dist - self.inter_threshold;
+            let x = x / (self.inter_max_dist - self.inter_threshold);
+            let x = x * 2. - 1.;
+            let x = 1. - x.abs();
+            x * self.inter_strength
+        }
+    }
+}
+
+/// https://gist.github.com/fairlight1337/4935ae72bcbcc1ba5c72
+fn hsv_to_rgb(h: f32, s: f32, v: f32) -> [f32; 3] {
+    let c = v * s; // Chroma
+    let h_prime = (h / 60.0) % 6.0;
+    let x = c * (1.0 - ((h_prime % 2.0) - 1.0).abs());
+    let m = v - c;
+
+    let (mut r, mut g, mut b);
+
+    if 0. <= h_prime && h_prime < 1. {
+        r = c;
+        g = x;
+        b = 0.0;
+    } else if 1.0 <= h_prime && h_prime < 2.0 {
+        r = x;
+        g = c;
+        b = 0.0;
+    } else if 2.0 <= h_prime && h_prime < 3.0 {
+        r = 0.0;
+        g = c;
+        b = x;
+    } else if 3.0 <= h_prime && h_prime < 4.0 {
+        r = 0.0;
+        g = x;
+        b = c;
+    } else if 4.0 <= h_prime && h_prime < 5.0 {
+        r = x;
+        g = 0.0;
+        b = c;
+    } else if 5.0 <= h_prime && h_prime < 6.0 {
+        r = c;
+        g = 0.0;
+        b = x;
+    } else {
+        r = 0.0;
+        g = 0.0;
+        b = 0.0;
+    }
+
+    r += m;
+    g += m;
+    b += m;
+
+    [r, g, b]
+}
+
+impl LifeConfig {
+    pub fn max_interaction_radius(&self) -> f32 {
+        self.behaviours
+            .iter()
+            .map(|b| b.inter_max_dist)
+            .max_by(|a, b| a.total_cmp(b))
+            .unwrap()
+    }
+
+    pub fn get_behaviour(&self, a: ParticleType, b: ParticleType) -> Behaviour {
+        let idx = a as usize * self.colors.len() + b as usize;
+        self.behaviours[idx]
+    }
+
+    fn random(rule_count: usize) -> Self {
+        let mut rng = rng();
+
+        let colors: Vec<[f32; 3]> = (0..rule_count)
+            .map(|_| hsv_to_rgb(rng.gen_range(0.0..=360.0), 1., 1.))
+            .collect();
+        let behaviours = (0..rule_count.pow(2))
+            .map(|_| {
+                let mut behav = Behaviour::default();
+                behav.inter_strength = rng.gen_range(-15.0..=15.0);
+                behav
+            })
+            .collect();
+
+        Self { behaviours, colors }
+    }
+}
+
+impl Default for Behaviour {
+    fn default() -> Self {
+        Self {
+            default_repulse: 10.,
+            inter_threshold: 0.05,
+            inter_strength: 1.,
+            inter_max_dist: 0.2,
+        }
+    }
+}
+
+#[derive(PartialEq)]
+pub enum Field {
+    /// Magnitude of the default repulsion force
+    DefaultRepulse,
+    /// Zero point between default repulsion and particle interaction (0 to 1)
+    InterThreshold,
+    /// Interaction peak strength
+    InterStrength,
+    /// Maximum distance of particle interaction (0 to 1)
+    InterMaxDist,
 }
