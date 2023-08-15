@@ -81,8 +81,8 @@ impl UserState for ClientState {
             pic_flip_ratio: 0.95,
             calc_rest_density_from_radius: true,
             single_step: false,
-            dt: 0.04,
-            solver_iters: 100,
+            dt: 0.02,
+            solver_iters: 50,
             stiffness: 3.,
             gravity: 0.,
             sim,
@@ -948,6 +948,9 @@ impl LifeConfig {
             .map(|_| {
                 let mut behav = Behaviour::default();
                 behav.inter_strength = rng.gen_range(-20.0..=20.0);
+                if behav.inter_strength < 0. {
+                    behav.inter_strength *= 10.;
+                }
                 behav
             })
             .collect();
