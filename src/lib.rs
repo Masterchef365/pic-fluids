@@ -242,14 +242,11 @@ impl ClientState {
                     .speed(4),
             );
 
+
+            let mut reset = false;
             if ui.button("Reset").clicked() {
-                self.sim = Sim::new(
-                    self.width,
-                    self.height,
-                    self.n_particles,
-                    self.sim.particle_radius,
-                    self.sim.life.clone(),
-                );
+                reset = true;
+                
             }
 
             ui.separator();
@@ -308,6 +305,21 @@ impl ClientState {
                     };
                 }
                 ui.end_row();
+            }
+
+            if ui.button("Randomize behaviours").clicked() {
+                self.sim.life = LifeConfig::random(3);
+                reset = true;
+            }
+
+            if reset {
+                self.sim = Sim::new(
+                    self.width,
+                    self.height,
+                    self.n_particles,
+                    self.sim.particle_radius,
+                    self.sim.life.clone(),
+                );
             }
         });
     }
@@ -725,7 +737,7 @@ fn enforce_particle_radius(particles: &mut [Particle], radius: f32) {
 }
 
 fn particle_interactions(particles: &mut [Particle], cfg: &LifeConfig) {
-    todo!()
+    //todo!()
 }
 
 fn draw_arrow(mesh: &mut Mesh, pos: Vec2, dir: Vec2, color: [f32; 3], flanges: f32) {
