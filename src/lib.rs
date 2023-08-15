@@ -431,7 +431,7 @@ impl Sim {
     ) {
         // Step particles
         apply_global_force(&mut self.particles, Vec2::new(0., -gravity), dt);
-        particle_interactions(&mut self.particles, &mut self.life);
+        particle_interactions(&mut self.particles, &mut self.life, dt);
         step_particles(&mut self.particles, dt);
         enforce_particle_radius(&mut self.particles, self.particle_radius);
         enforce_particle_pos(&mut self.particles, &self.grid);
@@ -736,8 +736,30 @@ fn enforce_particle_radius(particles: &mut [Particle], radius: f32) {
         .for_each(|(part, point)| part.pos = *point);
 }
 
-fn particle_interactions(particles: &mut [Particle], cfg: &LifeConfig) {
-    //todo!()
+fn particle_interactions(particles: &mut [Particle], cfg: &LifeConfig, dt: f32) {
+    let mut points: Vec<Vec2> = particles.iter().map(|p| p.pos).collect();
+    let accel = QueryAccelerator::new(&points, cfg.max_interaction_radius());
+
+    for i in 0..particles.len() {
+        for neighbor in accel.query_neighbors(&points, i, points[i]) {
+            let a = points[i];
+            let b = points[neighbor];
+
+            // The vector pointing from a to b
+            let diff = b - a;
+
+            // Distance is capped
+            let dist = diff.length();
+            if dist > 0. {
+                // Accelerate towards b
+                let normal = diff.normalize();
+                let behav = cfg.get_behaviour(particles[i].color, particles[neighbor].color);
+                let accel = normal * behav.force(dist);
+                
+                particles[i].vel += accel * dt;
+            }
+        }
+    }
 }
 
 fn draw_arrow(mesh: &mut Mesh, pos: Vec2, dir: Vec2, color: [f32; 3], flanges: f32) {
@@ -929,7 +951,8 @@ impl LifeConfig {
 impl Default for Behaviour {
     fn default() -> Self {
         Self {
-            default_repulse: 10.,
+            //default_repulse: 10.,
+            default_repulse: 0.,
             inter_threshold: 0.05,
             inter_strength: 1.,
             inter_max_dist: 0.2,
