@@ -3,7 +3,7 @@ use cimvr_common::{
     glam::Vec2,
     render::{Mesh, MeshHandle, Primitive, Render, UploadMesh, Vertex},
     ui::{
-        egui::{DragValue, Slider, Grid},
+        egui::{DragValue, Grid, Slider},
         GuiInputMessage, GuiTab,
     },
     Transform,
@@ -242,11 +242,9 @@ impl ClientState {
                     .speed(4),
             );
 
-
             let mut reset = false;
             if ui.button("Reset").clicked() {
                 reset = true;
-                
             }
 
             ui.separator();
@@ -255,7 +253,11 @@ impl ClientState {
 
             ui.separator();
             ui.horizontal(|ui| {
-                ui.selectable_value(&mut self.selected_field, Field::DefaultRepulse, "Default repulsion");
+                ui.selectable_value(
+                    &mut self.selected_field,
+                    Field::DefaultRepulse,
+                    "Default repulsion",
+                );
                 ui.selectable_value(
                     &mut self.selected_field,
                     Field::InterThreshold,
@@ -263,7 +265,11 @@ impl ClientState {
                 );
             });
             ui.horizontal(|ui| {
-                ui.selectable_value(&mut self.selected_field, Field::InterStrength, "Interaction Strength");
+                ui.selectable_value(
+                    &mut self.selected_field,
+                    Field::InterStrength,
+                    "Interaction Strength",
+                );
                 ui.selectable_value(
                     &mut self.selected_field,
                     Field::InterMaxDist,
@@ -271,42 +277,42 @@ impl ClientState {
                 );
             });
 
-            // Top row
-            //ui.label("Life");
-            ui.label("");
-            for color in &mut self.sim.life.colors {
-                ui.color_edit_button_rgb(color);
-            }
-            ui.end_row();
-
-            // Grid
             Grid::new(pkg_namespace!("Particle Life Grid")).show(ui, |ui| {
-            let len = self.sim.life.colors.len();
-            for (row_idx, color) in self.sim.life.colors.iter_mut().enumerate() {
-                ui.color_edit_button_rgb(color);
-                for column in 0..len {
-                    let behav = &mut self.sim.life.behaviours[column + row_idx * len];
-                    match self.selected_field {
-                        Field::InterStrength => {
-                            ui.add(DragValue::new(&mut behav.inter_strength).speed(1e-2))
-                        }
-                        Field::InterMaxDist => ui.add(
-                            DragValue::new(&mut behav.inter_max_dist)
-                                .clamp_range(0.0..=1.0)
-                                .speed(1e-2),
-                        ),
-                        Field::DefaultRepulse => {
-                            ui.add(DragValue::new(&mut behav.default_repulse).speed(1e-2))
-                        }
-                        Field::InterThreshold => ui.add(
-                            DragValue::new(&mut behav.inter_threshold)
-                                .clamp_range(0.0..=1.0)
-                                .speed(1e-2),
-                        ),
-                    };
+                // Top row
+                //ui.label("Life");
+                ui.label("");
+                for color in &mut self.sim.life.colors {
+                    ui.color_edit_button_rgb(color);
                 }
                 ui.end_row();
-            }
+
+                // Grid
+                let len = self.sim.life.colors.len();
+                for (row_idx, color) in self.sim.life.colors.iter_mut().enumerate() {
+                    ui.color_edit_button_rgb(color);
+                    for column in 0..len {
+                        let behav = &mut self.sim.life.behaviours[column + row_idx * len];
+                        match self.selected_field {
+                            Field::InterStrength => {
+                                ui.add(DragValue::new(&mut behav.inter_strength).speed(1e-2))
+                            }
+                            Field::InterMaxDist => ui.add(
+                                DragValue::new(&mut behav.inter_max_dist)
+                                    .clamp_range(0.0..=1.0)
+                                    .speed(1e-2),
+                            ),
+                            Field::DefaultRepulse => {
+                                ui.add(DragValue::new(&mut behav.default_repulse).speed(1e-2))
+                            }
+                            Field::InterThreshold => ui.add(
+                                DragValue::new(&mut behav.inter_threshold)
+                                    .clamp_range(0.0..=1.0)
+                                    .speed(1e-2),
+                            ),
+                        };
+                    }
+                    ui.end_row();
+                }
             });
 
             if ui.button("Randomize behaviours").clicked() {
@@ -757,7 +763,7 @@ fn particle_interactions(particles: &mut [Particle], cfg: &LifeConfig, dt: f32) 
                 let normal = diff.normalize();
                 let behav = cfg.get_behaviour(particles[i].color, particles[neighbor].color);
                 let accel = normal * behav.force(dist);
-                
+
                 particles[i].vel += accel * dt;
             }
         }
