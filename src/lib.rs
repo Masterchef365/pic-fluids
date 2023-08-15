@@ -3,7 +3,7 @@ use cimvr_common::{
     glam::Vec2,
     render::{Mesh, MeshHandle, Primitive, Render, UploadMesh, Vertex},
     ui::{
-        egui::{DragValue, Slider},
+        egui::{DragValue, Slider, Grid},
         GuiInputMessage, GuiTab,
     },
     Transform,
@@ -280,6 +280,7 @@ impl ClientState {
             ui.end_row();
 
             // Grid
+            Grid::new(pkg_namespace!("Particle Life Grid")).show(ui, |ui| {
             let len = self.sim.life.colors.len();
             for (row_idx, color) in self.sim.life.colors.iter_mut().enumerate() {
                 ui.color_edit_button_rgb(color);
@@ -306,6 +307,7 @@ impl ClientState {
                 }
                 ui.end_row();
             }
+            });
 
             if ui.button("Randomize behaviours").clicked() {
                 self.sim.life = LifeConfig::random(3);
@@ -953,9 +955,9 @@ impl Default for Behaviour {
         Self {
             //default_repulse: 10.,
             default_repulse: 0.,
-            inter_threshold: 0.05,
+            inter_threshold: 0.5,
             inter_strength: 1.,
-            inter_max_dist: 0.2,
+            inter_max_dist: 1.0,
         }
     }
 }
