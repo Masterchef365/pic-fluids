@@ -662,6 +662,11 @@ fn draw_grid_arrows(mesh: &mut Mesh, grid: &Array2D<GridCell>, vel_scale: f32) {
     for i in 0..grid.width() {
         for j in 0..grid.height() {
             let c = grid[(i, j)];
+
+            if c.pressure == 0.0 {
+                continue;
+            }
+
             let v = Vec2::new(i as f32, j as f32);
 
             let flanges = 0.5;
