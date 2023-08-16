@@ -385,7 +385,9 @@ fn calc_rest_density(particle_radius: f32) -> f32 {
     // Assume hexagonal packing
     let packing_density = std::f32::consts::PI / 2. / 3_f32.sqrt();
     let particle_area = std::f32::consts::PI * particle_radius.powi(2);
-    packing_density / particle_area
+    let density = packing_density / particle_area;
+    // A guess for particle life
+    density / 4.
 }
 
 impl Sim {
@@ -414,7 +416,7 @@ impl Sim {
             .collect();
 
         // Assume half-hexagonal packing density...
-        let rest_density = calc_rest_density(particle_radius) / 4.;
+        let rest_density = calc_rest_density(particle_radius);
 
         Sim {
             life,
@@ -964,7 +966,7 @@ impl Default for Behaviour {
             default_repulse: 0.,
             inter_threshold: 0.5,
             inter_strength: 1.,
-            inter_max_dist: 2.0,
+            inter_max_dist: 1.3,
         }
     }
 }
