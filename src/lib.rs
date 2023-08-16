@@ -338,8 +338,8 @@ impl ClientState {
                     let n = self.sim.life.colors.len();
                     for i in 0..n {
                         for j in 0..i {
-                            self.sim.life.behaviours[i + n * j] =
-                                self.sim.life.behaviours[j + n * i];
+                            self.sim.life.behaviours[j + n * i] =
+                                self.sim.life.behaviours[i + n * j];
                         }
                     }
                 }
