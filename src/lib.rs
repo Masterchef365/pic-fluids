@@ -78,7 +78,7 @@ impl UserState for ClientState {
             calc_rest_density_from_radius: true,
             single_step: false,
             dt: 0.04,
-            solver_iters: 100,
+            solver_iters: 50,
             stiffness: 3.,
             gravity: 9.8,
             sim,
