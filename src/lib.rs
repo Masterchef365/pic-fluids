@@ -36,6 +36,7 @@ struct ClientState {
     pause: bool,
     single_step: bool,
     pic_flip_ratio: f32,
+    integrator: IntegrationMethod,
 
     well: bool,
     source: bool,
@@ -74,6 +75,7 @@ impl UserState for ClientState {
         let sim = Sim::new(width, height, n_particles, particle_radius);
 
         Self {
+            integrator: IntegrationMethod::Euler,
             pic_flip_ratio: 0.95,
             calc_rest_density_from_radius: true,
             single_step: false,
@@ -129,6 +131,7 @@ impl ClientState {
                 self.gravity,
                 self.pic_flip_ratio,
                 self.solver,
+                self.integrator,
             );
 
             self.single_step = false;
@@ -216,6 +219,14 @@ impl ClientState {
                     IncompressibilitySolver::GaussSeidel,
                     "Gauss Seidel",
                 );
+            });
+
+            ui.separator();
+            ui.strong("Particle Integration");
+            ui.horizontal(|ui| {
+                ui.label("Method: ");
+                ui.selectable_value(&mut self.integrator, IntegrationMethod::Euler, "Euler");
+                ui.selectable_value(&mut self.integrator, IntegrationMethod::Leapfrog, "Leapfrog");
             });
 
             ui.separator();
@@ -343,11 +354,19 @@ impl Sim {
         gravity: f32,
         pic_flip_ratio: f32,
         solver: IncompressibilitySolver,
+        integrator: IntegrationMethod,
     ) {
-        // Step particles
-        step_particles_euler(&mut self.particles, dt, |particles| {
+        let integrator = match integrator {
+            IntegrationMethod::Euler => step_particles_euler,
+            IntegrationMethod::Leapfrog => step_particles_leapfrog,
+        };
+
+        let accel = |particles: &[Particle]| {
             apply_global_force(particles, Vec2::new(0., -gravity), dt)
-        });
+        };
+        integrator(&mut self.particles, dt, accel);
+
+        step_particles_leapfrog(&mut self.particles, dt, accel);
         enforce_particle_radius(&mut self.particles, self.particle_radius);
         enforce_particle_pos(&mut self.particles, &self.grid);
 
@@ -736,4 +755,10 @@ fn draw_grid(mesh: &mut Mesh, grid: &Array2D<GridCell>) {
         let b = vertex(Vec2::new(x as f32, grid.height() as f32));
         mesh.push_indices(&[a, b]);
     }
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum IntegrationMethod {
+    Euler,
+    Leapfrog,
 }
