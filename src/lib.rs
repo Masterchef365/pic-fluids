@@ -224,7 +224,6 @@ impl ClientState {
             ui.separator();
             ui.strong("Particle Integration");
             ui.horizontal(|ui| {
-                ui.label("Method: ");
                 ui.selectable_value(&mut self.integrator, IntegrationMethod::Euler, "Euler");
                 ui.selectable_value(&mut self.integrator, IntegrationMethod::Leapfrog, "Leapfrog");
             });
