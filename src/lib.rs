@@ -3,7 +3,7 @@ use cimvr_common::{
     glam::Vec2,
     render::{Mesh, MeshHandle, Primitive, Render, UploadMesh, Vertex},
     ui::{
-        egui::{Button, DragValue, Grid, RichText, Slider, Color32, Rgba},
+        egui::{Button, Color32, DragValue, Grid, Rgba, RichText, Slider},
         GuiInputMessage, GuiTab,
     },
     Transform,
@@ -36,7 +36,6 @@ struct ClientState {
     pause: bool,
     single_step: bool,
     pic_flip_ratio: f32,
-    selected_field: Field,
 
     well: bool,
     source_color_idx: ParticleType,
@@ -79,13 +78,12 @@ impl UserState for ClientState {
 
         Self {
             source_rate: 0,
-            selected_field: Field::InterStrength,
             pic_flip_ratio: 0.5,
-            calc_rest_density_from_radius: true,
+            calc_rest_density_from_radius: false,
             single_step: false,
             dt: 0.02,
-            solver_iters: 50,
-            stiffness: 3.,
+            solver_iters: 25,
+            stiffness: 1.,
             gravity: 0.,
             sim,
             ui: GuiTab::new(io, "PIC Fluids"),
@@ -116,7 +114,11 @@ impl ClientState {
             for _ in 0..self.source_rate {
                 let pos = Vec2::new(10., 90.);
                 let vel = Vec2::ZERO;
-                self.sim.particles.push(Particle { pos, vel, color: self.source_color_idx });
+                self.sim.particles.push(Particle {
+                    pos,
+                    vel,
+                    color: self.source_color_idx,
+                });
             }
 
             if self.well {
@@ -252,41 +254,40 @@ impl ClientState {
                 ui.label("Particle inflow color: ");
                 for (idx, &[r, g, b]) in self.sim.life.colors.iter().enumerate() {
                     let color_marker = RichText::new("#####").color(Rgba::from_rgb(r, g, b));
-                    let button = ui.selectable_label(idx as u8 == self.source_color_idx, color_marker);
+                    let button =
+                        ui.selectable_label(idx as u8 == self.source_color_idx, color_marker);
                     if button.clicked() {
                         self.source_color_idx = idx as u8;
                     }
                 }
-                self.source_color_idx = self.source_color_idx.min(self.sim.life.colors.len() as u8 - 1);
+                self.source_color_idx = self
+                    .source_color_idx
+                    .min(self.sim.life.colors.len() as u8 - 1);
             });
 
             ui.checkbox(&mut self.well, "Particle well");
 
             ui.separator();
-            ui.horizontal(|ui| {
-                ui.selectable_value(
-                    &mut self.selected_field,
-                    Field::DefaultRepulse,
-                    "Default repulsion",
-                );
-                ui.selectable_value(
-                    &mut self.selected_field,
-                    Field::InterThreshold,
-                    "Interaction threshold",
-                );
-            });
-            ui.horizontal(|ui| {
-                ui.selectable_value(
-                    &mut self.selected_field,
-                    Field::InterStrength,
-                    "Interaction Strength",
-                );
-                ui.selectable_value(
-                    &mut self.selected_field,
-                    Field::InterMaxDist,
-                    "Interaction max distance",
-                );
-            });
+
+            let mut behav_cfg = self.sim.life.behaviours[0];
+            ui.add(
+                DragValue::new(&mut behav_cfg.inter_max_dist)
+                    .clamp_range(0.0..=4.0)
+                    .speed(1e-2)
+                    .prefix("Max interaction dist: "),
+            );
+            ui.add(DragValue::new(&mut behav_cfg.default_repulse).speed(1e-2).prefix("Default repulse: "));
+            ui.add(
+                DragValue::new(&mut behav_cfg.inter_threshold)
+                    .clamp_range(0.0..=4.0)
+                    .speed(1e-2)
+                    .prefix("Interaction threshold: "),
+            );
+            for b in &mut self.sim.life.behaviours {
+                b.inter_max_dist = behav_cfg.inter_max_dist;
+                b.inter_threshold = behav_cfg.inter_threshold;
+                b.default_repulse = behav_cfg.default_repulse;
+            }
 
             Grid::new(pkg_namespace!("Particle Life Grid")).show(ui, |ui| {
                 // Top row
@@ -303,24 +304,10 @@ impl ClientState {
                     ui.color_edit_button_rgb(color);
                     for column in 0..len {
                         let behav = &mut self.sim.life.behaviours[column + row_idx * len];
-                        match self.selected_field {
-                            Field::InterStrength => {
-                                ui.add(DragValue::new(&mut behav.inter_strength).speed(1e-2))
-                            }
-                            Field::InterMaxDist => ui.add(
-                                DragValue::new(&mut behav.inter_max_dist)
-                                    .clamp_range(0.0..=4.0)
-                                    .speed(1e-2),
-                            ),
-                            Field::DefaultRepulse => {
-                                ui.add(DragValue::new(&mut behav.default_repulse).speed(1e-2))
-                            }
-                            Field::InterThreshold => ui.add(
-                                DragValue::new(&mut behav.inter_threshold)
-                                    .clamp_range(0.0..=4.0)
-                                    .speed(1e-2),
-                            ),
-                        };
+                        ui.add(
+                            DragValue::new(&mut behav.inter_strength)
+                                .speed(1e-2),
+                        );
                     }
                     ui.end_row();
                 }
@@ -426,14 +413,14 @@ impl Sim {
             })
             .collect();
 
-        // Assuming perfect hexagonal packing,
-        // Packing efficiency * (1 / particle area) = particles / area
+        // Assume half-hexagonal packing density...
+        let rest_density = calc_rest_density(particle_radius) / 4.;
 
         Sim {
             life,
             particles,
             grid: Array2D::new(width, height),
-            rest_density: calc_rest_density(particle_radius),
+            rest_density,
             particle_radius,
             over_relax: 1.5,
         }
@@ -980,16 +967,4 @@ impl Default for Behaviour {
             inter_max_dist: 2.0,
         }
     }
-}
-
-#[derive(PartialEq)]
-pub enum Field {
-    /// Magnitude of the default repulsion force
-    DefaultRepulse,
-    /// Zero point between default repulsion and particle interaction (0 to 1)
-    InterThreshold,
-    /// Interaction peak strength
-    InterStrength,
-    /// Maximum distance of particle interaction (0 to 1)
-    InterMaxDist,
 }
