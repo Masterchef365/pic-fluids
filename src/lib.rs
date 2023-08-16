@@ -3,7 +3,7 @@ use cimvr_common::{
     glam::Vec2,
     render::{Mesh, MeshHandle, Primitive, Render, UploadMesh, Vertex},
     ui::{
-        egui::{Button, Color32, DragValue, Grid, Rgba, RichText, Slider},
+        egui::{Button, Color32, DragValue, Grid, Rgba, RichText, ScrollArea, Slider},
         GuiInputMessage, GuiTab,
     },
     Transform,
@@ -36,6 +36,7 @@ struct ClientState {
     pause: bool,
     single_step: bool,
     pic_flip_ratio: f32,
+    n_colors: usize,
 
     well: bool,
     source_color_idx: ParticleType,
@@ -73,10 +74,12 @@ impl UserState for ClientState {
         let n_particles = 10_000;
         let particle_radius = 0.20;
 
-        let life = LifeConfig::random(3);
+        let n_colors = 3;
+        let life = LifeConfig::random(n_colors);
         let sim = Sim::new(width, height, n_particles, particle_radius, life);
 
         Self {
+            n_colors,
             source_rate: 0,
             pic_flip_ratio: 0.5,
             calc_rest_density_from_radius: false,
@@ -163,170 +166,201 @@ impl ClientState {
 
     fn update_gui(&mut self, io: &mut EngineIo, _query: &mut QueryResult) {
         self.ui.show(io, |ui| {
-            ui.add(Slider::new(&mut self.pic_flip_ratio, 0.0..=1.0).text("PIC - FLIP"));
-            ui.add(DragValue::new(&mut self.stiffness).prefix("Stiffness: "));
-            ui.add(
-                DragValue::new(&mut self.dt)
-                    .prefix("Δt (time step): ")
-                    .speed(1e-3),
-            );
-            ui.add(DragValue::new(&mut self.solver_iters).prefix("Solver iterations: "));
-            ui.add(
-                DragValue::new(&mut self.gravity)
-                    .prefix("Gravity: ")
-                    .speed(1e-2),
-            );
-            ui.add(
-                DragValue::new(&mut self.sim.particle_radius)
-                    .prefix("Particle radius: ")
-                    .speed(1e-2)
-                    .clamp_range(1e-2..=5.0),
-            );
-            ui.horizontal(|ui| {
+            ScrollArea::vertical().show(ui, |ui| {
+                ui.add(Slider::new(&mut self.pic_flip_ratio, 0.0..=1.0).text("PIC - FLIP"));
+                ui.add(DragValue::new(&mut self.stiffness).prefix("Stiffness: "));
                 ui.add(
-                    DragValue::new(&mut self.sim.rest_density)
-                        .prefix("Rest density: ")
+                    DragValue::new(&mut self.dt)
+                        .prefix("Δt (time step): ")
+                        .speed(1e-3),
+                );
+                ui.add(DragValue::new(&mut self.solver_iters).prefix("Solver iterations: "));
+                ui.add(
+                    DragValue::new(&mut self.gravity)
+                        .prefix("Gravity: ")
                         .speed(1e-2),
                 );
-                ui.checkbox(&mut self.calc_rest_density_from_radius, "From radius");
-                if self.calc_rest_density_from_radius {
-                    self.sim.rest_density = calc_rest_density(self.sim.particle_radius);
-                }
-            });
-            ui.horizontal(|ui| {
-                ui.checkbox(&mut self.pause, "Pause");
-                self.single_step |= ui.button("Step").clicked();
-            });
-            ui.checkbox(&mut self.show_grid, "Show grid");
-            ui.horizontal(|ui| {
-                ui.checkbox(&mut self.show_arrows, "Show arrows");
                 ui.add(
-                    DragValue::new(&mut self.grid_vel_scale)
-                        .prefix("Scale: ")
+                    DragValue::new(&mut self.sim.particle_radius)
+                        .prefix("Particle radius: ")
                         .speed(1e-2)
-                        .clamp_range(0.0..=f32::INFINITY),
-                )
-            });
-
-            ui.separator();
-            ui.strong("Incompressibility Solver");
-            ui.add(
-                DragValue::new(&mut self.sim.over_relax)
-                    .prefix("Over-relaxation: ")
-                    .speed(1e-2)
-                    .clamp_range(0.0..=1.95),
-            );
-            ui.horizontal(|ui| {
-                ui.selectable_value(&mut self.solver, IncompressibilitySolver::Jacobi, "Jacobi");
-                ui.selectable_value(
-                    &mut self.solver,
-                    IncompressibilitySolver::GaussSeidel,
-                    "Gauss Seidel",
+                        .clamp_range(1e-2..=5.0),
                 );
-            });
-
-            ui.separator();
-            ui.add(
-                DragValue::new(&mut self.width)
-                    .prefix("Width: ")
-                    .clamp_range(1..=usize::MAX),
-            );
-            ui.add(
-                DragValue::new(&mut self.height)
-                    .prefix("Height: ")
-                    .clamp_range(1..=usize::MAX),
-            );
-            ui.add(
-                DragValue::new(&mut self.n_particles)
-                    .prefix("# of particles: ")
-                    .clamp_range(1..=usize::MAX)
-                    .speed(4),
-            );
-
-            let mut reset = false;
-            if ui.button("Reset").clicked() {
-                reset = true;
-            }
-
-            ui.separator();
-            ui.add(DragValue::new(&mut self.source_rate).prefix("Particle inflow rate: "));
-            ui.horizontal(|ui| {
-                ui.label("Particle inflow color: ");
-                for (idx, &[r, g, b]) in self.sim.life.colors.iter().enumerate() {
-                    let color_marker = RichText::new("#####").color(Rgba::from_rgb(r, g, b));
-                    let button =
-                        ui.selectable_label(idx as u8 == self.source_color_idx, color_marker);
-                    if button.clicked() {
-                        self.source_color_idx = idx as u8;
+                ui.horizontal(|ui| {
+                    ui.add(
+                        DragValue::new(&mut self.sim.rest_density)
+                            .prefix("Rest density: ")
+                            .speed(1e-2),
+                    );
+                    ui.checkbox(&mut self.calc_rest_density_from_radius, "From radius");
+                    if self.calc_rest_density_from_radius {
+                        self.sim.rest_density = calc_rest_density(self.sim.particle_radius);
                     }
+                });
+                ui.horizontal(|ui| {
+                    ui.checkbox(&mut self.pause, "Pause");
+                    self.single_step |= ui.button("Step").clicked();
+                });
+                ui.checkbox(&mut self.show_grid, "Show grid");
+                ui.horizontal(|ui| {
+                    ui.checkbox(&mut self.show_arrows, "Show arrows");
+                    ui.add(
+                        DragValue::new(&mut self.grid_vel_scale)
+                            .prefix("Scale: ")
+                            .speed(1e-2)
+                            .clamp_range(0.0..=f32::INFINITY),
+                    )
+                });
+
+                ui.separator();
+                ui.strong("Incompressibility Solver");
+                ui.add(
+                    DragValue::new(&mut self.sim.over_relax)
+                        .prefix("Over-relaxation: ")
+                        .speed(1e-2)
+                        .clamp_range(0.0..=1.95),
+                );
+                ui.horizontal(|ui| {
+                    ui.selectable_value(
+                        &mut self.solver,
+                        IncompressibilitySolver::Jacobi,
+                        "Jacobi",
+                    );
+                    ui.selectable_value(
+                        &mut self.solver,
+                        IncompressibilitySolver::GaussSeidel,
+                        "Gauss Seidel",
+                    );
+                });
+
+                ui.separator();
+                ui.add(
+                    DragValue::new(&mut self.width)
+                        .prefix("Width: ")
+                        .clamp_range(1..=usize::MAX),
+                );
+                ui.add(
+                    DragValue::new(&mut self.height)
+                        .prefix("Height: ")
+                        .clamp_range(1..=usize::MAX),
+                );
+                ui.add(
+                    DragValue::new(&mut self.n_particles)
+                        .prefix("# of particles: ")
+                        .clamp_range(1..=usize::MAX)
+                        .speed(4),
+                );
+
+                let mut reset = false;
+                if ui.button("Reset").clicked() {
+                    reset = true;
                 }
-                self.source_color_idx = self
-                    .source_color_idx
-                    .min(self.sim.life.colors.len() as u8 - 1);
-            });
 
-            ui.checkbox(&mut self.well, "Particle well");
+                ui.separator();
+                ui.add(DragValue::new(&mut self.source_rate).prefix("Particle inflow rate: "));
+                ui.horizontal(|ui| {
+                    ui.label("Particle inflow color: ");
+                    for (idx, &[r, g, b]) in self.sim.life.colors.iter().enumerate() {
+                        let color_marker = RichText::new("#####").color(Rgba::from_rgb(r, g, b));
+                        let button =
+                            ui.selectable_label(idx as u8 == self.source_color_idx, color_marker);
+                        if button.clicked() {
+                            self.source_color_idx = idx as u8;
+                        }
+                    }
+                    self.source_color_idx = self
+                        .source_color_idx
+                        .min(self.sim.life.colors.len() as u8 - 1);
+                });
 
-            ui.separator();
+                ui.checkbox(&mut self.well, "Particle well");
 
-            let mut behav_cfg = self.sim.life.behaviours[0];
-            ui.add(
-                DragValue::new(&mut behav_cfg.inter_max_dist)
-                    .clamp_range(0.0..=4.0)
-                    .speed(1e-2)
-                    .prefix("Max interaction dist: "),
-            );
-            ui.add(DragValue::new(&mut behav_cfg.default_repulse).speed(1e-2).prefix("Default repulse: "));
-            ui.add(
-                DragValue::new(&mut behav_cfg.inter_threshold)
-                    .clamp_range(0.0..=4.0)
-                    .speed(1e-2)
-                    .prefix("Interaction threshold: "),
-            );
-            for b in &mut self.sim.life.behaviours {
-                b.inter_max_dist = behav_cfg.inter_max_dist;
-                b.inter_threshold = behav_cfg.inter_threshold;
-                b.default_repulse = behav_cfg.default_repulse;
-            }
+                ui.separator();
 
-            Grid::new(pkg_namespace!("Particle Life Grid")).show(ui, |ui| {
-                // Top row
-                //ui.label("Life");
-                ui.label("");
-                for color in &mut self.sim.life.colors {
-                    ui.color_edit_button_rgb(color);
+                let mut behav_cfg = self.sim.life.behaviours[0];
+                ui.add(
+                    DragValue::new(&mut behav_cfg.inter_max_dist)
+                        .clamp_range(0.0..=4.0)
+                        .speed(1e-2)
+                        .prefix("Max interaction dist: "),
+                );
+                ui.add(
+                    DragValue::new(&mut behav_cfg.default_repulse)
+                        .speed(1e-2)
+                        .prefix("Default repulse: "),
+                );
+                ui.add(
+                    DragValue::new(&mut behav_cfg.inter_threshold)
+                        .clamp_range(0.0..=4.0)
+                        .speed(1e-2)
+                        .prefix("Interaction threshold: "),
+                );
+                for b in &mut self.sim.life.behaviours {
+                    b.inter_max_dist = behav_cfg.inter_max_dist;
+                    b.inter_threshold = behav_cfg.inter_threshold;
+                    b.default_repulse = behav_cfg.default_repulse;
                 }
-                ui.end_row();
 
-                // Grid
-                let len = self.sim.life.colors.len();
-                for (row_idx, color) in self.sim.life.colors.iter_mut().enumerate() {
-                    ui.color_edit_button_rgb(color);
-                    for column in 0..len {
-                        let behav = &mut self.sim.life.behaviours[column + row_idx * len];
-                        ui.add(
-                            DragValue::new(&mut behav.inter_strength)
-                                .speed(1e-2),
-                        );
+                Grid::new(pkg_namespace!("Particle Life Grid")).show(ui, |ui| {
+                    // Top row
+                    //ui.label("Life");
+                    ui.label("");
+                    for color in &mut self.sim.life.colors {
+                        ui.color_edit_button_rgb(color);
                     }
                     ui.end_row();
+
+                    // Grid
+                    let len = self.sim.life.colors.len();
+                    for (row_idx, color) in self.sim.life.colors.iter_mut().enumerate() {
+                        ui.color_edit_button_rgb(color);
+                        for column in 0..len {
+                            let behav = &mut self.sim.life.behaviours[column + row_idx * len];
+                            ui.add(DragValue::new(&mut behav.inter_strength).speed(1e-2));
+                        }
+                        ui.end_row();
+                    }
+                });
+
+                ui.horizontal(|ui| {
+                    if ui.button("Randomize behaviours").clicked() {
+                        self.sim.life = LifeConfig::random(self.n_colors);
+                        reset = true;
+                    }
+                    ui.add(
+                        DragValue::new(&mut self.n_colors)
+                            .prefix("# of colors: ")
+                            .clamp_range(1..=255),
+                    );
+                });
+
+                if ui.button("Make symmetric").clicked() {
+                    let n = self.sim.life.colors.len();
+                    for i in 0..n {
+                        for j in 0..i {
+                            self.sim.life.behaviours[i + n * j] =
+                                self.sim.life.behaviours[j + n * i];
+                        }
+                    }
                 }
-            });
+                if ui.button("No life").clicked() {
+                    self.sim
+                        .life
+                        .behaviours
+                        .iter_mut()
+                        .for_each(|b| b.inter_strength = 0.);
+                }
 
-            if ui.button("Randomize behaviours").clicked() {
-                self.sim.life = LifeConfig::random(3);
-                reset = true;
-            }
-
-            if reset {
-                self.sim = Sim::new(
-                    self.width,
-                    self.height,
-                    self.n_particles,
-                    self.sim.particle_radius,
-                    self.sim.life.clone(),
-                );
-            }
+                if reset {
+                    self.sim = Sim::new(
+                        self.width,
+                        self.height,
+                        self.n_particles,
+                        self.sim.particle_radius,
+                        self.sim.life.clone(),
+                    );
+                }
+            })
         });
     }
 }
