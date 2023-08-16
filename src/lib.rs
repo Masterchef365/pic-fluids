@@ -2,7 +2,10 @@ use array2d::{Array2D, GridPos};
 use cimvr_common::{
     glam::Vec2,
     render::{Mesh, MeshHandle, Primitive, Render, UploadMesh, Vertex},
-    ui::{egui::{DragValue, Slider}, GuiInputMessage, GuiTab},
+    ui::{
+        egui::{DragValue, Slider},
+        GuiInputMessage, GuiTab,
+    },
     Transform,
 };
 use cimvr_engine_interface::{make_app_state, pcg::Pcg, pkg_namespace, prelude::*};
@@ -342,8 +345,9 @@ impl Sim {
         solver: IncompressibilitySolver,
     ) {
         // Step particles
-        apply_global_force(&mut self.particles, Vec2::new(0., -gravity), dt);
-        step_particles(&mut self.particles, dt);
+        step_particles_euler(&mut self.particles, dt, |particles| {
+            apply_global_force(particles, Vec2::new(0., -gravity), dt)
+        });
         enforce_particle_radius(&mut self.particles, self.particle_radius);
         enforce_particle_pos(&mut self.particles, &self.grid);
 
@@ -373,17 +377,44 @@ fn rng() -> SmallRng {
 }
 
 /// Move particles forwards in time by `dt`, assuming unit mass for all particles.
-fn step_particles(particles: &mut [Particle], dt: f32) {
-    for part in particles {
+fn step_particles_euler(
+    particles: &mut [Particle],
+    dt: f32,
+    accel: impl Fn(&[Particle]) -> Vec<Vec2>,
+) {
+    let accel = accel(&particles);
+    for (part, &accel) in particles.iter_mut().zip(&accel) {
+        part.vel += accel * dt;
         part.pos += part.vel * dt;
     }
 }
 
-/// Apply a force to all particles, e.g. gravity
-fn apply_global_force(particles: &mut [Particle], g: Vec2, dt: f32) {
-    for part in particles {
-        part.vel += g * dt;
+/// Move particles forwards in time by `dt`, assuming unit mass for all particles, and using
+/// the acceleration function to calculate
+fn step_particles_leapfrog(
+    particles: &mut [Particle],
+    dt: f32,
+    accel: impl Fn(&[Particle]) -> Vec<Vec2>,
+) {
+    // Calculate current acceleration
+    let cur_accel = accel(&particles);
+
+    // Advance particles to next position
+    let dt2 = dt.powi(2);
+    for (part, &accel) in particles.iter_mut().zip(&cur_accel) {
+        part.pos += part.vel * dt + accel * dt2 / 2.;
     }
+
+    // Calculate next frame's acceleration (TODO: Cache this?? Some sorta struct LeapFrogIntegrator)
+    let next_accel = accel(&particles);
+    for ((part, &cur_accel), &next_accel) in particles.iter_mut().zip(&cur_accel).zip(&next_accel) {
+        part.vel += (cur_accel + next_accel) * dt / 2.;
+    }
+}
+
+/// Apply a force to all particles, e.g. gravity
+fn apply_global_force(particles: &[Particle], g: Vec2, dt: f32) -> Vec<Vec2> {
+    vec![g * dt; particles.len()]
 }
 
 /// Offset from particles to U grid (the U grid is 0.5 units positive to where the particles sit)
@@ -548,7 +579,12 @@ fn solve_incompressibility_gauss_seidel(
     }
 }
 
-fn grid_to_particles(particles: &mut [Particle], grid: &Array2D<GridCell>, old_grid: &Array2D<GridCell>, pic_flip_ratio: f32) {
+fn grid_to_particles(
+    particles: &mut [Particle],
+    grid: &Array2D<GridCell>,
+    old_grid: &Array2D<GridCell>,
+    pic_flip_ratio: f32,
+) {
     for part in particles {
         // Interpolate velocity onto particles
         let new_vel_x = gather(part.pos - OFFSET_U, grid, |c| c.vel.x);
@@ -563,7 +599,6 @@ fn grid_to_particles(particles: &mut [Particle], grid: &Array2D<GridCell>, old_g
         let flip = part.vel + d_vel;
         let pic = new_vel;
         part.vel = pic.lerp(flip, pic_flip_ratio);
-
     }
 }
 
