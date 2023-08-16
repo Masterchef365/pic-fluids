@@ -3,7 +3,7 @@ use cimvr_common::{
     glam::Vec2,
     render::{Mesh, MeshHandle, Primitive, Render, UploadMesh, Vertex},
     ui::{
-        egui::{DragValue, Grid, Slider},
+        egui::{Button, DragValue, Grid, RichText, Slider, Color32, Rgba},
         GuiInputMessage, GuiTab,
     },
     Transform,
@@ -39,7 +39,8 @@ struct ClientState {
     selected_field: Field,
 
     well: bool,
-    source: bool,
+    source_color_idx: ParticleType,
+    source_rate: usize,
 
     ui: GuiTab,
 }
@@ -77,6 +78,7 @@ impl UserState for ClientState {
         let sim = Sim::new(width, height, n_particles, particle_radius, life);
 
         Self {
+            source_rate: 0,
             selected_field: Field::InterStrength,
             pic_flip_ratio: 0.95,
             calc_rest_density_from_radius: true,
@@ -92,7 +94,7 @@ impl UserState for ClientState {
             n_particles,
             solver: IncompressibilitySolver::GaussSeidel,
             well: false,
-            source: false,
+            source_color_idx: 0,
             show_arrows: false,
             pause: false,
             grid_vel_scale: 0.05,
@@ -111,14 +113,11 @@ impl ClientState {
     fn update(&mut self, io: &mut EngineIo, _query: &mut QueryResult) {
         // Update
         if !self.pause || self.single_step {
-            /*
-            if self.source {
+            for _ in 0..self.source_rate {
                 let pos = Vec2::new(10., 90.);
-                //let vel = Vec2::new(0., -20.);
                 let vel = Vec2::ZERO;
-                self.sim.particles.push(Particle { pos, vel });
+                self.sim.particles.push(Particle { pos, vel, color: self.source_color_idx });
             }
-            */
 
             if self.well {
                 for part in &mut self.sim.particles {
@@ -248,7 +247,19 @@ impl ClientState {
             }
 
             ui.separator();
-            ui.checkbox(&mut self.source, "Particle source");
+            ui.add(DragValue::new(&mut self.source_rate).prefix("Particle inflow rate: "));
+            ui.horizontal(|ui| {
+                ui.label("Particle inflow color: ");
+                for (idx, &[r, g, b]) in self.sim.life.colors.iter().enumerate() {
+                    let color_marker = RichText::new("#####").color(Rgba::from_rgb(r, g, b));
+                    let button = ui.selectable_label(idx as u8 == self.source_color_idx, color_marker);
+                    if button.clicked() {
+                        self.source_color_idx = idx as u8;
+                    }
+                }
+                self.source_color_idx = self.source_color_idx.min(self.sim.life.colors.len() as u8 - 1);
+            });
+
             ui.checkbox(&mut self.well, "Particle well");
 
             ui.separator();
