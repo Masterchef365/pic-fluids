@@ -72,7 +72,7 @@ impl UserState for ClientState {
         let width = 100;
         let height = 100;
         let n_particles = 10_000;
-        let particle_radius = 0.36;
+        let particle_radius = 0.20;
 
         let life = LifeConfig::random(3);
         let sim = Sim::new(width, height, n_particles, particle_radius, life);
@@ -80,7 +80,7 @@ impl UserState for ClientState {
         Self {
             source_rate: 0,
             selected_field: Field::InterStrength,
-            pic_flip_ratio: 0.95,
+            pic_flip_ratio: 0.5,
             calc_rest_density_from_radius: true,
             single_step: false,
             dt: 0.02,
