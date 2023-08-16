@@ -387,7 +387,7 @@ fn calc_rest_density(particle_radius: f32) -> f32 {
     let particle_area = std::f32::consts::PI * particle_radius.powi(2);
     let density = packing_density / particle_area;
     // A guess for particle life
-    density / 4.
+    density
 }
 
 impl Sim {
