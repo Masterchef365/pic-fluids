@@ -3,7 +3,7 @@ use cimvr_common::{
     glam::Vec2,
     render::{Mesh, MeshHandle, Primitive, Render, UploadMesh, Vertex},
     ui::{
-        egui::{Button, Color32, DragValue, Grid, Rgba, RichText, ScrollArea, Slider},
+        egui::{Button, Checkbox, Color32, DragValue, Grid, Rgba, RichText, ScrollArea, Slider},
         GuiInputMessage, GuiTab,
     },
     Transform,
@@ -167,8 +167,53 @@ impl ClientState {
     fn update_gui(&mut self, io: &mut EngineIo, _query: &mut QueryResult) {
         self.ui.show(io, |ui| {
             ScrollArea::vertical().show(ui, |ui| {
+                let mut reset = false;
+                ui.separator();
+                ui.strong("Simulation state");
+                ui.horizontal(|ui| {
+                    ui.add(
+                        DragValue::new(&mut self.width)
+                            .prefix("Width: ")
+                            .clamp_range(1..=usize::MAX),
+                    );
+                    ui.add(
+                        DragValue::new(&mut self.height)
+                            .prefix("Height: ")
+                            .clamp_range(1..=usize::MAX),
+                    );
+                });
+                ui.add(
+                    DragValue::new(&mut self.n_particles)
+                        .prefix("# of particles: ")
+                        .clamp_range(1..=usize::MAX)
+                        .speed(4),
+                );
+                if ui
+                    .add(
+                        DragValue::new(&mut self.n_colors)
+                            .prefix("# of colors: ")
+                            .clamp_range(1..=255),
+                    )
+                    .changed()
+                {
+                    self.sim
+                        .life
+                        .behaviours
+                        .resize(self.n_colors.pow(2), Behaviour::default());
+                    self.sim.life.colors.resize_with(self.n_colors, || random_color(&mut rng()));
+                    reset = true;
+                }
+                ui.horizontal(|ui| {
+                    ui.checkbox(&mut self.pause, "Pause");
+                    self.single_step |= ui.button("Step").clicked();
+                });
+                if ui.button("Reset").clicked() {
+                    reset = true;
+                }
+
+                ui.separator();
+                ui.strong("Kinematics");
                 ui.add(Slider::new(&mut self.pic_flip_ratio, 0.0..=1.0).text("PIC - FLIP"));
-                ui.add(DragValue::new(&mut self.stiffness).prefix("Stiffness: "));
                 ui.add(
                     DragValue::new(&mut self.dt)
                         .prefix("Δt (time step): ")
@@ -186,6 +231,9 @@ impl ClientState {
                         .prefix("Gravity: ")
                         .speed(1e-2),
                 );
+
+                ui.separator();
+                ui.strong("Particle collisions");
                 ui.add(
                     DragValue::new(&mut self.sim.particle_radius)
                         .prefix("Particle radius: ")
@@ -203,10 +251,8 @@ impl ClientState {
                         self.sim.rest_density = calc_rest_density(self.sim.particle_radius);
                     }
                 });
-                ui.horizontal(|ui| {
-                    ui.checkbox(&mut self.pause, "Pause");
-                    self.single_step |= ui.button("Step").clicked();
-                });
+                ui.add(DragValue::new(&mut self.stiffness).prefix("Stiffness: "));
+
                 ui.checkbox(&mut self.show_grid, "Show grid");
                 ui.horizontal(|ui| {
                     ui.checkbox(&mut self.show_arrows, "Show arrows");
@@ -240,29 +286,7 @@ impl ClientState {
                 });
 
                 ui.separator();
-                ui.add(
-                    DragValue::new(&mut self.width)
-                        .prefix("Width: ")
-                        .clamp_range(1..=usize::MAX),
-                );
-                ui.add(
-                    DragValue::new(&mut self.height)
-                        .prefix("Height: ")
-                        .clamp_range(1..=usize::MAX),
-                );
-                ui.add(
-                    DragValue::new(&mut self.n_particles)
-                        .prefix("# of particles: ")
-                        .clamp_range(1..=usize::MAX)
-                        .speed(4),
-                );
-
-                let mut reset = false;
-                if ui.button("Reset").clicked() {
-                    reset = true;
-                }
-
-                ui.separator();
+                ui.strong("Particle source");
                 ui.add(DragValue::new(&mut self.source_rate).prefix("Particle inflow rate: "));
                 ui.horizontal(|ui| {
                     ui.label("Particle inflow color: ");
@@ -278,11 +302,10 @@ impl ClientState {
                         .source_color_idx
                         .min(self.sim.life.colors.len() as u8 - 1);
                 });
-
                 ui.checkbox(&mut self.well, "Particle well");
 
                 ui.separator();
-
+                ui.strong("Particle life");
                 let mut behav_cfg = self.sim.life.behaviours[0];
                 ui.add(
                     DragValue::new(&mut behav_cfg.inter_max_dist)
@@ -328,17 +351,10 @@ impl ClientState {
                     }
                 });
 
-                ui.horizontal(|ui| {
-                    if ui.button("Randomize behaviours").clicked() {
-                        self.sim.life = LifeConfig::random(self.n_colors);
-                        reset = true;
-                    }
-                    ui.add(
-                        DragValue::new(&mut self.n_colors)
-                            .prefix("# of colors: ")
-                            .clamp_range(1..=255),
-                    );
-                });
+                if ui.button("Randomize behaviours").clicked() {
+                    self.sim.life = LifeConfig::random(self.n_colors);
+                    reset = true;
+                }
 
                 if ui.button("Make symmetric").clicked() {
                     let n = self.sim.life.colors.len();
@@ -987,7 +1003,7 @@ impl LifeConfig {
         let mut rng = rng();
 
         let colors: Vec<[f32; 3]> = (0..rule_count)
-            .map(|_| hsv_to_rgb(rng.gen_range(0.0..=360.0), 1., 1.))
+            .map(|_| random_color(&mut rng))
             .collect();
         let behaviours = (0..rule_count.pow(2))
             .map(|_| {
@@ -1014,4 +1030,8 @@ impl Default for Behaviour {
             inter_max_dist: 1.3,
         }
     }
+}
+
+fn random_color(rng: &mut impl Rng) -> [f32; 3] {
+    hsv_to_rgb(rng.gen_range(0.0..=360.0), 1., 1.)
 }
