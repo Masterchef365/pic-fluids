@@ -160,7 +160,7 @@ impl TemplateApp {
             let x = part.pos.x * (rect.width() / self.sim.grid.width() as f32);
             let y = part.pos.y * (rect.height() / self.sim.grid.height() as f32);
             let color = self.sim.life.colors[part.color as usize];
-            painter.circle_filled(egui::pos2(x, y), 1., color_to_egui(color));
+            painter.circle_filled(egui::pos2(x, y) + rect.left_top().to_vec2(), 1., color_to_egui(color));
         }
     }
 
