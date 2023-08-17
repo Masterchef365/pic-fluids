@@ -37,6 +37,9 @@ wasm-bindgen-futures = "0.4"
 [profile.release]
 opt-level = 3 # fast and small wasm
 
+[profile.dev]
+opt-level = 3 # fast and small wasm
+
 # Optimize all dependencies even in debug builds:
 [profile.dev.package."*"]
 opt-level = 3
