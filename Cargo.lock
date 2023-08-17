@@ -737,22 +737,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "eframe_template"
-version = "0.1.0"
-dependencies = [
- "eframe",
- "egui",
- "env_logger",
- "getrandom",
- "glam",
- "log",
- "rand",
- "rand_distr",
- "wasm-bindgen-futures",
- "zwohash",
-]
-
-[[package]]
 name = "egui"
 version = "0.22.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1678,6 +1662,22 @@ name = "percent-encoding"
 version = "2.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "478c572c3d73181ff3c2539045f6eb99e5491218eae919370993b890cdbdd98e"
+
+[[package]]
+name = "pic-fluids"
+version = "0.1.0"
+dependencies = [
+ "eframe",
+ "egui",
+ "env_logger",
+ "getrandom",
+ "glam",
+ "log",
+ "rand",
+ "rand_distr",
+ "wasm-bindgen-futures",
+ "zwohash",
+]
 
 [[package]]
 name = "pin-project-lite"
