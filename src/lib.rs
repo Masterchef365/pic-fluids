@@ -174,6 +174,12 @@ impl ClientState {
                         .prefix("Δt (time step): ")
                         .speed(1e-3),
                 );
+                ui.add(
+                    DragValue::new(&mut self.sim.damping)
+                        .prefix("Damping: ")
+                        .speed(1e-3),
+                );
+
                 ui.add(DragValue::new(&mut self.solver_iters).prefix("Solver iterations: "));
                 ui.add(
                     DragValue::new(&mut self.gravity)
@@ -352,6 +358,7 @@ impl ClientState {
                 }
 
                 if reset {
+                    let damp = self.sim.damping;
                     self.sim = Sim::new(
                         self.width,
                         self.height,
@@ -359,6 +366,7 @@ impl ClientState {
                         self.sim.particle_radius,
                         self.sim.life.clone(),
                     );
+                    self.sim.damping = damp;
                 }
             })
         });
@@ -395,6 +403,7 @@ struct Sim {
     particle_radius: f32,
     over_relax: f32,
     life: LifeConfig,
+    damping: f32,
 }
 
 #[derive(Copy, Clone, Debug, Default)]
@@ -453,6 +462,7 @@ impl Sim {
         let rest_density = calc_rest_density(particle_radius);
 
         Sim {
+            damping: 0.,
             life,
             particles,
             grid: Array2D::new(width, height),
@@ -474,7 +484,7 @@ impl Sim {
         // Step particles
         apply_global_force(&mut self.particles, Vec2::new(0., -gravity), dt);
         particle_interactions(&mut self.particles, &mut self.life, dt);
-        step_particles(&mut self.particles, dt);
+        step_particles(&mut self.particles, dt, self.damping);
         enforce_particle_radius(&mut self.particles, self.particle_radius);
         enforce_particle_pos(&mut self.particles, &self.grid);
 
@@ -504,9 +514,10 @@ fn rng() -> SmallRng {
 }
 
 /// Move particles forwards in time by `dt`, assuming unit mass for all particles.
-fn step_particles(particles: &mut [Particle], dt: f32) {
+fn step_particles(particles: &mut [Particle], dt: f32, damping: f32) {
     for part in particles {
-        part.pos += part.vel * dt;
+        let next = part.pos + part.vel * dt;
+        part.pos = next.lerp(part.pos, damping);
     }
 }
 
