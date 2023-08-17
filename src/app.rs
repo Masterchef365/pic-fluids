@@ -176,7 +176,7 @@ impl TemplateApp {
                 self.sim
                     .life
                     .colors
-                    .resize_with(self.n_colors, || random_color(&mut rng()));
+                    .resize_with(self.n_colors, || random_color(&mut rand::thread_rng()));
                 reset = true;
             }
             ui.horizontal(|ui| {
@@ -431,7 +431,7 @@ impl Sim {
         life: LifeConfig,
     ) -> Self {
         // Uniformly placed, random particles
-        let mut rng = rng();
+        let mut rng = rand::thread_rng();
         let particles = (0..n_particles)
             .map(|_| {
                 let pos = Vec2::new(
@@ -495,10 +495,6 @@ impl Sim {
 
         grid_to_particles(&mut self.particles, &self.grid, &old_vel, pic_flip_ratio);
     }
-}
-
-fn rng() -> SmallRng {
-    SmallRng::seed_from_u64(93204832)
 }
 
 /// Move particles forwards in time by `dt`, assuming unit mass for all particles.
@@ -748,7 +744,7 @@ fn enforce_particle_radius(particles: &mut [Particle], radius: f32) {
     let mut points: Vec<Vec2> = particles.iter().map(|p| p.pos).collect();
     let mut accel = QueryAccelerator::new(&points, radius * 2.);
 
-    //let mut rng = rng();
+    //let mut rng = rand::thread_rng();
 
     let mut neigh = vec![];
     for i in 0..particles.len() {
@@ -974,7 +970,7 @@ impl LifeConfig {
     }
 
     fn random(rule_count: usize) -> Self {
-        let mut rng = rng();
+        let mut rng = rand::thread_rng();
 
         let colors: Vec<[f32; 3]> = (0..rule_count).map(|_| random_color(&mut rng)).collect();
         let behaviours = (0..rule_count.pow(2))
