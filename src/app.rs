@@ -66,11 +66,12 @@ impl TemplateApp {
 
 impl eframe::App for TemplateApp {
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
-        
+        SidePanel::left("Settings").show(ctx, |ui| self.update_gui(ui));
     }
 }
 
 use crate::array2d::{Array2D, GridPos};
+use egui::{epaint::Vertex, Shape, SidePanel};
 use glam::Vec2;
 use eframe::egui::{Button, Checkbox, Color32, DragValue, Grid, Rgba, RichText, ScrollArea, Slider, Ui};
 use crate::query_accel::QueryAccelerator;
@@ -368,7 +369,8 @@ fn simspace_to_modelspace(pos: Vec2) -> [f32; 3] {
     ]
 }
 
-fn particles_mesh(particles: &[Particle], life: &LifeConfig) -> Mesh {
+/*
+fn particles_mesh(particles: &[Particle], life: &LifeConfig) -> Shape {
     Mesh {
         vertices: particles
             .iter()
@@ -377,6 +379,7 @@ fn particles_mesh(particles: &[Particle], life: &LifeConfig) -> Mesh {
         indices: (0..particles.len() as u32).collect(),
     }
 }
+*/
 
 #[derive(Clone)]
 struct Sim {
@@ -495,8 +498,7 @@ impl Sim {
 }
 
 fn rng() -> SmallRng {
-    let u = ((Pcg::new().gen_u32() as u64) << 32) | Pcg::new().gen_u32() as u64;
-    SmallRng::seed_from_u64(u)
+    SmallRng::seed_from_u64(93204832)
 }
 
 /// Move particles forwards in time by `dt`, assuming unit mass for all particles.
