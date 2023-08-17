@@ -1,4 +1,4 @@
-use cimvr_common::glam::Vec2;
+use glam::Vec2;
 use zwohash::HashMap;
 
 /// Euclidean neighborhood query accelerator. Uses a hashmap grid.
