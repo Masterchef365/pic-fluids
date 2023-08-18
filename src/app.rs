@@ -52,7 +52,7 @@ impl TemplateApp {
             single_step: false,
             dt: 0.02,
             solver_iters: 25,
-            stiffness: 1.,
+            stiffness: 0.3,
             gravity: 0.,
             sim,
             width,
@@ -73,7 +73,9 @@ impl eframe::App for TemplateApp {
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
         // Update continuously
         ctx.request_repaint();
-        SidePanel::left("Settings").show(ctx, |ui| ScrollArea::both().show(ui, |ui| self.settings_gui(ui)));
+        SidePanel::left("Settings").show(ctx, |ui| {
+            ScrollArea::both().show(ui, |ui| self.settings_gui(ui))
+        });
 
         CentralPanel::default().show(ctx, |ui| {
             Frame::canvas(ui.style()).show(ui, |ui| self.sim_widget(ui))
@@ -87,7 +89,7 @@ use eframe::egui::{
     Button, Checkbox, Color32, DragValue, Grid, Rgba, RichText, ScrollArea, Slider, Ui,
 };
 use egui::{epaint::Vertex, Shape, SidePanel};
-use egui::{CentralPanel, Frame, Sense, Rect};
+use egui::{CentralPanel, Frame, Rect, Sense};
 use glam::Vec2;
 use rand::prelude::*;
 
@@ -180,7 +182,7 @@ impl TemplateApp {
         let mut reset = false;
         ui.separator();
         ui.strong("Simulation state");
-        
+
         if ui
             .add(
                 DragValue::new(&mut self.n_particles)
@@ -282,7 +284,11 @@ impl TemplateApp {
                     self.sim.rest_density = calc_rest_density(self.sim.particle_radius);
                 }
             });
-            ui.add(DragValue::new(&mut self.stiffness).prefix("Stiffness: ").speed(1e-2));
+            ui.add(
+                DragValue::new(&mut self.stiffness)
+                    .prefix("Stiffness: ")
+                    .speed(1e-2),
+            );
         }
 
         if self.advanced {
@@ -552,14 +558,14 @@ impl Sim {
         enforce_particle_pos(&mut self.particles, &self.grid);
 
         // Step grid
-        if enable_incompress {
-            particles_to_grid(&self.particles, &mut self.grid);
-            let solver_fn = match solver {
-                IncompressibilitySolver::Jacobi => solve_incompressibility_jacobi,
-                IncompressibilitySolver::GaussSeidel => solve_incompressibility_gauss_seidel,
-            };
+        particles_to_grid(&self.particles, &mut self.grid);
+        let solver_fn = match solver {
+            IncompressibilitySolver::Jacobi => solve_incompressibility_jacobi,
+            IncompressibilitySolver::GaussSeidel => solve_incompressibility_gauss_seidel,
+        };
 
-            let old_vel = self.grid.clone();
+        let old_vel = self.grid.clone();
+        if enable_incompress {
             solver_fn(
                 &mut self.grid,
                 solver_iters,
@@ -567,9 +573,9 @@ impl Sim {
                 self.over_relax,
                 stiffness,
             );
-
-            grid_to_particles(&mut self.particles, &self.grid, &old_vel, pic_flip_ratio);
         }
+
+        grid_to_particles(&mut self.particles, &self.grid, &old_vel, pic_flip_ratio);
     }
 }
 
@@ -1084,15 +1090,11 @@ fn color_to_egui([r, g, b]: [f32; 3]) -> Rgba {
     Rgba::from_rgb(r, g, b)
 }
 
-fn sim_coords_to_egui(pos: Vec2, grid: &Array2D<GridCell>, area: Rect) {
-
-}
+fn sim_coords_to_egui(pos: Vec2, grid: &Array2D<GridCell>, area: Rect) {}
 
 /// Maps sim coordinates to/from egui coordinates
 struct CoordinateMapping {
     width: usize,
     height: usize,
-    area: Rect
+    area: Rect,
 }
-
-
