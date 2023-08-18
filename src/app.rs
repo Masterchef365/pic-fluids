@@ -21,6 +21,7 @@ pub struct TemplateApp {
     single_step: bool,
     pic_flip_ratio: f32,
     n_colors: usize,
+    enable_incompress: bool,
 
     well: bool,
     source_color_idx: ParticleType,
@@ -34,7 +35,7 @@ impl TemplateApp {
     pub fn new(cc: &eframe::CreationContext<'_>) -> Self {
         let width = 100;
         let height = 100;
-        let n_particles = 1_000;
+        let n_particles = 4_000;
         let particle_radius = 0.20;
 
         let n_colors = 3;
@@ -42,6 +43,7 @@ impl TemplateApp {
         let sim = Sim::new(width, height, n_particles, particle_radius, life);
 
         Self {
+            enable_incompress: true,
             advanced: false,
             n_colors,
             source_rate: 0,
@@ -124,6 +126,7 @@ impl TemplateApp {
                 self.gravity,
                 self.pic_flip_ratio,
                 self.solver,
+                self.enable_incompress,
             );
 
             self.single_step = false;
@@ -283,12 +286,15 @@ impl TemplateApp {
                     self.sim.rest_density = calc_rest_density(self.sim.particle_radius);
                 }
             });
-            ui.add(DragValue::new(&mut self.stiffness).prefix("Stiffness: "));
+            ui.add(DragValue::new(&mut self.stiffness).prefix("Stiffness: ").speed(1e-2));
         }
 
         if self.advanced {
             ui.separator();
-            ui.strong("Incompressibility Solver");
+            ui.horizontal(|ui| {
+                ui.strong("Incompressibility Solver");
+                ui.checkbox(&mut self.enable_incompress, "");
+            });
             ui.add(
                 DragValue::new(&mut self.sim.over_relax)
                     .prefix("Over-relaxation: ")
@@ -328,7 +334,7 @@ impl TemplateApp {
         let mut behav_cfg = self.sim.life.behaviours[0];
         if self.advanced {
             ui.add(
-                DragValue::new(&mut behav_cfg.inter_max_dist)
+                DragValue::new(&mut behav_cfg.max_inter_dist)
                     .clamp_range(0.0..=4.0)
                     .speed(1e-2)
                     .prefix("Max interaction dist: "),
@@ -346,7 +352,7 @@ impl TemplateApp {
             );
         }
         for b in &mut self.sim.life.behaviours {
-            b.inter_max_dist = behav_cfg.inter_max_dist;
+            b.max_inter_dist = behav_cfg.max_inter_dist;
             b.inter_threshold = behav_cfg.inter_threshold;
             b.default_repulse = behav_cfg.default_repulse;
         }
@@ -538,6 +544,7 @@ impl Sim {
         gravity: f32,
         pic_flip_ratio: f32,
         solver: IncompressibilitySolver,
+        enable_incompress: bool,
     ) {
         // Step particles
         apply_global_force(&mut self.particles, Vec2::new(0., -gravity), dt);
@@ -547,22 +554,24 @@ impl Sim {
         enforce_particle_pos(&mut self.particles, &self.grid);
 
         // Step grid
-        particles_to_grid(&self.particles, &mut self.grid);
-        let solver_fn = match solver {
-            IncompressibilitySolver::Jacobi => solve_incompressibility_jacobi,
-            IncompressibilitySolver::GaussSeidel => solve_incompressibility_gauss_seidel,
-        };
+        if enable_incompress {
+            particles_to_grid(&self.particles, &mut self.grid);
+            let solver_fn = match solver {
+                IncompressibilitySolver::Jacobi => solve_incompressibility_jacobi,
+                IncompressibilitySolver::GaussSeidel => solve_incompressibility_gauss_seidel,
+            };
 
-        let old_vel = self.grid.clone();
-        solver_fn(
-            &mut self.grid,
-            solver_iters,
-            self.rest_density,
-            self.over_relax,
-            stiffness,
-        );
+            let old_vel = self.grid.clone();
+            solver_fn(
+                &mut self.grid,
+                solver_iters,
+                self.rest_density,
+                self.over_relax,
+                stiffness,
+            );
 
-        grid_to_particles(&mut self.particles, &self.grid, &old_vel, pic_flip_ratio);
+            grid_to_particles(&mut self.particles, &self.grid, &old_vel, pic_flip_ratio);
+        }
     }
 }
 
@@ -955,7 +964,7 @@ pub struct Behaviour {
     /// Interaction peak strength
     pub inter_strength: f32,
     /// Maximum distance of particle interaction (0 to 1)
-    pub inter_max_dist: f32,
+    pub max_inter_dist: f32,
 }
 
 impl Behaviour {
@@ -966,11 +975,11 @@ impl Behaviour {
         if dist < self.inter_threshold {
             let f = dist / self.inter_threshold;
             (1. - f) * -self.default_repulse
-        } else if dist > self.inter_max_dist {
+        } else if dist > self.max_inter_dist {
             0.0
         } else {
             let x = dist - self.inter_threshold;
-            let x = x / (self.inter_max_dist - self.inter_threshold);
+            let x = x / (self.max_inter_dist - self.inter_threshold);
             let x = x * 2. - 1.;
             let x = 1. - x.abs();
             x * self.inter_strength
@@ -1028,7 +1037,7 @@ impl LifeConfig {
     pub fn max_interaction_radius(&self) -> f32 {
         self.behaviours
             .iter()
-            .map(|b| b.inter_max_dist)
+            .map(|b| b.max_inter_dist)
             .max_by(|a, b| a.total_cmp(b))
             .unwrap()
     }
@@ -1064,7 +1073,7 @@ impl Default for Behaviour {
             default_repulse: 0.,
             inter_threshold: 0.5,
             inter_strength: 1.,
-            inter_max_dist: 1.3,
+            max_inter_dist: 2.,
         }
     }
 }
