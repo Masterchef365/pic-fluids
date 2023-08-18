@@ -180,20 +180,7 @@ impl TemplateApp {
         let mut reset = false;
         ui.separator();
         ui.strong("Simulation state");
-        if self.advanced {
-            ui.horizontal(|ui| {
-                ui.add(
-                    DragValue::new(&mut self.width)
-                        .prefix("Width: ")
-                        .clamp_range(1..=usize::MAX),
-                );
-                ui.add(
-                    DragValue::new(&mut self.height)
-                        .prefix("Height: ")
-                        .clamp_range(1..=usize::MAX),
-                );
-            });
-        }
+        
         if ui
             .add(
                 DragValue::new(&mut self.n_particles)
@@ -238,16 +225,32 @@ impl TemplateApp {
         if ui.button("Reset").clicked() {
             reset = true;
         }
+        if self.advanced {
+            ui.horizontal(|ui| {
+                ui.add(
+                    DragValue::new(&mut self.width)
+                        .prefix("Width: ")
+                        .clamp_range(1..=usize::MAX),
+                );
+                ui.add(
+                    DragValue::new(&mut self.height)
+                        .prefix("Height: ")
+                        .clamp_range(1..=usize::MAX),
+                );
+            });
+        }
 
         ui.separator();
         ui.strong("Kinematics");
-        if self.advanced {
-            ui.add(Slider::new(&mut self.pic_flip_ratio, 0.0..=1.0).text("PIC - FLIP"));
-        }
         ui.add(
             DragValue::new(&mut self.dt)
                 .prefix("Δt (time step): ")
                 .speed(1e-3),
+        );
+        ui.add(
+            DragValue::new(&mut self.gravity)
+                .prefix("Gravity: ")
+                .speed(1e-2),
         );
         if self.advanced {
             ui.add(
@@ -255,16 +258,9 @@ impl TemplateApp {
                     .prefix("Damping: ")
                     .speed(1e-3),
             );
-        }
-
-        if self.advanced {
+            ui.add(Slider::new(&mut self.pic_flip_ratio, 0.0..=1.0).text("PIC - FLIP"));
             ui.add(DragValue::new(&mut self.solver_iters).prefix("Solver iterations: "));
         }
-        ui.add(
-            DragValue::new(&mut self.gravity)
-                .prefix("Gravity: ")
-                .speed(1e-2),
-        );
 
         ui.separator();
         ui.strong("Particle collisions");
@@ -402,6 +398,7 @@ impl TemplateApp {
             }
         }
 
+        /*
         if self.advanced {
             ui.separator();
             ui.strong("Debug");
@@ -416,6 +413,7 @@ impl TemplateApp {
                 )
             });
         }
+        */
 
         if reset {
             let damp = self.sim.damping;
