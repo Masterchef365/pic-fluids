@@ -57,7 +57,7 @@ impl TemplateApp {
             dt: 0.02,
             solver_iters: 25,
             stiffness: 0.3,
-            gravity: 0.,
+            gravity: 9.8,
             sim,
             width,
             height,
