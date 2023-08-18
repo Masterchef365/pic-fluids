@@ -44,7 +44,7 @@ impl TemplateApp {
         let sim = Sim::new(width, height, n_particles, particle_radius, life);
 
         Self {
-            enable_particle_collisions: false,
+            enable_particle_collisions: true,
             enable_incompress: true,
             advanced: false,
             n_colors,
@@ -257,18 +257,20 @@ impl TemplateApp {
                 .prefix("Gravity: ")
                 .speed(1e-2),
         );
-        if self.advanced {
             ui.add(
                 DragValue::new(&mut self.sim.damping)
                     .prefix("Damping: ")
                     .speed(1e-3),
             );
+        if self.advanced {
             ui.add(Slider::new(&mut self.pic_flip_ratio, 0.0..=1.0).text("PIC - FLIP"));
-            ui.add(DragValue::new(&mut self.solver_iters).prefix("Solver iterations: "));
         }
 
         ui.separator();
-        ui.strong("Particle collisions");
+        ui.horizontal(|ui| {
+            ui.strong("Particle collisions");
+            ui.checkbox(&mut self.enable_particle_collisions, "");
+        });
         ui.add(
             DragValue::new(&mut self.sim.particle_radius)
                 .prefix("Particle radius: ")
@@ -300,6 +302,7 @@ impl TemplateApp {
                 ui.strong("Incompressibility Solver");
                 ui.checkbox(&mut self.enable_incompress, "");
             });
+            ui.add(DragValue::new(&mut self.solver_iters).prefix("Solver iterations: "));
             ui.add(
                 DragValue::new(&mut self.sim.over_relax)
                     .prefix("Over-relaxation: ")
@@ -1081,8 +1084,8 @@ impl Default for Behaviour {
     fn default() -> Self {
         Self {
             //default_repulse: 10.,
-            default_repulse: 0.,
-            inter_threshold: 0.5,
+            default_repulse: 40.,
+            inter_threshold: 1.2,
             inter_strength: 1.,
             max_inter_dist: 2.,
         }
