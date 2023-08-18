@@ -162,15 +162,19 @@ impl TemplateApp {
     fn sim_widget(&mut self, ui: &mut Ui) {
         let (rect, response) = ui.allocate_exact_size(ui.available_size(), Sense::click_and_drag());
 
+        let coords = CoordinateMapping::new(&self.sim.grid, rect);
+
+        // Move particles
+        move_particles_from_egui(&mut self.sim.particles, 4., &coords, self.dt, response);
+
+        // Step particles
         if !self.pause || self.single_step {
             self.update();
             self.single_step = false;
         }
 
-        let coords = CoordinateMapping::new(&self.sim.grid, rect);
-
+        // Draw particles
         let painter = ui.painter_at(rect);
-
         for part in &self.sim.particles {
             let color = self.sim.life.colors[part.color as usize];
             painter.circle_filled(
@@ -1117,5 +1121,41 @@ impl CoordinateMapping {
             (pt.x / self.width) * self.area.width(),
             (1. - pt.y / self.height) * self.area.height(),
         )
+    }
+
+    pub fn egui_to_sim(&self, pt: egui::Pos2) -> glam::Vec2 {
+        glam::Vec2::new(
+            (pt.x / self.area.width()) * self.width,
+            (1. - pt.y / self.area.height()) * self.height
+        )
+    }
+
+    pub fn egui_to_sim_vector(&self, pt: egui::Vec2) -> glam::Vec2 {
+        glam::Vec2::new(
+            (pt.x / self.area.width()) * self.width,
+            (-pt.y / self.area.height()) * self.height
+        )
+    }
+
+}
+
+fn move_particles_from_egui(particles: &mut [Particle], radius: f32, coords: &CoordinateMapping, dt: f32, response: egui::Response) {
+    if response.dragged() {
+        // pos/frame * (dt/frame)^-1 = pos/dt = velocity
+        let vel = coords.egui_to_sim_vector(response.drag_delta());
+        let vel = vel * 5.;
+        if let Some(pos) = response.interact_pointer_pos() {
+            let pos = coords.egui_to_sim(pos - coords.area.left_top().to_vec2());
+            push_particles(particles, radius, pos, vel);
+        }
+    }
+}
+
+fn push_particles(particles: &mut [Particle], radius: f32, pos: Vec2, vel: Vec2) {
+    let radius_sq = radius.powi(2);
+    for part in particles {
+        if part.pos.distance_squared(pos) < radius_sq {
+            part.vel += vel;
+        }
     }
 }
