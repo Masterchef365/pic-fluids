@@ -75,9 +75,12 @@ impl eframe::App for TemplateApp {
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
         // Update continuously
         ctx.request_repaint();
-        SidePanel::left("Settings").show(ctx, |ui| {
-            ScrollArea::both().show(ui, |ui| self.settings_gui(ui))
-        });
+        let is_mobile = matches!(ctx.os(), OperatingSystem::Android | OperatingSystem::IOS);
+        if !is_mobile {
+            SidePanel::left("Settings").show(ctx, |ui| {
+                ScrollArea::both().show(ui, |ui| self.settings_gui(ui))
+            });
+        }
 
         CentralPanel::default().show(ctx, |ui| {
             Frame::canvas(ui.style()).show(ui, |ui| self.sim_widget(ui))
@@ -90,6 +93,7 @@ use crate::query_accel::QueryAccelerator;
 use eframe::egui::{
     Button, Checkbox, Color32, DragValue, Grid, Rgba, RichText, ScrollArea, Slider, Ui,
 };
+use egui::os::OperatingSystem;
 use egui::{epaint::Vertex, Shape, SidePanel};
 use egui::{CentralPanel, Frame, Rect, Sense};
 use glam::Vec2;
