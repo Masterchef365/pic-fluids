@@ -49,7 +49,7 @@ impl QueryAccelerator {
 
         self.neighbors
             .iter()
-            .map(move |diff| {
+            .filter_map(move |diff| {
                 let key = add(origin, *diff);
                 self.cells.get(&key).map(|cell_indices| {
                     cell_indices.iter().copied().filter(move |&idx| {
@@ -58,7 +58,6 @@ impl QueryAccelerator {
                     })
                 })
             })
-            .flatten()
             .flatten()
     }
 

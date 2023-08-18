@@ -33,7 +33,7 @@ pub struct TemplateApp {
 
 impl TemplateApp {
     /// Called once before the first frame.
-    pub fn new(cc: &eframe::CreationContext<'_>) -> Self {
+    pub fn new(_cc: &eframe::CreationContext<'_>) -> Self {
         let width = 100;
         let height = 100;
         let n_particles = 4_000;
@@ -91,10 +91,10 @@ impl eframe::App for TemplateApp {
 use crate::array2d::{Array2D, GridPos};
 use crate::query_accel::QueryAccelerator;
 use eframe::egui::{
-    Button, Checkbox, Color32, DragValue, Grid, Rgba, RichText, ScrollArea, Slider, Ui,
+    DragValue, Grid, Rgba, RichText, ScrollArea, Slider, Ui,
 };
 use egui::os::OperatingSystem;
-use egui::{epaint::Vertex, Shape, SidePanel};
+use egui::{SidePanel};
 use egui::{CentralPanel, Frame, Rect, Sense};
 use glam::Vec2;
 use rand::prelude::*;
@@ -265,11 +265,11 @@ impl TemplateApp {
                 .prefix("Gravity: ")
                 .speed(1e-2),
         );
-            ui.add(
-                DragValue::new(&mut self.sim.damping)
-                    .prefix("Damping: ")
-                    .speed(1e-3),
-            );
+        ui.add(
+            DragValue::new(&mut self.sim.damping)
+                .prefix("Damping: ")
+                .speed(1e-3),
+        );
         if self.advanced {
             ui.add(Slider::new(&mut self.pic_flip_ratio, 0.0..=1.0).text("PIC - FLIP"));
         }
@@ -508,9 +508,9 @@ fn calc_rest_density(particle_radius: f32) -> f32 {
     // Assume hexagonal packing
     let packing_density = std::f32::consts::PI / 2. / 3_f32.sqrt();
     let particle_area = std::f32::consts::PI * particle_radius.powi(2);
-    let density = packing_density / particle_area;
+    
     // A guess for particle life
-    density
+    packing_density / particle_area
 }
 
 fn random_particle(rng: &mut impl Rng, width: usize, height: usize, life: &LifeConfig) -> Particle {
@@ -1018,27 +1018,27 @@ fn hsv_to_rgb(h: f32, s: f32, v: f32) -> [f32; 3] {
 
     let (mut r, mut g, mut b);
 
-    if 0. <= h_prime && h_prime < 1. {
+    if (0. ..1.).contains(&h_prime) {
         r = c;
         g = x;
         b = 0.0;
-    } else if 1.0 <= h_prime && h_prime < 2.0 {
+    } else if (1.0..2.0).contains(&h_prime) {
         r = x;
         g = c;
         b = 0.0;
-    } else if 2.0 <= h_prime && h_prime < 3.0 {
+    } else if (2.0..3.0).contains(&h_prime) {
         r = 0.0;
         g = c;
         b = x;
-    } else if 3.0 <= h_prime && h_prime < 4.0 {
+    } else if (3.0..4.0).contains(&h_prime) {
         r = 0.0;
         g = x;
         b = c;
-    } else if 4.0 <= h_prime && h_prime < 5.0 {
+    } else if (4.0..5.0).contains(&h_prime) {
         r = x;
         g = 0.0;
         b = c;
-    } else if 5.0 <= h_prime && h_prime < 6.0 {
+    } else if (5.0..6.0).contains(&h_prime) {
         r = c;
         g = 0.0;
         b = x;
@@ -1117,7 +1117,11 @@ struct CoordinateMapping {
 
 impl CoordinateMapping {
     pub fn new(grid: &Array2D<GridCell>, area: Rect) -> Self {
-        Self { width: grid.width() as f32 - 1., height: grid.height() as f32 - 1., area }
+        Self {
+            width: grid.width() as f32 - 1.,
+            height: grid.height() as f32 - 1.,
+            area,
+        }
     }
 
     pub fn sim_to_egui(&self, pt: glam::Vec2) -> egui::Pos2 {
@@ -1130,20 +1134,25 @@ impl CoordinateMapping {
     pub fn egui_to_sim(&self, pt: egui::Pos2) -> glam::Vec2 {
         glam::Vec2::new(
             (pt.x / self.area.width()) * self.width,
-            (1. - pt.y / self.area.height()) * self.height
+            (1. - pt.y / self.area.height()) * self.height,
         )
     }
 
     pub fn egui_to_sim_vector(&self, pt: egui::Vec2) -> glam::Vec2 {
         glam::Vec2::new(
             (pt.x / self.area.width()) * self.width,
-            (-pt.y / self.area.height()) * self.height
+            (-pt.y / self.area.height()) * self.height,
         )
     }
-
 }
 
-fn move_particles_from_egui(particles: &mut [Particle], radius: f32, coords: &CoordinateMapping, dt: f32, response: egui::Response) {
+fn move_particles_from_egui(
+    particles: &mut [Particle],
+    radius: f32,
+    coords: &CoordinateMapping,
+    _dt: f32,
+    response: egui::Response,
+) {
     if response.dragged() {
         // pos/frame * (dt/frame)^-1 = pos/dt = velocity
         let vel = coords.egui_to_sim_vector(response.drag_delta());
