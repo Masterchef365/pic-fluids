@@ -85,7 +85,7 @@ use eframe::egui::{
     Button, Checkbox, Color32, DragValue, Grid, Rgba, RichText, ScrollArea, Slider, Ui,
 };
 use egui::{epaint::Vertex, Shape, SidePanel};
-use egui::{CentralPanel, Frame, Sense};
+use egui::{CentralPanel, Frame, Sense, Rect};
 use glam::Vec2;
 use rand::prelude::*;
 
@@ -1076,3 +1076,16 @@ fn random_color(rng: &mut impl Rng) -> [f32; 3] {
 fn color_to_egui([r, g, b]: [f32; 3]) -> Rgba {
     Rgba::from_rgb(r, g, b)
 }
+
+fn sim_coords_to_egui(pos: Vec2, grid: &Array2D<GridCell>, area: Rect) {
+
+}
+
+/// Maps sim coordinates to/from egui coordinates
+struct CoordinateMapping {
+    width: usize,
+    height: usize,
+    area: Rect
+}
+
+
