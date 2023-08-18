@@ -167,14 +167,14 @@ impl TemplateApp {
             self.single_step = false;
         }
 
+        let coords = CoordinateMapping::new(&self.sim.grid, rect);
+
         let painter = ui.painter_at(rect);
 
         for part in &self.sim.particles {
-            let x = part.pos.x * (rect.width() / self.sim.grid.width() as f32);
-            let y = part.pos.y * (rect.height() / self.sim.grid.height() as f32);
             let color = self.sim.life.colors[part.color as usize];
             painter.circle_filled(
-                egui::pos2(x, y) + rect.left_top().to_vec2(),
+                coords.sim_to_egui(part.pos) + rect.left_top().to_vec2(),
                 1.,
                 color_to_egui(color),
             );
@@ -1100,11 +1100,22 @@ fn color_to_egui([r, g, b]: [f32; 3]) -> Rgba {
     Rgba::from_rgb(r, g, b)
 }
 
-fn sim_coords_to_egui(pos: Vec2, grid: &Array2D<GridCell>, area: Rect) {}
-
 /// Maps sim coordinates to/from egui coordinates
 struct CoordinateMapping {
-    width: usize,
-    height: usize,
+    width: f32,
+    height: f32,
     area: Rect,
+}
+
+impl CoordinateMapping {
+    pub fn new(grid: &Array2D<GridCell>, area: Rect) -> Self {
+        Self { width: grid.width() as f32 - 1., height: grid.height() as f32 - 1., area }
+    }
+
+    pub fn sim_to_egui(&self, pt: glam::Vec2) -> egui::Pos2 {
+        egui::Pos2::new(
+            (pt.x / self.width) * self.area.width(),
+            (1. - pt.y / self.height) * self.area.height(),
+        )
+    }
 }
