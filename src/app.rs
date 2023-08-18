@@ -22,6 +22,7 @@ pub struct TemplateApp {
     pic_flip_ratio: f32,
     n_colors: usize,
     enable_incompress: bool,
+    enable_particle_collisions: bool,
 
     well: bool,
     source_color_idx: ParticleType,
@@ -43,12 +44,13 @@ impl TemplateApp {
         let sim = Sim::new(width, height, n_particles, particle_radius, life);
 
         Self {
+            enable_particle_collisions: false,
             enable_incompress: true,
             advanced: false,
             n_colors,
             source_rate: 0,
             pic_flip_ratio: 0.5,
-            calc_rest_density_from_radius: true,
+            calc_rest_density_from_radius: false,
             single_step: false,
             dt: 0.02,
             solver_iters: 25,
@@ -129,6 +131,7 @@ impl TemplateApp {
                 self.pic_flip_ratio,
                 self.solver,
                 self.enable_incompress,
+                self.enable_particle_collisions,
             );
 
             self.single_step = false;
@@ -527,7 +530,8 @@ impl Sim {
             .collect();
 
         // Assume half-hexagonal packing density...
-        let rest_density = calc_rest_density(particle_radius);
+        //let rest_density = calc_rest_density(particle_radius);
+        let rest_density = 1.;
 
         Sim {
             damping: 0.,
@@ -549,12 +553,15 @@ impl Sim {
         pic_flip_ratio: f32,
         solver: IncompressibilitySolver,
         enable_incompress: bool,
+        enable_particle_collisions: bool,
     ) {
         // Step particles
         apply_global_force(&mut self.particles, Vec2::new(0., -gravity), dt);
         particle_interactions(&mut self.particles, &mut self.life, dt);
         step_particles(&mut self.particles, dt, self.damping);
-        enforce_particle_radius(&mut self.particles, self.particle_radius);
+        if enable_particle_collisions {
+            enforce_particle_radius(&mut self.particles, self.particle_radius);
+        }
         enforce_particle_pos(&mut self.particles, &self.grid);
 
         // Step grid
