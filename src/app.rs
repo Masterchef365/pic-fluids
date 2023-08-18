@@ -49,7 +49,7 @@ impl TemplateApp {
             advanced: false,
             n_colors,
             source_rate: 0,
-            pic_flip_ratio: 0.5,
+            pic_flip_ratio: 0.75,
             calc_rest_density_from_radius: false,
             single_step: false,
             dt: 0.02,
@@ -1084,8 +1084,8 @@ impl Default for Behaviour {
     fn default() -> Self {
         Self {
             //default_repulse: 10.,
-            default_repulse: 40.,
-            inter_threshold: 1.2,
+            default_repulse: 400.,
+            inter_threshold: 0.75,
             inter_strength: 1.,
             max_inter_dist: 2.,
         }
