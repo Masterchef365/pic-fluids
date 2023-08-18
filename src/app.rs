@@ -28,6 +28,8 @@ pub struct TemplateApp {
     source_color_idx: ParticleType,
     source_rate: usize,
 
+    show_settings_only: bool,
+
     advanced: bool,
 }
 
@@ -67,24 +69,36 @@ impl TemplateApp {
             pause: false,
             grid_vel_scale: 0.05,
             show_grid: false,
+            show_settings_only: false,
         }
     }
+}
+
+fn is_mobile(ctx: &egui::Context) -> bool {
+    matches!(ctx.os(), OperatingSystem::Android | OperatingSystem::IOS)
 }
 
 impl eframe::App for TemplateApp {
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
         // Update continuously
         ctx.request_repaint();
-        let is_mobile = matches!(ctx.os(), OperatingSystem::Android | OperatingSystem::IOS);
-        if !is_mobile {
+        if is_mobile(ctx) {
+            CentralPanel::default().show(ctx, |ui| {
+                ui.checkbox(&mut self.show_settings_only, "Show settings");
+                if self.show_settings_only {
+                    ScrollArea::both().show(ui, |ui| self.settings_gui(ui));
+                } else {
+                    Frame::canvas(ui.style()).show(ui, |ui| self.sim_widget(ui));
+                }
+            });
+        } else {
             SidePanel::left("Settings").show(ctx, |ui| {
                 ScrollArea::both().show(ui, |ui| self.settings_gui(ui))
             });
+            CentralPanel::default().show(ctx, |ui| {
+                Frame::canvas(ui.style()).show(ui, |ui| self.sim_widget(ui))
+            });
         }
-
-        CentralPanel::default().show(ctx, |ui| {
-            Frame::canvas(ui.style()).show(ui, |ui| self.sim_widget(ui))
-        });
     }
 }
 
