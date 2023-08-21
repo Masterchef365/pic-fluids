@@ -23,6 +23,7 @@ pub struct TemplateApp {
     n_colors: usize,
     enable_incompress: bool,
     enable_particle_collisions: bool,
+    k: f32,
 
     well: bool,
     source_color_idx: ParticleType,
@@ -40,12 +41,14 @@ impl TemplateApp {
         let height = 100;
         let n_particles = 4_000;
         let particle_radius = 0.20;
+        let k = 0.3;
 
-        let n_colors = 3;
+        let n_colors = N_COLORS;
         let life = LifeConfig::random(n_colors);
-        let sim = Sim::new(width, height, n_particles, particle_radius, life);
+        let sim = Sim::new(width, height, n_particles, particle_radius, k, life);
 
         Self {
+            k,
             enable_particle_collisions: true,
             enable_incompress: true,
             advanced: false,
@@ -64,7 +67,7 @@ impl TemplateApp {
             n_particles,
             solver: IncompressibilitySolver::GaussSeidel,
             well: false,
-            source_color_idx: 0,
+            source_color_idx: ParticleType([1., 0., 0.]),
             show_arrows: false,
             pause: false,
             grid_vel_scale: 0.05,
@@ -104,11 +107,9 @@ impl eframe::App for TemplateApp {
 
 use crate::array2d::{Array2D, GridPos};
 use crate::query_accel::QueryAccelerator;
-use eframe::egui::{
-    DragValue, Grid, Rgba, RichText, ScrollArea, Slider, Ui,
-};
+use eframe::egui::{DragValue, Grid, Rgba, RichText, ScrollArea, Slider, Ui};
 use egui::os::OperatingSystem;
-use egui::{SidePanel};
+use egui::SidePanel;
 use egui::{CentralPanel, Frame, Rect, Sense};
 use glam::Vec2;
 use rand::prelude::*;
@@ -194,7 +195,18 @@ impl TemplateApp {
         // Draw particles
         let painter = ui.painter_at(rect);
         for part in &self.sim.particles {
-            let color = self.sim.life.colors[part.color as usize];
+            let ParticleType(part_color_vect) = part.color;
+            let color = self.sim.life.colors.iter().zip(&part_color_vect).fold(
+                [0.; 3],
+                |mut accum, (color, amount)| {
+                    accum
+                        .iter_mut()
+                        .zip(color)
+                        .for_each(|(accum, component)| *accum += component * amount);
+                    accum
+                },
+            );
+
             painter.circle_filled(
                 coords.sim_to_egui(part.pos) + rect.left_top().to_vec2(),
                 1.,
@@ -223,11 +235,12 @@ impl TemplateApp {
                     &mut rng,
                     self.sim.grid.width(),
                     self.sim.grid.height(),
+                    self.k,
                     &self.sim.life,
                 )
             });
         }
-        if ui
+        /*if ui
             .add(
                 DragValue::new(&mut self.n_colors)
                     .prefix("# of colors: ")
@@ -245,6 +258,7 @@ impl TemplateApp {
                 .resize_with(self.n_colors, || random_color(&mut rand::thread_rng()));
             reset = true;
         }
+        */
         ui.horizontal(|ui| {
             ui.checkbox(&mut self.pause, "Pause");
             self.single_step |= ui.button("Step").clicked();
@@ -253,6 +267,7 @@ impl TemplateApp {
             reset = true;
         }
         if self.advanced {
+            ui.add(DragValue::new(&mut self.k).prefix("Type dispersion: ").speed(1e-3));
             ui.horizontal(|ui| {
                 ui.add(
                     DragValue::new(&mut self.width)
@@ -344,6 +359,7 @@ impl TemplateApp {
         ui.separator();
         ui.strong("Particle source");
         ui.add(DragValue::new(&mut self.source_rate).prefix("Particle inflow rate: "));
+        /*
         ui.horizontal(|ui| {
             ui.label("Particle inflow color: ");
             for (idx, &color) in self.sim.life.colors.iter().enumerate() {
@@ -358,6 +374,7 @@ impl TemplateApp {
                 .min(self.sim.life.colors.len() as u8 - 1);
         });
         ui.checkbox(&mut self.well, "Particle well");
+        */
 
         ui.separator();
         ui.strong("Particle life");
@@ -456,6 +473,7 @@ impl TemplateApp {
                 self.height,
                 self.n_particles,
                 self.sim.particle_radius,
+                self.k,
                 self.sim.life.clone(),
             );
             self.sim.damping = damp;
@@ -522,17 +540,22 @@ fn calc_rest_density(particle_radius: f32) -> f32 {
     // Assume hexagonal packing
     let packing_density = std::f32::consts::PI / 2. / 3_f32.sqrt();
     let particle_area = std::f32::consts::PI * particle_radius.powi(2);
-    
+
     // A guess for particle life
     packing_density / particle_area
 }
 
-fn random_particle(rng: &mut impl Rng, width: usize, height: usize, life: &LifeConfig) -> Particle {
+fn random_particle(rng: &mut impl Rng, width: usize, height: usize, k: f32, life: &LifeConfig) -> Particle {
     let pos = Vec2::new(
         rng.gen_range(1.0..=(width - 2) as f32),
         rng.gen_range(1.0..=(height - 2) as f32),
     );
-    let color = rng.gen_range(0..life.colors.len() as u8);
+
+    let mut p = [0.; N_COLORS];
+    p[rng.gen_range(0..=N_COLORS - 1)] = 1.;
+    p = p.map(|i| i + rng.gen_range(0.0..=k));
+    let color = ParticleType(p).normalize();
+
     Particle {
         pos,
         vel: Vec2::ZERO,
@@ -546,12 +569,13 @@ impl Sim {
         height: usize,
         n_particles: usize,
         particle_radius: f32,
+        k: f32,
         life: LifeConfig,
     ) -> Self {
         // Uniformly placed, random particles
         let mut rng = rand::thread_rng();
         let particles = (0..n_particles)
-            .map(|_| random_particle(&mut rng, width, height, &life))
+            .map(|_| random_particle(&mut rng, width, height, k, &life))
             .collect();
 
         // Assume half-hexagonal packing density...
@@ -989,7 +1013,18 @@ pub struct LifeConfig {
     pub behaviours: Vec<Behaviour>,
 }
 
-pub type ParticleType = u8;
+const N_COLORS: usize = 3;
+
+#[derive(Copy, Clone, Debug, Default)]
+pub struct ParticleType([f32; N_COLORS]);
+
+impl ParticleType {
+    fn normalize(self) -> Self {
+        let ParticleType(arr) = self;
+        let length = arr.into_iter().map(|x| x * x).sum::<f32>().sqrt();
+        Self(arr.map(|x| x / length))
+    }
+}
 
 #[derive(Clone, Copy, Debug)]
 pub struct Behaviour {
@@ -1078,9 +1113,29 @@ impl LifeConfig {
             .unwrap()
     }
 
-    pub fn get_behaviour(&self, a: ParticleType, b: ParticleType) -> Behaviour {
-        let idx = a as usize * self.colors.len() + b as usize;
-        self.behaviours[idx]
+    pub fn get_behaviour(
+        &self,
+        ParticleType(a): ParticleType,
+        ParticleType(b): ParticleType,
+    ) -> Behaviour {
+        //self.behaviours[idx]
+        // Performs the matrix operation aXb, where X is the matrix of interactions
+        let strength = self
+            .behaviours
+            .chunks_exact(N_COLORS)
+            .zip(a)
+            .map(|(behavs, a_part)| {
+                behavs
+                    .iter()
+                    .zip(b)
+                    .map(|(behav, b_part)| behav.inter_strength * b_part)
+                    .sum::<f32>()
+                    * a_part
+            }).sum::<f32>();
+
+        let mut out_behav = self.behaviours[0];
+        out_behav.inter_strength = strength;
+        out_behav
     }
 
     fn random(rule_count: usize) -> Self {
