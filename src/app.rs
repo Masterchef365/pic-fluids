@@ -197,7 +197,7 @@ impl TemplateApp {
             let color = self.sim.life.colors[part.color as usize];
             painter.circle_filled(
                 coords.sim_to_egui(part.pos) + rect.left_top().to_vec2(),
-                1.,
+                coords.sim_to_egui_vect(Vec2::new(self.sim.particle_radius, 0.)).x,
                 color_to_egui(color),
             );
         }
@@ -1137,6 +1137,14 @@ impl CoordinateMapping {
             area,
         }
     }
+
+    pub fn sim_to_egui_vect(&self, pt: glam::Vec2) -> egui::Vec2 {
+        egui::Vec2::new(
+            (pt.x / self.width) * self.area.width(),
+            (- pt.y / self.height) * self.area.height(),
+        )
+    }
+
 
     pub fn sim_to_egui(&self, pt: glam::Vec2) -> egui::Pos2 {
         egui::Pos2::new(
