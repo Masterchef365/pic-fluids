@@ -79,6 +79,8 @@ fn is_mobile(ctx: &egui::Context) -> bool {
 
 impl eframe::App for TemplateApp {
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
+        ctx.set_visuals(egui::Visuals::dark());
+
         // Update continuously
         ctx.request_repaint();
         if is_mobile(ctx) {
