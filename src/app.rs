@@ -468,6 +468,7 @@ impl TemplateApp {
         }
 
         ui.checkbox(&mut self.advanced, "Advanced settings");
+        ui.hyperlink_to("GitHub repository", "https://github.com/Masterchef365/pic-fluids");
     }
 }
 
