@@ -104,11 +104,9 @@ impl eframe::App for TemplateApp {
 
 use crate::array2d::{Array2D, GridPos};
 use crate::query_accel::QueryAccelerator;
-use eframe::egui::{
-    DragValue, Grid, Rgba, RichText, ScrollArea, Slider, Ui,
-};
+use eframe::egui::{DragValue, Grid, Rgba, RichText, ScrollArea, Slider, Ui};
 use egui::os::OperatingSystem;
-use egui::{SidePanel};
+use egui::SidePanel;
 use egui::{CentralPanel, Frame, Rect, Sense};
 use glam::Vec2;
 use rand::prelude::*;
@@ -197,7 +195,9 @@ impl TemplateApp {
             let color = self.sim.life.colors[part.color as usize];
             painter.circle_filled(
                 coords.sim_to_egui(part.pos) + rect.left_top().to_vec2(),
-                coords.sim_to_egui_vect(Vec2::new(self.sim.particle_radius, 0.)).x,
+                coords
+                    .sim_to_egui_vect(Vec2::new(self.sim.particle_radius, 0.))
+                    .x,
                 color_to_egui(color),
             );
         }
@@ -235,10 +235,19 @@ impl TemplateApp {
             )
             .changed()
         {
-            self.sim
-                .life
-                .behaviours
-                .resize(self.n_colors.pow(2), Behaviour::default());
+            let old_size = self.sim.life.behaviours.width();
+            let mut new_behav_array = Array2D::new(self.n_colors, self.n_colors);
+            for i in 0..self.n_colors {
+                for j in 0..self.n_colors {
+                    if i < old_size && j < old_size {
+                        new_behav_array[(i, j)] = self.sim.life.behaviours[(i, j)];
+                    } else {
+                        new_behav_array[(i, j)] = LifeConfig::random_behaviour();
+                    }
+                }
+            }
+            self.sim.life.behaviours = new_behav_array;
+
             self.sim
                 .life
                 .colors
@@ -361,7 +370,7 @@ impl TemplateApp {
 
         ui.separator();
         ui.strong("Particle life");
-        let mut behav_cfg = self.sim.life.behaviours[0];
+        let mut behav_cfg = self.sim.life.behaviours[(0, 0)];
         if self.advanced {
             ui.add(
                 DragValue::new(&mut behav_cfg.max_inter_dist)
@@ -381,7 +390,7 @@ impl TemplateApp {
                     .prefix("Interaction threshold: "),
             );
         }
-        for b in &mut self.sim.life.behaviours {
+        for b in self.sim.life.behaviours.data_mut() {
             b.max_inter_dist = behav_cfg.max_inter_dist;
             b.inter_threshold = behav_cfg.inter_threshold;
             b.default_repulse = behav_cfg.default_repulse;
@@ -402,7 +411,7 @@ impl TemplateApp {
             for (row_idx, color) in self.sim.life.colors.iter_mut().enumerate() {
                 ui.color_edit_button_rgb(color);
                 for column in 0..len {
-                    let behav = &mut self.sim.life.behaviours[column + row_idx * len];
+                    let behav = &mut self.sim.life.behaviours[(column, row_idx)];
                     ui.add(DragValue::new(&mut behav.inter_strength).speed(1e-2));
                 }
                 ui.end_row();
@@ -413,23 +422,21 @@ impl TemplateApp {
             self.sim.life = LifeConfig::random(self.n_colors);
             reset = true;
         }
-
-        if self.advanced {
-            if ui.button("Make symmetric").clicked() {
-                let n = self.sim.life.colors.len();
-                for i in 0..n {
-                    for j in 0..i {
-                        self.sim.life.behaviours[j + n * i] = self.sim.life.behaviours[i + n * j];
-                    }
+        if ui.button("Symmetric forces").clicked() {
+            let n = self.sim.life.colors.len();
+            for i in 0..n {
+                for j in 0..i {
+                    self.sim.life.behaviours[(i, j)] = self.sim.life.behaviours[(j, i)]
                 }
             }
-            if ui.button("No life").clicked() {
-                self.sim
-                    .life
-                    .behaviours
-                    .iter_mut()
-                    .for_each(|b| b.inter_strength = 0.);
-            }
+        }
+        if ui.button("Lifeless").clicked() {
+            self.sim
+                .life
+                .behaviours
+                .data_mut()
+                .iter_mut()
+                .for_each(|b| b.inter_strength = 0.);
         }
 
         /*
@@ -522,7 +529,7 @@ fn calc_rest_density(particle_radius: f32) -> f32 {
     // Assume hexagonal packing
     let packing_density = std::f32::consts::PI / 2. / 3_f32.sqrt();
     let particle_area = std::f32::consts::PI * particle_radius.powi(2);
-    
+
     // A guess for particle life
     packing_density / particle_area
 }
@@ -988,7 +995,7 @@ pub struct LifeConfig {
     /// Colors of each type
     pub colors: Vec<[f32; 3]>,
     /// Behaviour matrix
-    pub behaviours: Vec<Behaviour>,
+    pub behaviours: Array2D<Behaviour>,
 }
 
 pub type ParticleType = u8;
@@ -1074,6 +1081,7 @@ fn hsv_to_rgb(h: f32, s: f32, v: f32) -> [f32; 3] {
 impl LifeConfig {
     pub fn max_interaction_radius(&self) -> f32 {
         self.behaviours
+            .data()
             .iter()
             .map(|b| b.max_inter_dist)
             .max_by(|a, b| a.total_cmp(b))
@@ -1081,24 +1089,27 @@ impl LifeConfig {
     }
 
     pub fn get_behaviour(&self, a: ParticleType, b: ParticleType) -> Behaviour {
-        let idx = a as usize * self.colors.len() + b as usize;
-        self.behaviours[idx]
+        self.behaviours[(a as usize, b as usize)]
     }
 
-    fn random(rule_count: usize) -> Self {
+    pub fn random_behaviour() -> Behaviour {
+        let mut rng = rand::thread_rng();
+        let mut behav = Behaviour::default();
+        behav.inter_strength = rng.gen_range(-20.0..=20.0);
+        if behav.inter_strength < 0. {
+            behav.inter_strength *= 10.;
+        }
+        behav
+    }
+
+    pub fn random(rule_count: usize) -> Self {
         let mut rng = rand::thread_rng();
 
         let colors: Vec<[f32; 3]> = (0..rule_count).map(|_| random_color(&mut rng)).collect();
         let behaviours = (0..rule_count.pow(2))
-            .map(|_| {
-                let mut behav = Behaviour::default();
-                behav.inter_strength = rng.gen_range(-20.0..=20.0);
-                if behav.inter_strength < 0. {
-                    behav.inter_strength *= 10.;
-                }
-                behav
-            })
+            .map(|_| Self::random_behaviour())
             .collect();
+        let behaviours = Array2D::from_array(rule_count, behaviours);
 
         Self { behaviours, colors }
     }
@@ -1143,10 +1154,9 @@ impl CoordinateMapping {
     pub fn sim_to_egui_vect(&self, pt: glam::Vec2) -> egui::Vec2 {
         egui::Vec2::new(
             (pt.x / self.width) * self.area.width(),
-            (- pt.y / self.height) * self.area.height(),
+            (-pt.y / self.height) * self.area.height(),
         )
     }
-
 
     pub fn sim_to_egui(&self, pt: glam::Vec2) -> egui::Pos2 {
         egui::Pos2::new(
