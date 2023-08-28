@@ -35,9 +35,8 @@ pub struct TemplateApp {
 
 impl TemplateApp {
     /// Called once before the first frame.
-    pub fn new(_cc: &eframe::CreationContext<'_>) -> Self {
-        let width = 100;
-        let height = 100;
+    pub fn new(cc: &eframe::CreationContext<'_>) -> Self {
+        let (width, height) = if is_mobile(&cc.egui_ctx) { (80, 170) } else { (160, 100) };
         let n_particles = 4_000;
         let particle_radius = 0.20;
 

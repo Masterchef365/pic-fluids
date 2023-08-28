@@ -32,7 +32,7 @@ impl<T> Array2D<T> {
 
     fn calc_index(&self, (x, y): GridPos) -> usize {
         debug_assert!(x < self.width);
-        debug_assert!(y < self.width);
+        debug_assert!(y < self.height());
         x + y * self.width
     }
 
