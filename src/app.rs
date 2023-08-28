@@ -857,6 +857,7 @@ fn enforce_grid_boundary(grid: &mut Array2D<GridCell>) {
 fn enforce_particle_radius(particles: &mut [Particle], radius: f32) {
     let mut points: Vec<Vec2> = particles.iter().map(|p| p.pos).collect();
     let mut accel = QueryAccelerator::new(&points, radius * 2.);
+    //accel.stats("Collisions");
 
     //let mut rng = rand::thread_rng();
 
@@ -890,6 +891,7 @@ fn enforce_particle_radius(particles: &mut [Particle], radius: f32) {
 fn particle_interactions(particles: &mut [Particle], cfg: &LifeConfig, dt: f32) {
     let points: Vec<Vec2> = particles.iter().map(|p| p.pos).collect();
     let accel = QueryAccelerator::new(&points, cfg.max_interaction_radius());
+    //accel.stats("Life");
 
     for i in 0..particles.len() {
         for neighbor in accel.query_neighbors(&points, i, points[i]) {

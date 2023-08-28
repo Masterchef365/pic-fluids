@@ -2,7 +2,7 @@ use glam::Vec2;
 use smallvec::SmallVec;
 use zwohash::HashMap;
 
-type CellContainer = SmallVec<[usize; 10]>;
+type CellContainer = SmallVec<[usize; 5]>;
 
 /// Euclidean neighborhood query accelerator. Uses a hashmap grid.
 pub struct QueryAccelerator {
@@ -76,6 +76,15 @@ impl QueryAccelerator {
             .entry(quantize(current, self.radius))
             .or_default()
             .push(idx);
+    }
+
+    pub fn stats(&self, name: &str) {
+        println!("{} accel stats: ", name);
+        let parts_per_cell = self.cells.iter().map(|c| c.1.len()).sum::<usize>() as f32 / self.cells.len() as f32;
+        println!("Particles per cell: {}", parts_per_cell);
+        let max = self.cells.iter().map(|c| c.1.len()).max().unwrap();
+        println!("Max: {}", max);
+        println!();
     }
 
     /*
