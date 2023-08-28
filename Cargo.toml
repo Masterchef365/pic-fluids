@@ -21,6 +21,7 @@ zwohash = "0.1.2"
 rand = { version = "0.8" }
 getrandom = { version = "*", features = ["js"] }
 rand_distr = { version = "0.4", default-features = false }
+smallvec = "1.11.0"
 
 # You only need serde if you want app persistence:
 # serde = { version = "1", features = ["derive"] }

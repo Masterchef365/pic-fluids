@@ -1,9 +1,12 @@
 use glam::Vec2;
+use smallvec::SmallVec;
 use zwohash::HashMap;
+
+type CellContainer = SmallVec<[usize; 10]>;
 
 /// Euclidean neighborhood query accelerator. Uses a hashmap grid.
 pub struct QueryAccelerator {
-    cells: HashMap<[i32; 2], Vec<usize>>,
+    cells: HashMap<[i32; 2], CellContainer>,
     neighbors: Vec<[i32; 2]>,
     radius: f32,
     radius_sq: f32,
@@ -12,7 +15,7 @@ pub struct QueryAccelerator {
 impl QueryAccelerator {
     /// Construct a new query accelerator
     pub fn new(points: &[Vec2], radius: f32) -> Self {
-        let mut cells: HashMap<[i32; 2], Vec<usize>> = HashMap::default();
+        let mut cells: HashMap<[i32; 2], CellContainer> = HashMap::default();
 
         for (idx, &point) in points.iter().enumerate() {
             cells.entry(quantize(point, radius)).or_default().push(idx);
