@@ -36,7 +36,11 @@ pub struct TemplateApp {
 impl TemplateApp {
     /// Called once before the first frame.
     pub fn new(cc: &eframe::CreationContext<'_>) -> Self {
-        let (width, height) = if is_mobile(&cc.egui_ctx) { (70, 150) } else { (120, 80) };
+        let (width, height) = if is_mobile(&cc.egui_ctx) {
+            (70, 150)
+        } else {
+            (120, 80)
+        };
         let n_particles = 4_000;
         let particle_radius = 0.20;
 
@@ -50,7 +54,7 @@ impl TemplateApp {
             advanced: false,
             n_colors,
             source_rate: 0,
-            pic_apic_ratio: 0.75,
+            pic_apic_ratio: 1.,
             calc_rest_density_from_radius: false,
             single_step: false,
             dt: 0.02,
@@ -193,7 +197,9 @@ impl TemplateApp {
 
         // Draw particles
         let painter = ui.painter_at(rect);
-        let radius = coords.sim_to_egui_vect(Vec2::splat(self.sim.particle_radius)).length();
+        let radius = coords
+            .sim_to_egui_vect(Vec2::splat(self.sim.particle_radius))
+            .length();
 
         for part in &self.sim.particles {
             let color = self.sim.life.colors[part.color as usize];
@@ -471,7 +477,10 @@ impl TemplateApp {
         }
 
         ui.checkbox(&mut self.advanced, "Advanced settings");
-        ui.hyperlink_to("GitHub repository", "https://github.com/Masterchef365/pic-fluids");
+        ui.hyperlink_to(
+            "GitHub repository",
+            "https://github.com/Masterchef365/pic-fluids",
+        );
     }
 }
 
@@ -654,7 +663,10 @@ fn particles_to_grid(particles: &[Particle], grid: &mut Array2D<GridCell>, pic_a
     // Here we abuse the pressure of each grid cell to by mass correctly
     for part in particles {
         let u_pos = part.pos - OFFSET_U;
-        scatter(u_pos, grid, |c, n, w| c.vel.x += w * (part.vel.x + (index_to_pos(n) - u_pos).dot(part.deriv[0]) * pic_apic_ratio));
+        scatter(u_pos, grid, |c, n, w| {
+            c.vel.x +=
+                w * (part.vel.x + (index_to_pos(n) - u_pos).dot(part.deriv[0]) * pic_apic_ratio)
+        });
         scatter(u_pos, grid, |c, _, w| c.pressure += w);
     }
     grid.data_mut().iter_mut().for_each(|c| {
@@ -667,7 +679,10 @@ fn particles_to_grid(particles: &[Particle], grid: &mut Array2D<GridCell>, pic_a
     // And then we do again for u
     for part in particles {
         let v_pos = part.pos - OFFSET_V;
-        scatter(v_pos, grid, |c, n, w| c.vel.y += w * (part.vel.y + (index_to_pos(n) - v_pos).dot(part.deriv[1]) * pic_apic_ratio));
+        scatter(v_pos, grid, |c, n, w| {
+            c.vel.y +=
+                w * (part.vel.y + (index_to_pos(n) - v_pos).dot(part.deriv[1]) * pic_apic_ratio)
+        });
         scatter(v_pos, grid, |c, _, w| c.pressure += w);
     }
     grid.data_mut().iter_mut().for_each(|c| {
@@ -813,7 +828,6 @@ fn solve_incompressibility_gauss_seidel(
     }
 }
 
-
 fn grid_to_particles(particles: &mut [Particle], grid: &Array2D<GridCell>) {
     for part in particles {
         let u_pos = part.pos - OFFSET_U;
@@ -828,11 +842,7 @@ fn grid_to_particles(particles: &mut [Particle], grid: &Array2D<GridCell>) {
         fn gradient(p: GridPos, v: Vec2) -> Vec2 {
             let p = v - index_to_pos(p);
 
-            let wd = |u: f32| if u > 0. {
-                (1. - u, -1.0)
-            } else {
-                (u, 1.0)
-            };
+            let wd = |u: f32| if u > 0. { (1. - u, -1.0) } else { (u, 1.0) };
 
             let (x_weight, x_deriv) = wd(p.x);
             let (y_weight, y_deriv) = wd(p.y);
@@ -845,7 +855,6 @@ fn grid_to_particles(particles: &mut [Particle], grid: &Array2D<GridCell>) {
         part.deriv[1] = gather_vector(v_pos, |p| grid[p].vel.y * gradient(p, v_pos));
     }
 }
-
 
 fn enforce_particle_pos(particles: &mut [Particle], grid: &Array2D<GridCell>) {
     for part in particles {

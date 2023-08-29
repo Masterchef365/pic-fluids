@@ -80,7 +80,8 @@ impl QueryAccelerator {
 
     pub fn stats(&self, name: &str) {
         println!("{} accel stats: ", name);
-        let parts_per_cell = self.cells.iter().map(|c| c.1.len()).sum::<usize>() as f32 / self.cells.len() as f32;
+        let parts_per_cell =
+            self.cells.iter().map(|c| c.1.len()).sum::<usize>() as f32 / self.cells.len() as f32;
         println!("Particles per cell: {}", parts_per_cell);
         let max = self.cells.iter().map(|c| c.1.len()).max().unwrap();
         println!("Max: {}", max);
