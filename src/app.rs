@@ -840,15 +840,32 @@ fn grid_to_particles(particles: &mut [Particle], grid: &Array2D<GridCell>) {
         );
 
         fn gradient(p: GridPos, v: Vec2) -> Vec2 {
-            let p = v - index_to_pos(p);
+            let p = index_to_pos(p);
+            let f = v.fract();
 
-            let wd = |u: f32| if u > 0. { (1. - u, -1.0) } else { (u, 1.0) };
-
-            let (x_weight, x_deriv) = wd(p.x);
-            let (y_weight, y_deriv) = wd(p.y);
-
-            Vec2::new(y_weight * x_deriv, x_weight * y_deriv)
+            if v.x > p.x {
+                if v.y > p.y {
+                    Vec2::new(f.y - 1., f.x - 1.)
+                } else {
+                    Vec2::new(-f.y, 1. - f.x)
+                }
+            } else {
+                if v.y > p.y {
+                    Vec2::new(1. - f.y, -f.x)
+                } else {
+                    Vec2::new(f.y, f.x)
+                }
+            }
         }
+
+        /*
+        let v = Vec2::new(0.25, 0.15);
+        dbg!(gradient((0, 0), v));
+        dbg!(gradient((1, 0), v));
+        dbg!(gradient((0, 1), v));
+        dbg!(gradient((1, 1), v));
+        todo!();
+        */
 
         // Interpolate grid vectors
         part.deriv[0] = gather_vector(u_pos, |p| grid[p].vel.x * gradient(p, u_pos));
