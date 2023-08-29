@@ -19,7 +19,7 @@ pub struct TemplateApp {
     grid_vel_scale: f32,
     pause: bool,
     single_step: bool,
-    pic_flip_ratio: f32,
+    pic_apic_ratio: f32,
     n_colors: usize,
     enable_incompress: bool,
     enable_particle_collisions: bool,
@@ -50,7 +50,7 @@ impl TemplateApp {
             advanced: false,
             n_colors,
             source_rate: 0,
-            pic_flip_ratio: 0.75,
+            pic_apic_ratio: 0.75,
             calc_rest_density_from_radius: false,
             single_step: false,
             dt: 0.02,
@@ -128,6 +128,7 @@ impl TemplateApp {
                 self.sim.particles.push(Particle {
                     pos,
                     vel,
+                    deriv: [Vec2::ZERO; 2],
                     color: self.source_color_idx,
                 });
             }
@@ -145,7 +146,7 @@ impl TemplateApp {
                 self.solver_iters,
                 self.stiffness,
                 self.gravity,
-                self.pic_flip_ratio,
+                self.pic_apic_ratio,
                 self.solver,
                 self.enable_incompress,
                 self.enable_particle_collisions,
@@ -295,7 +296,7 @@ impl TemplateApp {
                 .speed(1e-3),
         );
         if self.advanced {
-            ui.add(Slider::new(&mut self.pic_flip_ratio, 0.0..=1.0).text("PIC - FLIP"));
+            ui.add(Slider::new(&mut self.pic_apic_ratio, 0.0..=1.0).text("PIC - APIC"));
         }
 
         ui.separator();
@@ -525,6 +526,8 @@ struct Particle {
     vel: Vec2,
     /// Particle type
     color: ParticleType,
+    /// Velocity derivatives
+    deriv: [Vec2; 2],
 }
 
 fn calc_rest_density(particle_radius: f32) -> f32 {
@@ -546,6 +549,7 @@ fn random_particle(rng: &mut impl Rng, width: usize, height: usize, life: &LifeC
         pos,
         vel: Vec2::ZERO,
         color,
+        deriv: [Vec2::ZERO; 2],
     }
 }
 
@@ -584,7 +588,7 @@ impl Sim {
         solver_iters: usize,
         stiffness: f32,
         gravity: f32,
-        pic_flip_ratio: f32,
+        pic_apic_ratio: f32,
         solver: IncompressibilitySolver,
         enable_incompress: bool,
         enable_particle_collisions: bool,
@@ -599,13 +603,12 @@ impl Sim {
         enforce_particle_pos(&mut self.particles, &self.grid);
 
         // Step grid
-        particles_to_grid(&self.particles, &mut self.grid);
+        particles_to_grid(&self.particles, &mut self.grid, pic_apic_ratio);
         let solver_fn = match solver {
             IncompressibilitySolver::Jacobi => solve_incompressibility_jacobi,
             IncompressibilitySolver::GaussSeidel => solve_incompressibility_gauss_seidel,
         };
 
-        let old_vel = self.grid.clone();
         if enable_incompress {
             solver_fn(
                 &mut self.grid,
@@ -616,7 +619,7 @@ impl Sim {
             );
         }
 
-        grid_to_particles(&mut self.particles, &self.grid, &old_vel, pic_flip_ratio);
+        grid_to_particles(&mut self.particles, &self.grid);
     }
 }
 
@@ -641,17 +644,18 @@ const OFFSET_U: Vec2 = Vec2::new(0., 0.5);
 const OFFSET_V: Vec2 = Vec2::new(0.5, 0.);
 
 /// Insert information such as velocity and pressure into the grid
-fn particles_to_grid(particles: &[Particle], grid: &mut Array2D<GridCell>) {
+fn particles_to_grid(particles: &[Particle], grid: &mut Array2D<GridCell>, pic_apic_ratio: f32) {
     // Clear the grid
     grid.data_mut()
         .iter_mut()
         .for_each(|c| *c = GridCell::default());
 
     // Accumulate velocity on grid
-    // Here we abuse the pressure of each grid cell to divide correctly
+    // Here we abuse the pressure of each grid cell to by mass correctly
     for part in particles {
-        scatter(part.pos - OFFSET_U, grid, |c, w| c.vel.x += w * part.vel.x);
-        scatter(part.pos - OFFSET_U, grid, |c, w| c.pressure += w);
+        let u_pos = part.pos - OFFSET_U;
+        scatter(u_pos, grid, |c, n, w| c.vel.x += w * (part.vel.x + (index_to_pos(n) - u_pos).dot(part.deriv[0]) * pic_apic_ratio));
+        scatter(u_pos, grid, |c, _, w| c.pressure += w);
     }
     grid.data_mut().iter_mut().for_each(|c| {
         if c.pressure != 0.0 {
@@ -662,8 +666,9 @@ fn particles_to_grid(particles: &[Particle], grid: &mut Array2D<GridCell>) {
 
     // And then we do again for u
     for part in particles {
-        scatter(part.pos - OFFSET_V, grid, |c, w| c.vel.y += w * part.vel.y);
-        scatter(part.pos - OFFSET_V, grid, |c, w| c.pressure += w);
+        let v_pos = part.pos - OFFSET_V;
+        scatter(v_pos, grid, |c, n, w| c.vel.y += w * (part.vel.y + (index_to_pos(n) - v_pos).dot(part.deriv[1]) * pic_apic_ratio));
+        scatter(v_pos, grid, |c, _, w| c.pressure += w);
     }
     grid.data_mut().iter_mut().for_each(|c| {
         if c.pressure != 0.0 {
@@ -713,13 +718,24 @@ fn gather<T>(pos: Vec2, grid: &Array2D<T>, f: fn(&T) -> f32) -> f32 {
     total
 }
 
+/// Performs a weighted sum of the grid field chosen by f
+fn gather_vector(pos: Vec2, f: impl Fn(GridPos) -> Vec2) -> Vec2 {
+    let neighbors = grid_neighborhood(grid_tl(pos));
+
+    let mut total = Vec2::ZERO;
+    for n in neighbors {
+        total += f(n);
+    }
+    total
+}
+
 /// Performs a weighted accumulation on the grid field chosen by f
-fn scatter<T>(pos: Vec2, grid: &mut Array2D<T>, mut f: impl FnMut(&mut T, f32)) {
+fn scatter<T>(pos: Vec2, grid: &mut Array2D<T>, mut f: impl FnMut(&mut T, GridPos, f32)) {
     let weights = weights(pos);
     let neighbors = grid_neighborhood(grid_tl(pos));
 
     for (w, n) in weights.into_iter().zip(neighbors) {
-        f(&mut grid[n], w);
+        f(&mut grid[n], n, w);
     }
 }
 
@@ -797,28 +813,39 @@ fn solve_incompressibility_gauss_seidel(
     }
 }
 
-fn grid_to_particles(
-    particles: &mut [Particle],
-    grid: &Array2D<GridCell>,
-    old_grid: &Array2D<GridCell>,
-    pic_flip_ratio: f32,
-) {
+
+fn grid_to_particles(particles: &mut [Particle], grid: &Array2D<GridCell>) {
     for part in particles {
+        let u_pos = part.pos - OFFSET_U;
+        let v_pos = part.pos - OFFSET_V;
+
         // Interpolate velocity onto particles
-        let new_vel_x = gather(part.pos - OFFSET_U, grid, |c| c.vel.x);
-        let new_vel_y = gather(part.pos - OFFSET_V, grid, |c| c.vel.y);
-        let new_vel = Vec2::new(new_vel_x, new_vel_y);
+        part.vel = Vec2::new(
+            gather(u_pos, grid, |c| c.vel.x),
+            gather(v_pos, grid, |c| c.vel.y),
+        );
 
-        let old_vel_x = gather(part.pos - OFFSET_U, old_grid, |c| c.vel.x);
-        let old_vel_y = gather(part.pos - OFFSET_V, old_grid, |c| c.vel.y);
-        let old_vel = Vec2::new(old_vel_x, old_vel_y);
+        fn gradient(p: GridPos, v: Vec2) -> Vec2 {
+            let p = v - index_to_pos(p);
 
-        let d_vel = new_vel - old_vel;
-        let flip = part.vel + d_vel;
-        let pic = new_vel;
-        part.vel = pic.lerp(flip, pic_flip_ratio);
+            let wd = |u: f32| if u > 0. {
+                (1. - u, -1.0)
+            } else {
+                (u, 1.0)
+            };
+
+            let (x_weight, x_deriv) = wd(p.x);
+            let (y_weight, y_deriv) = wd(p.y);
+
+            Vec2::new(y_weight * x_deriv, x_weight * y_deriv)
+        }
+
+        // Interpolate grid vectors
+        part.deriv[0] = gather_vector(u_pos, |p| grid[p].vel.x * gradient(p, u_pos));
+        part.deriv[1] = gather_vector(v_pos, |p| grid[p].vel.y * gradient(p, v_pos));
     }
 }
+
 
 fn enforce_particle_pos(particles: &mut [Particle], grid: &Array2D<GridCell>) {
     for part in particles {
@@ -1207,4 +1234,9 @@ fn push_particles(particles: &mut [Particle], radius: f32, pos: Vec2, vel: Vec2)
             part.vel += vel;
         }
     }
+}
+
+/// Inverse of grid_id
+fn index_to_pos((i, j): GridPos) -> Vec2 {
+    Vec2::new(i as f32, j as f32)
 }
