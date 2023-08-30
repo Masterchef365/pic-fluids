@@ -49,7 +49,7 @@ impl TemplateApp {
         let sim = Sim::new(width, height, n_particles, particle_radius, life);
 
         Self {
-            enable_particle_collisions: true,
+            enable_particle_collisions: false,
             enable_incompress: true,
             advanced: false,
             n_colors,
@@ -60,7 +60,7 @@ impl TemplateApp {
             dt: 0.02,
             solver_iters: 25,
             stiffness: 0.3,
-            gravity: 9.8,
+            gravity: 0.,
             sim,
             width,
             height,
@@ -382,7 +382,7 @@ impl TemplateApp {
         if self.advanced {
             ui.add(
                 DragValue::new(&mut behav_cfg.max_inter_dist)
-                    .clamp_range(0.0..=4.0)
+                    .clamp_range(0.0..=8.0)
                     .speed(1e-2)
                     .prefix("Max interaction dist: "),
             );
@@ -1152,7 +1152,7 @@ impl LifeConfig {
         let mut behav = Behaviour::default();
         behav.inter_strength = rng.gen_range(-20.0..=20.0);
         if behav.inter_strength < 0. {
-            behav.inter_strength *= 10.;
+            behav.inter_strength *= 3.;
         }
         behav
     }
@@ -1174,10 +1174,10 @@ impl Default for Behaviour {
     fn default() -> Self {
         Self {
             //default_repulse: 10.,
-            default_repulse: 400.,
-            inter_threshold: 0.75,
+            default_repulse: 300.,
+            inter_threshold: 1.4,
             inter_strength: 1.,
-            max_inter_dist: 2.,
+            max_inter_dist: 4.,
         }
     }
 }
