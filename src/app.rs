@@ -42,14 +42,14 @@ impl TemplateApp {
             (120, 80)
         };
         let n_particles = 4_000;
-        let particle_radius = 0.20;
+        let particle_radius = 0.16;
 
         let n_colors = 3;
         let life = LifeConfig::random(n_colors);
         let sim = Sim::new(width, height, n_particles, particle_radius, life);
 
         Self {
-            enable_particle_collisions: true,
+            enable_particle_collisions: false,
             enable_incompress: true,
             advanced: false,
             n_colors,
@@ -578,7 +578,7 @@ impl Sim {
 
         // Assume half-hexagonal packing density...
         //let rest_density = calc_rest_density(particle_radius);
-        let rest_density = 1.;
+        let rest_density = 2.8;
 
         Sim {
             damping: 0.,
