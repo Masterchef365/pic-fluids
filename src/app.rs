@@ -291,11 +291,16 @@ impl TemplateApp {
                 .prefix("Δt (time step): ")
                 .speed(1e-3),
         );
-        ui.add(
-            DragValue::new(&mut self.gravity)
-                .prefix("Gravity: ")
-                .speed(1e-2),
-        );
+        ui.horizontal(|ui| {
+            ui.add(
+                DragValue::new(&mut self.gravity)
+                    .prefix("Gravity: ")
+                    .speed(1e-2),
+            );
+            if ui.button("Zero-G").clicked() {
+                self.gravity = 0.;
+            }
+        });
         ui.add(
             DragValue::new(&mut self.sim.damping)
                 .prefix("Damping: ")
