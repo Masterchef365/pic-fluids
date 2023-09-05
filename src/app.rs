@@ -1186,9 +1186,9 @@ impl Default for Behaviour {
     fn default() -> Self {
         Self {
             //default_repulse: 10.,
-            max_inter_dist: 5.33,
+            max_inter_dist: 8.,
             default_repulse: 20.,
-            inter_threshold: 3.75,
+            inter_threshold: 6.,
 
             inter_strength: 1.,
         }
