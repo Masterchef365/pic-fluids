@@ -51,17 +51,17 @@ impl TemplateApp {
 
         Self {
             enable_grid_transfer: true,
-            enable_particle_collisions: false,
+            enable_particle_collisions: true,
             enable_incompress: true,
             advanced: false,
             n_colors,
             source_rate: 0,
             pic_apic_ratio: 1.,
-            calc_rest_density_from_radius: false,
+            calc_rest_density_from_radius: true,
             single_step: false,
             dt: 0.02,
             solver_iters: 25,
-            stiffness: 0.3,
+            stiffness: 2.,
             gravity: 9.8,
             sim,
             width,
@@ -208,7 +208,8 @@ impl TemplateApp {
             let color = self.sim.life.colors[part.color as usize];
             painter.circle_filled(
                 coords.sim_to_egui(part.pos) + rect.left_top().to_vec2(),
-                radius,
+                1.,
+                //radius,
                 color_to_egui(color),
             );
         }
