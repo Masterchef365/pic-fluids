@@ -40,7 +40,7 @@ impl TemplateApp {
         let (width, height) = if is_mobile(&cc.egui_ctx) {
             (70, 150)
         } else {
-            (120, 80)
+            (240, 160)
         };
         let n_particles = 4_000;
         let particle_radius = 0.16;
@@ -60,7 +60,7 @@ impl TemplateApp {
             calc_rest_density_from_radius: true,
             single_step: false,
             dt: 0.02,
-            solver_iters: 25,
+            solver_iters: 15,
             stiffness: 0.,
             gravity: 9.8,
             sim,
@@ -598,7 +598,7 @@ impl Sim {
             grid: Array2D::new(width, height),
             rest_density,
             particle_radius,
-            over_relax: 1.5,
+            over_relax: 1.8,
         }
     }
 
