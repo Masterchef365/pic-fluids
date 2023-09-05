@@ -969,9 +969,15 @@ fn particle_interactions(particles: &mut [Particle], cfg: &LifeConfig, dt: f32) 
     let accel = QueryAccelerator::new(&points, cfg.max_interaction_radius());
     //accel.stats("Life");
 
+    let mut neighbors = vec![];
+
     for i in 0..particles.len() {
         let mut v = 0.;
-        for neighbor in accel.query_neighbors(&points, i, points[i]) {
+
+        neighbors.clear();
+        neighbors.extend(accel.query_neighbors(&points, i, points[i]));
+
+        for &neighbor in &neighbors {
             let a = points[i];
             let b = points[neighbor];
             let behav = cfg.get_behaviour(particles[i].color, particles[neighbor].color);
@@ -981,7 +987,7 @@ fn particle_interactions(particles: &mut [Particle], cfg: &LifeConfig, dt: f32) 
             }
         }
 
-        for neighbor in accel.query_neighbors(&points, i, points[i]) {
+        for &neighbor in &neighbors {
             let a = points[i];
             let b = points[neighbor];
 
