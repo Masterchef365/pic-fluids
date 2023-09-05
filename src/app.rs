@@ -304,12 +304,12 @@ impl TemplateApp {
                 self.gravity = 0.;
             }
         });
-        ui.add(
-            DragValue::new(&mut self.sim.damping)
-                .prefix("Damping: ")
-                .speed(1e-3),
-        );
         if self.advanced {
+            ui.add(
+                DragValue::new(&mut self.sim.damping)
+                    .prefix("Damping: ")
+                    .speed(1e-3),
+            );
             ui.add(Slider::new(&mut self.pic_apic_ratio, 0.0..=1.0).text("PIC - APIC"));
         }
 
@@ -458,18 +458,18 @@ impl TemplateApp {
 
         /*
         if self.advanced {
-            ui.separator();
-            ui.strong("Debug");
-            ui.checkbox(&mut self.show_grid, "Show grid");
-            ui.horizontal(|ui| {
-                ui.checkbox(&mut self.show_arrows, "Show arrows");
-                ui.add(
-                    DragValue::new(&mut self.grid_vel_scale)
-                        .prefix("Scale: ")
-                        .speed(1e-2)
-                        .clamp_range(0.0..=f32::INFINITY),
-                )
-            });
+        ui.separator();
+        ui.strong("Debug");
+        ui.checkbox(&mut self.show_grid, "Show grid");
+        ui.horizontal(|ui| {
+        ui.checkbox(&mut self.show_arrows, "Show arrows");
+        ui.add(
+        DragValue::new(&mut self.grid_vel_scale)
+        .prefix("Scale: ")
+        .speed(1e-2)
+        .clamp_range(0.0..=f32::INFINITY),
+        )
+        });
         }
         */
 
@@ -504,13 +504,13 @@ fn simspace_to_modelspace(pos: Vec2) -> [f32; 3] {
 
 /*
 fn particles_mesh(particles: &[Particle], life: &LifeConfig) -> Shape {
-    Mesh {
-        vertices: particles
-            .iter()
-            .map(|p| Vertex::new(simspace_to_modelspace(p.pos), life.colors[p.color as usize]))
-            .collect(),
-        indices: (0..particles.len() as u32).collect(),
-    }
+Mesh {
+vertices: particles
+.iter()
+.map(|p| Vertex::new(simspace_to_modelspace(p.pos), life.colors[p.color as usize]))
+.collect(),
+indices: (0..particles.len() as u32).collect(),
+}
 }
 */
 
@@ -991,68 +991,68 @@ fn particle_interactions(particles: &mut [Particle], cfg: &LifeConfig, dt: f32) 
 
 /*
 fn draw_arrow(mesh: &mut Mesh, pos: Vec2, dir: Vec2, color: [f32; 3], flanges: f32) {
-    let mut vertex = |pt: Vec2| mesh.push_vertex(Vertex::new(simspace_to_modelspace(pt), color));
+let mut vertex = |pt: Vec2| mesh.push_vertex(Vertex::new(simspace_to_modelspace(pt), color));
 
-    let p1 = vertex(pos);
+let p1 = vertex(pos);
 
-    let end = pos + dir;
-    let p2 = vertex(end);
+let end = pos + dir;
+let p2 = vertex(end);
 
-    let angle = 0.3;
-    let f1 = vertex(end - flanges * dir.rotate(Vec2::from_angle(angle)));
-    let f2 = vertex(end - flanges * dir.rotate(Vec2::from_angle(-angle)));
+let angle = 0.3;
+let f1 = vertex(end - flanges * dir.rotate(Vec2::from_angle(angle)));
+let f2 = vertex(end - flanges * dir.rotate(Vec2::from_angle(-angle)));
 
-    mesh.push_indices(&[p1, p2, p2, f1, p2, f2]);
+mesh.push_indices(&[p1, p2, p2, f1, p2, f2]);
 }
 
 fn draw_grid_arrows(mesh: &mut Mesh, grid: &Array2D<GridCell>, vel_scale: f32) {
-    for i in 0..grid.width() {
-        for j in 0..grid.height() {
-            let c = grid[(i, j)];
+for i in 0..grid.width() {
+for j in 0..grid.height() {
+let c = grid[(i, j)];
 
-            if c.pressure == 0.0 {
-                continue;
-            }
+if c.pressure == 0.0 {
+continue;
+}
 
-            let v = Vec2::new(i as f32, j as f32);
+let v = Vec2::new(i as f32, j as f32);
 
-            let flanges = 0.5;
-            draw_arrow(
-                mesh,
-                v + OFFSET_U,
-                Vec2::X * c.vel.x * vel_scale,
-                [1., 0.1, 0.1],
-                flanges,
-            );
-            draw_arrow(
-                mesh,
-                v + OFFSET_V,
-                Vec2::Y * c.vel.y * vel_scale,
-                [0.01, 0.3, 1.],
-                flanges,
-            );
-        }
-    }
+let flanges = 0.5;
+draw_arrow(
+mesh,
+v + OFFSET_U,
+Vec2::X * c.vel.x * vel_scale,
+[1., 0.1, 0.1],
+flanges,
+);
+draw_arrow(
+mesh,
+v + OFFSET_V,
+Vec2::Y * c.vel.y * vel_scale,
+[0.01, 0.3, 1.],
+flanges,
+);
+}
+}
 }
 
 fn draw_grid(mesh: &mut Mesh, grid: &Array2D<GridCell>) {
-    let color = [0.05; 3];
+let color = [0.05; 3];
 
-    for y in 0..=grid.height() {
-        let mut vertex =
-            |pt: Vec2| mesh.push_vertex(Vertex::new(simspace_to_modelspace(pt), color));
-        let a = vertex(Vec2::new(0., y as f32));
-        let b = vertex(Vec2::new(grid.width() as f32, y as f32));
-        mesh.push_indices(&[a, b]);
-    }
+for y in 0..=grid.height() {
+let mut vertex =
+|pt: Vec2| mesh.push_vertex(Vertex::new(simspace_to_modelspace(pt), color));
+let a = vertex(Vec2::new(0., y as f32));
+let b = vertex(Vec2::new(grid.width() as f32, y as f32));
+mesh.push_indices(&[a, b]);
+}
 
-    for x in 0..=grid.width() {
-        let mut vertex =
-            |pt: Vec2| mesh.push_vertex(Vertex::new(simspace_to_modelspace(pt), color));
-        let a = vertex(Vec2::new(x as f32, 0.));
-        let b = vertex(Vec2::new(x as f32, grid.height() as f32));
-        mesh.push_indices(&[a, b]);
-    }
+for x in 0..=grid.width() {
+let mut vertex =
+|pt: Vec2| mesh.push_vertex(Vertex::new(simspace_to_modelspace(pt), color));
+let a = vertex(Vec2::new(x as f32, 0.));
+let b = vertex(Vec2::new(x as f32, grid.height() as f32));
+mesh.push_indices(&[a, b]);
+}
 }
 */
 
