@@ -391,7 +391,7 @@ impl TemplateApp {
         if self.advanced {
             ui.add(
                 DragValue::new(&mut behav_cfg.max_inter_dist)
-                    .clamp_range(0.0..=4.0)
+                    .clamp_range(0.0..=14.0)
                     .speed(1e-2)
                     .prefix("Max interaction dist: "),
             );
@@ -402,7 +402,7 @@ impl TemplateApp {
             );
             ui.add(
                 DragValue::new(&mut behav_cfg.inter_threshold)
-                    .clamp_range(0.0..=4.0)
+                    .clamp_range(0.0..=14.0)
                     .speed(1e-2)
                     .prefix("Interaction threshold: "),
             );
@@ -1163,9 +1163,9 @@ impl LifeConfig {
         let mut rng = rand::thread_rng();
         let mut behav = Behaviour::default();
         behav.inter_strength = rng.gen_range(-20.0..=20.0);
-        if behav.inter_strength < 0. {
+        /*if behav.inter_strength < 0. {
             behav.inter_strength *= 10.;
-        }
+        }*/
         behav
     }
 
@@ -1186,10 +1186,11 @@ impl Default for Behaviour {
     fn default() -> Self {
         Self {
             //default_repulse: 10.,
-            default_repulse: 400.,
-            inter_threshold: 0.75,
+            max_inter_dist: 5.33,
+            default_repulse: 20.,
+            inter_threshold: 3.75,
+
             inter_strength: 1.,
-            max_inter_dist: 2.,
         }
     }
 }
