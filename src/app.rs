@@ -983,7 +983,7 @@ fn particle_interactions(particles: &mut [Particle], cfg: &LifeConfig, dt: f32) 
             let behav = cfg.get_behaviour(particles[i].color, particles[neighbor].color);
             let mut f = behav.force(a.distance(b));
             if f > 0. {
-                v += f/100.;
+                v += f/200.;
             }
         }
 
