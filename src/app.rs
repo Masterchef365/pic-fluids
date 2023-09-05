@@ -51,7 +51,7 @@ impl TemplateApp {
 
         Self {
             enable_grid_transfer: true,
-            enable_particle_collisions: true,
+            enable_particle_collisions: false,
             enable_incompress: true,
             advanced: false,
             n_colors,
