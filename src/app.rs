@@ -983,7 +983,7 @@ fn particle_interactions(particles: &mut [Particle], cfg: &LifeConfig, dt: f32) 
             let behav = cfg.get_behaviour(particles[i].color, particles[neighbor].color);
             let mut f = behav.force(a.distance(b));
             if f > 0. {
-                v += 0.05;
+                v += f/100.;
             }
         }
 
@@ -1219,9 +1219,9 @@ impl Default for Behaviour {
     fn default() -> Self {
         Self {
             //default_repulse: 10.,
-            max_inter_dist: 6.,
+            max_inter_dist: 4.,
             default_repulse: 20.,
-            inter_threshold: 3.,
+            inter_threshold: 2.,
 
             inter_strength: 1.,
         }
