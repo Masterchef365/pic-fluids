@@ -1155,6 +1155,16 @@ impl LifeConfig {
             .unwrap()
     }
 
+    pub fn min_interaction_radius(&self) -> f32 {
+        self.behaviours
+            .data()
+            .iter()
+            .map(|b| b.max_inter_dist)
+            .min_by(|a, b| a.total_cmp(b))
+            .unwrap()
+    }
+
+
     pub fn get_behaviour(&self, a: ParticleType, b: ParticleType) -> Behaviour {
         self.behaviours[(a as usize, b as usize)]
     }
@@ -1186,9 +1196,9 @@ impl Default for Behaviour {
     fn default() -> Self {
         Self {
             //default_repulse: 10.,
-            max_inter_dist: 8.,
+            max_inter_dist: 6.,
             default_repulse: 20.,
-            inter_threshold: 6.,
+            inter_threshold: 3.,
 
             inter_strength: 1.,
         }
