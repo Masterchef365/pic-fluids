@@ -61,7 +61,7 @@ impl TemplateApp {
             single_step: false,
             dt: 0.02,
             solver_iters: 25,
-            stiffness: 2.,
+            stiffness: 0.,
             gravity: 9.8,
             sim,
             width,
@@ -970,6 +970,17 @@ fn particle_interactions(particles: &mut [Particle], cfg: &LifeConfig, dt: f32) 
     //accel.stats("Life");
 
     for i in 0..particles.len() {
+        let mut v = 0.;
+        for neighbor in accel.query_neighbors(&points, i, points[i]) {
+            let a = points[i];
+            let b = points[neighbor];
+            let behav = cfg.get_behaviour(particles[i].color, particles[neighbor].color);
+            let mut f = behav.force(a.distance(b));
+            if f > 0. {
+                v += 0.05;
+            }
+        }
+
         for neighbor in accel.query_neighbors(&points, i, points[i]) {
             let a = points[i];
             let b = points[neighbor];
@@ -983,7 +994,11 @@ fn particle_interactions(particles: &mut [Particle], cfg: &LifeConfig, dt: f32) 
                 // Accelerate towards b
                 let normal = diff.normalize();
                 let behav = cfg.get_behaviour(particles[i].color, particles[neighbor].color);
-                let accel = normal * behav.force(dist);
+                let mut f = behav.force(dist);
+
+                f -= v;
+
+                let accel = normal * f;
 
                 particles[i].vel += accel * dt;
             }
