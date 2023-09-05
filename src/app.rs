@@ -23,6 +23,7 @@ pub struct TemplateApp {
     n_colors: usize,
     enable_incompress: bool,
     enable_particle_collisions: bool,
+    enable_grid_transfer: bool,
 
     well: bool,
     source_color_idx: ParticleType,
@@ -49,6 +50,7 @@ impl TemplateApp {
         let sim = Sim::new(width, height, n_particles, particle_radius, life);
 
         Self {
+            enable_grid_transfer: true,
             enable_particle_collisions: false,
             enable_incompress: true,
             advanced: false,
@@ -154,6 +156,7 @@ impl TemplateApp {
                 self.solver,
                 self.enable_incompress,
                 self.enable_particle_collisions,
+                self.enable_grid_transfer,
             );
 
             self.single_step = false;
@@ -346,6 +349,7 @@ impl TemplateApp {
                 ui.strong("Incompressibility Solver");
                 ui.checkbox(&mut self.enable_incompress, "");
             });
+            ui.checkbox(&mut self.enable_grid_transfer, "Grid transfer");
             ui.add(DragValue::new(&mut self.solver_iters).prefix("Solver iterations: "));
             ui.add(
                 DragValue::new(&mut self.sim.over_relax)
@@ -606,6 +610,7 @@ impl Sim {
         solver: IncompressibilitySolver,
         enable_incompress: bool,
         enable_particle_collisions: bool,
+        enable_grid_transfer: bool,
     ) {
         // Step particles
         apply_global_force(&mut self.particles, Vec2::new(0., -gravity), dt);
@@ -633,7 +638,9 @@ impl Sim {
             );
         }
 
-        grid_to_particles(&mut self.particles, &self.grid);
+        if enable_grid_transfer {
+            grid_to_particles(&mut self.particles, &self.grid);
+        }
     }
 }
 
