@@ -647,8 +647,8 @@ impl Sim {
 /// Move particles forwards in time by `dt`, assuming unit mass for all particles.
 fn step_particles(particles: &mut [Particle], dt: f32, damping: f32) {
     for part in particles {
-        let next = part.pos + part.vel * dt;
-        part.pos = next.lerp(part.pos, damping);
+        part.vel *= 1. - dt * damping;
+        part.pos = part.pos + part.vel * dt;
     }
 }
 
