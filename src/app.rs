@@ -25,6 +25,7 @@ pub struct TemplateApp {
     enable_particle_collisions: bool,
     enable_grid_transfer: bool,
     saturation: f32,
+    rand_std_dev: f32,
 
     well: bool,
     source_color_idx: ParticleType,
@@ -41,16 +42,18 @@ impl TemplateApp {
         let (width, height) = if is_mobile(&cc.egui_ctx) {
             (70, 150)
         } else {
-            (240, 160)
+            (120, 80)
         };
         let n_particles = 4_000;
         let particle_radius = 0.16;
 
         let n_colors = 3;
-        let life = LifeConfig::random(n_colors);
+        let rand_std_dev = 10.;
+        let life = LifeConfig::random(n_colors, rand_std_dev);
         let sim = Sim::new(width, height, n_particles, particle_radius, life);
 
         Self {
+            rand_std_dev,
             saturation: 1./200.,
             enable_grid_transfer: true,
             enable_particle_collisions: false,
@@ -261,7 +264,7 @@ impl TemplateApp {
                     if i < old_size && j < old_size {
                         new_behav_array[(i, j)] = self.sim.life.behaviours[(i, j)];
                     } else {
-                        new_behav_array[(i, j)] = LifeConfig::random_behaviour();
+                        new_behav_array[(i, j)] = LifeConfig::random_behaviour(self.rand_std_dev);
                     }
                 }
             }
@@ -442,10 +445,13 @@ impl TemplateApp {
             }
         });
 
-        if ui.button("Randomize behaviours").clicked() {
-            self.sim.life = LifeConfig::random(self.n_colors);
-            reset = true;
-        }
+        ui.horizontal(|ui| {
+            if ui.button("Randomize behaviours").clicked() {
+                self.sim.life = LifeConfig::random(self.n_colors, self.rand_std_dev);
+                reset = true;
+            }
+            ui.add(DragValue::new(&mut self.rand_std_dev).prefix("σ: "))
+        });
         if ui.button("Symmetric forces").clicked() {
             let n = self.sim.life.colors.len();
             for i in 0..n {
@@ -1198,22 +1204,24 @@ impl LifeConfig {
         self.behaviours[(a as usize, b as usize)]
     }
 
-    pub fn random_behaviour() -> Behaviour {
+    pub fn random_behaviour(std_dev: f32) -> Behaviour {
         let mut rng = rand::thread_rng();
         let mut behav = Behaviour::default();
-        behav.inter_strength = rng.gen_range(-20.0..=20.0);
+
+        let dist = rand_distr::Normal::new(0., std_dev).unwrap();
+        behav.inter_strength = dist.sample(&mut rng);
         /*if behav.inter_strength < 0. {
             behav.inter_strength *= 10.;
         }*/
         behav
     }
 
-    pub fn random(rule_count: usize) -> Self {
+    pub fn random(rule_count: usize, std_dev: f32) -> Self {
         let mut rng = rand::thread_rng();
 
         let colors: Vec<[f32; 3]> = (0..rule_count).map(|_| random_color(&mut rng)).collect();
         let behaviours = (0..rule_count.pow(2))
-            .map(|_| Self::random_behaviour())
+            .map(|_| Self::random_behaviour(std_dev))
             .collect();
         let behaviours = Array2D::from_array(rule_count, behaviours);
 
