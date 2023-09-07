@@ -24,6 +24,7 @@ pub struct TemplateApp {
     enable_incompress: bool,
     enable_particle_collisions: bool,
     enable_grid_transfer: bool,
+    saturation: f32,
 
     well: bool,
     source_color_idx: ParticleType,
@@ -50,6 +51,7 @@ impl TemplateApp {
         let sim = Sim::new(width, height, n_particles, particle_radius, life);
 
         Self {
+            saturation: 1./200.,
             enable_grid_transfer: true,
             enable_particle_collisions: false,
             enable_incompress: true,
@@ -161,6 +163,7 @@ impl TemplateApp {
                 self.enable_incompress,
                 self.enable_particle_collisions,
                 self.enable_grid_transfer,
+                self.saturation
             );
 
             self.single_step = false;
@@ -390,6 +393,8 @@ impl TemplateApp {
         ui.separator();
         ui.strong("Particle life");
         let mut behav_cfg = self.sim.life.behaviours[(0, 0)];
+
+        ui.add(DragValue::new(&mut self.saturation).prefix("Saturation: ").speed(1e-4));
         if self.advanced {
             ui.add(
                 DragValue::new(&mut behav_cfg.max_inter_dist)
@@ -613,10 +618,11 @@ impl Sim {
         enable_incompress: bool,
         enable_particle_collisions: bool,
         enable_grid_transfer: bool,
+        saturation: f32,
     ) {
         // Step particles
         apply_global_force(&mut self.particles, Vec2::new(0., -gravity), dt);
-        particle_interactions(&mut self.particles, &mut self.life, dt);
+        particle_interactions(&mut self.particles, &mut self.life, dt, saturation);
         step_particles(&mut self.particles, dt, self.damping);
         if enable_particle_collisions {
             enforce_particle_radius(&mut self.particles, self.particle_radius);
@@ -964,7 +970,7 @@ fn enforce_particle_radius(particles: &mut [Particle], radius: f32) {
         .for_each(|(part, point)| part.pos = *point);
 }
 
-fn particle_interactions(particles: &mut [Particle], cfg: &LifeConfig, dt: f32) {
+fn particle_interactions(particles: &mut [Particle], cfg: &LifeConfig, dt: f32, saturation: f32) {
     let points: Vec<Vec2> = particles.iter().map(|p| p.pos).collect();
     let accel = QueryAccelerator::new(&points, cfg.max_interaction_radius());
     //accel.stats("Life");
@@ -972,7 +978,7 @@ fn particle_interactions(particles: &mut [Particle], cfg: &LifeConfig, dt: f32) 
     let mut neighbors = vec![];
 
     for i in 0..particles.len() {
-        let mut v = 0.;
+        let mut accum = 0.;
 
         neighbors.clear();
         neighbors.extend(accel.query_neighbors(&points, i, points[i]));
@@ -983,7 +989,7 @@ fn particle_interactions(particles: &mut [Particle], cfg: &LifeConfig, dt: f32) 
             let behav = cfg.get_behaviour(particles[i].color, particles[neighbor].color);
             let mut f = behav.force(a.distance(b));
             if f > 0. {
-                v += f/200.;
+                accum += f;
             }
         }
 
@@ -1002,7 +1008,7 @@ fn particle_interactions(particles: &mut [Particle], cfg: &LifeConfig, dt: f32) 
                 let behav = cfg.get_behaviour(particles[i].color, particles[neighbor].color);
                 let mut f = behav.force(dist);
 
-                f -= v;
+                f -= accum * saturation;
 
                 let accel = normal * f;
 
