@@ -54,7 +54,7 @@ impl TemplateApp {
 
         Self {
             rand_std_dev,
-            saturation: 1./200.,
+            saturation: 1./100.,
             enable_grid_transfer: true,
             enable_particle_collisions: false,
             enable_incompress: true,
