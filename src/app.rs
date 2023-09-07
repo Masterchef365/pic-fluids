@@ -983,19 +983,24 @@ fn particle_interactions(particles: &mut [Particle], cfg: &LifeConfig, dt: f32, 
 
     let mut neighbors = vec![];
 
+    let mut accum = vec![0.; cfg.colors.len()];
+
     for i in 0..particles.len() {
-        let mut accum = 0.;
+        accum.fill(0.);
 
         neighbors.clear();
         neighbors.extend(accel.query_neighbors(&points, i, points[i]));
 
+        let a = points[i];
+        let i_color = particles[i].color;
+
         for &neighbor in &neighbors {
-            let a = points[i];
             let b = points[neighbor];
-            let behav = cfg.get_behaviour(particles[i].color, particles[neighbor].color);
-            let mut f = behav.force(a.distance(b));
+            let their_color = particles[neighbor].color;
+            let behav = cfg.get_behaviour(i_color, their_color);
+            let f = behav.force(a.distance(b));
             if f > 0. {
-                accum += f;
+                accum[particles[neighbor].color as usize] += f;
             }
         }
 
@@ -1011,10 +1016,11 @@ fn particle_interactions(particles: &mut [Particle], cfg: &LifeConfig, dt: f32, 
             if dist > 0. {
                 // Accelerate towards b
                 let normal = diff.normalize();
-                let behav = cfg.get_behaviour(particles[i].color, particles[neighbor].color);
+                let their_color = particles[neighbor].color;
+                let behav = cfg.get_behaviour(i_color, their_color );
                 let mut f = behav.force(dist);
 
-                f -= accum * saturation;
+                f -= accum[their_color as usize] * saturation;
 
                 let accel = normal * f;
 
