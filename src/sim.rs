@@ -17,7 +17,7 @@ pub struct Sim {
     pub rest_density: f32,
     pub particle_radius: f32,
     pub over_relax: f32,
-    pub life: LifeConfig,
+    pub life: ErosionConfig,
     pub damping: f32,
 }
 
@@ -29,14 +29,14 @@ pub struct GridCell {
     pub pressure: f32,
 }
 
-#[derive(Copy, Clone, Debug, Default)]
+#[derive(Copy, Clone, Debug)]
 pub struct Particle {
     /// Position
     pub pos: Vec2,
     /// Velocity
     pub vel: Vec2,
     /// Particle type
-    pub color: ParticleType,
+    pub ty: ParticleType,
     /// Velocity derivatives
     pub deriv: [Vec2; 2],
 }
@@ -49,45 +49,15 @@ pub enum IncompressibilitySolver {
 
 /// Display colors and physical behaviour coefficients
 #[derive(Clone, Debug)]
-pub struct LifeConfig {
-    /// Colors of each type
-    pub colors: Vec<[f32; 3]>,
-    /// Behaviour matrix
-    pub behaviours: Array2D<Behaviour>,
+pub struct ErosionConfig {
+    pub neighborhood_radius: f32,
 }
 
-pub type ParticleType = u8;
-
-#[derive(Clone, Copy, Debug)]
-pub struct Behaviour {
-    /// Magnitude of the default repulsion force
-    pub default_repulse: f32,
-    /// Zero point between default repulsion and particle interaction (0 to 1)
-    pub inter_threshold: f32,
-    /// Interaction peak strength
-    pub inter_strength: f32,
-    /// Maximum distance of particle interaction (0 to 1)
-    pub max_inter_dist: f32,
-}
-
-impl Behaviour {
-    /// Returns the force on this particle
-    ///
-    /// Distance is in the range `0.0..=1.0`
-    pub fn force(&self, dist: f32) -> f32 {
-        if dist < self.inter_threshold {
-            let f = dist / self.inter_threshold;
-            (1. - f) * -self.default_repulse
-        } else if dist > self.max_inter_dist {
-            0.0
-        } else {
-            let x = dist - self.inter_threshold;
-            let x = x / (self.max_inter_dist - self.inter_threshold);
-            let x = x * 2. - 1.;
-            let x = 1. - x.abs();
-            x * self.inter_strength
-        }
-    }
+#[derive(Copy, Clone, Debug, PartialEq, Eq)]
+pub enum ParticleType {
+    Rock,
+    Sediment,
+    Water,
 }
 
 pub fn calc_rest_density(particle_radius: f32) -> f32 {
@@ -99,16 +69,15 @@ pub fn calc_rest_density(particle_radius: f32) -> f32 {
     packing_density / particle_area
 }
 
-pub fn random_particle(rng: &mut impl Rng, width: usize, height: usize, life: &LifeConfig) -> Particle {
+pub fn random_particle(rng: &mut impl Rng, width: usize, height: usize, life: &ErosionConfig) -> Particle {
     let pos = Vec2::new(
         rng.gen_range(1.0..=(width - 2) as f32),
-        rng.gen_range(1.0..=(height - 2) as f32),
+        (height - 2) as f32,
     );
-    let color = rng.gen_range(0..life.colors.len() as u8);
     Particle {
         pos,
         vel: Vec2::ZERO,
-        color,
+        ty: ParticleType::Sediment,
         deriv: [Vec2::ZERO; 2],
     }
 }
@@ -119,7 +88,7 @@ impl Sim {
         height: usize,
         n_particles: usize,
         particle_radius: f32,
-        life: LifeConfig,
+        life: ErosionConfig,
     ) -> Self {
         // Uniformly placed, random particles
         let mut rng = rand::thread_rng();
@@ -501,7 +470,8 @@ fn enforce_particle_radius(particles: &mut [Particle], radius: f32) {
         .for_each(|(part, point)| part.pos = *point);
 }
 
-fn particle_interactions(particles: &mut [Particle], cfg: &LifeConfig, dt: f32) {
+fn particle_interactions(particles: &mut [Particle], cfg: &ErosionConfig, dt: f32) {
+    /*
     let points: Vec<Vec2> = particles.iter().map(|p| p.pos).collect();
     let accel = QueryAccelerator::new(&points, cfg.max_interaction_radius());
     //accel.stats("Life");
@@ -519,62 +489,17 @@ fn particle_interactions(particles: &mut [Particle], cfg: &LifeConfig, dt: f32) 
             if dist > 0. {
                 // Accelerate towards b
                 let normal = diff.normalize();
-                let behav = cfg.get_behaviour(particles[i].color, particles[neighbor].color);
+                let behav = cfg.get_behaviour(particles[i].ty, particles[neighbor].ty);
                 let accel = normal * behav.force(dist);
 
                 particles[i].vel += accel * dt;
             }
         }
     }
+    */
 }
 
-impl LifeConfig {
-    pub fn max_interaction_radius(&self) -> f32 {
-        self.behaviours
-            .data()
-            .iter()
-            .map(|b| b.max_inter_dist)
-            .max_by(|a, b| a.total_cmp(b))
-            .unwrap()
-    }
-
-    pub fn get_behaviour(&self, a: ParticleType, b: ParticleType) -> Behaviour {
-        self.behaviours[(a as usize, b as usize)]
-    }
-
-    pub fn random_behaviour() -> Behaviour {
-        let mut rng = rand::thread_rng();
-        let mut behav = Behaviour::default();
-        behav.inter_strength = rng.gen_range(-20.0..=20.0);
-        if behav.inter_strength < 0. {
-            behav.inter_strength *= 10.;
-        }
-        behav
-    }
-
-    pub fn random(rule_count: usize) -> Self {
-        let mut rng = rand::thread_rng();
-
-        let colors: Vec<[f32; 3]> = (0..rule_count).map(|_| random_color(&mut rng)).collect();
-        let behaviours = (0..rule_count.pow(2))
-            .map(|_| Self::random_behaviour())
-            .collect();
-        let behaviours = Array2D::from_array(rule_count, behaviours);
-
-        Self { behaviours, colors }
-    }
-}
-
-impl Default for Behaviour {
-    fn default() -> Self {
-        Self {
-            //default_repulse: 10.,
-            default_repulse: 400.,
-            inter_threshold: 0.75,
-            inter_strength: 1.,
-            max_inter_dist: 2.,
-        }
-    }
+impl ErosionConfig {
 }
 
 pub fn random_color(rng: &mut impl Rng) -> [f32; 3] {
@@ -630,4 +555,28 @@ fn hsv_to_rgb(h: f32, s: f32, v: f32) -> [f32; 3] {
     b += m;
 
     [r, g, b]
+}
+
+impl ParticleType {
+    // Whether or not this material moves
+    fn is_dynamic(&self) -> bool {
+        matches!(self, Self::Water | Self::Sediment)
+    }
+
+    // Mass of this particle
+    fn mass(&self) -> f32 {
+        match self {
+            Self::Rock => 1.,
+            Self::Water => 1.,
+            Self::Sediment => 2.,
+        }
+    }
+
+    pub fn color(&self) -> [f32; 3] {
+        match self {
+            Self::Rock => [0.01; 3],
+            Self::Sediment => [0.3; 3],
+            Self::Water => [0., 0.3, 1.],
+        }
+    }
 }

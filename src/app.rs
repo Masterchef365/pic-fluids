@@ -55,21 +55,21 @@ impl TemplateApp {
         let particle_radius = 0.16;
 
         let n_colors = 3;
-        let life = LifeConfig::random(n_colors);
+        let life = ErosionConfig {  neighborhood_radius: 1.0 };
         let sim = Sim::new(width, height, n_particles, particle_radius, life);
 
         Self {
-            enable_particle_collisions: false,
+            enable_particle_collisions: true,
             enable_incompress: true,
             advanced: false,
             n_colors,
             source_rate: 0,
             pic_apic_ratio: 1.,
-            calc_rest_density_from_radius: false,
+            calc_rest_density_from_radius: true,
             single_step: false,
             dt: 0.02,
             solver_iters: 25,
-            stiffness: 0.3,
+            stiffness: 2.,
             gravity: 9.8,
             sim,
             width,
@@ -77,7 +77,7 @@ impl TemplateApp {
             n_particles,
             solver: IncompressibilitySolver::GaussSeidel,
             well: false,
-            source_color_idx: 0,
+            source_color_idx: ParticleType::Sediment,
             show_arrows: false,
             pause: false,
             grid_vel_scale: 0.05,
@@ -128,7 +128,7 @@ impl TemplateApp {
                     pos,
                     vel,
                     deriv: [Vec2::ZERO; 2],
-                    color: self.source_color_idx,
+                    ty: self.source_color_idx,
                 });
             }
 
@@ -171,12 +171,15 @@ impl TemplateApp {
 
         // Draw particles
         let painter = ui.painter_at(rect);
+        let radius = 1.0;
+        /*
         let radius = coords
             .sim_to_egui_vect(Vec2::splat(self.sim.particle_radius))
             .length();
+        */
 
         for part in &self.sim.particles {
-            let color = self.sim.life.colors[part.color as usize];
+            let color = part.ty.color();
             painter.circle_filled(
                 coords.sim_to_egui(part.pos) + rect.left_top().to_vec2(),
                 radius,
@@ -209,6 +212,7 @@ impl TemplateApp {
                 )
             });
         }
+        /*
         if ui
             .add(
                 DragValue::new(&mut self.n_colors)
@@ -224,7 +228,7 @@ impl TemplateApp {
                     if i < old_size && j < old_size {
                         new_behav_array[(i, j)] = self.sim.life.behaviours[(i, j)];
                     } else {
-                        new_behav_array[(i, j)] = LifeConfig::random_behaviour();
+                        new_behav_array[(i, j)] = ErosionConfig::random_behaviour();
                     }
                 }
             }
@@ -236,6 +240,8 @@ impl TemplateApp {
                 .resize_with(self.n_colors, || random_color(&mut rand::thread_rng()));
             reset = true;
         }
+        */
+
         ui.horizontal(|ui| {
             ui.checkbox(&mut self.pause, "Pause");
             self.single_step |= ui.button("Step").clicked();
@@ -342,89 +348,13 @@ impl TemplateApp {
         ui.add(DragValue::new(&mut self.source_rate).prefix("Particle inflow rate: "));
         ui.horizontal(|ui| {
             ui.label("Particle inflow color: ");
-            for (idx, &color) in self.sim.life.colors.iter().enumerate() {
-                let color_marker = RichText::new("#####").color(color_to_egui(color));
-                let button = ui.selectable_label(idx as u8 == self.source_color_idx, color_marker);
-                if button.clicked() {
-                    self.source_color_idx = idx as u8;
-                }
-            }
-            self.source_color_idx = self
-                .source_color_idx
-                .min(self.sim.life.colors.len() as u8 - 1);
+            ui.selectable_value(&mut self.source_color_idx, ParticleType::Water, "Water");
+            ui.selectable_value(&mut self.source_color_idx, ParticleType::Sediment, "Sediment");
         });
         ui.checkbox(&mut self.well, "Particle well");
 
         ui.separator();
-        ui.strong("Particle life");
-        let mut behav_cfg = self.sim.life.behaviours[(0, 0)];
-        if self.advanced {
-            ui.add(
-                DragValue::new(&mut behav_cfg.max_inter_dist)
-                    .clamp_range(0.0..=4.0)
-                    .speed(1e-2)
-                    .prefix("Max interaction dist: "),
-            );
-            ui.add(
-                DragValue::new(&mut behav_cfg.default_repulse)
-                    .speed(1e-2)
-                    .prefix("Default repulse: "),
-            );
-            ui.add(
-                DragValue::new(&mut behav_cfg.inter_threshold)
-                    .clamp_range(0.0..=4.0)
-                    .speed(1e-2)
-                    .prefix("Interaction threshold: "),
-            );
-        }
-        for b in self.sim.life.behaviours.data_mut() {
-            b.max_inter_dist = behav_cfg.max_inter_dist;
-            b.inter_threshold = behav_cfg.inter_threshold;
-            b.default_repulse = behav_cfg.default_repulse;
-        }
-
-        ui.label("Interactions:");
-        Grid::new("Particle Life Grid").show(ui, |ui| {
-            // Top row
-            //ui.label("Life");
-            ui.label("");
-            for color in &mut self.sim.life.colors {
-                ui.color_edit_button_rgb(color);
-            }
-            ui.end_row();
-
-            // Grid
-            let len = self.sim.life.colors.len();
-            for (row_idx, color) in self.sim.life.colors.iter_mut().enumerate() {
-                ui.color_edit_button_rgb(color);
-                for column in 0..len {
-                    let behav = &mut self.sim.life.behaviours[(column, row_idx)];
-                    ui.add(DragValue::new(&mut behav.inter_strength).speed(1e-2));
-                }
-                ui.end_row();
-            }
-        });
-
-        if ui.button("Randomize behaviours").clicked() {
-            self.sim.life = LifeConfig::random(self.n_colors);
-            reset = true;
-        }
-        if ui.button("Symmetric forces").clicked() {
-            let n = self.sim.life.colors.len();
-            for i in 0..n {
-                for j in 0..i {
-                    self.sim.life.behaviours[(i, j)] = self.sim.life.behaviours[(j, i)]
-                }
-            }
-        }
-        if ui.button("Lifeless").clicked() {
-            self.sim
-                .life
-                .behaviours
-                .data_mut()
-                .iter_mut()
-                .for_each(|b| b.inter_strength = 0.);
-        }
+        ui.strong("Erosion");
 
         /*
         if self.advanced {
