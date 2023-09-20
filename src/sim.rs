@@ -163,7 +163,7 @@ fn step_particles(particles: &mut [Particle], dt: f32, damping: f32) {
 /// Apply a force to all particles, e.g. gravity
 fn apply_global_force(particles: &mut [Particle], g: Vec2, dt: f32) {
     for part in particles {
-        part.vel += g * dt;
+        part.vel += g * dt * part.ty.density();
     }
 }
 
@@ -456,10 +456,20 @@ fn enforce_particle_radius(particles: &mut [Particle], radius: f32) {
                 let needed_dist = radius * 2. - dist;
                 let prev_pos = points[i];
                 let prev_neighbor = points[neighbor];
-                points[i] -= norm * needed_dist / 2.;
-                points[neighbor] += norm * needed_dist / 2.;
-                accel.replace_point(i, prev_pos, points[i]);
-                accel.replace_point(neighbor, prev_neighbor, points[neighbor]);
+
+                let density_compare = particles[i].ty.density().total_cmp(&particles[neighbor].ty.density());
+                let we_move = density_compare.is_le();
+                let they_move = density_compare.is_ge();
+
+                if we_move {
+                    points[i] -= norm * needed_dist / 2.;
+                    accel.replace_point(i, prev_pos, points[i]);
+                }
+
+                if they_move {
+                    points[neighbor] += norm * needed_dist / 2.;
+                    accel.replace_point(neighbor, prev_neighbor, points[neighbor]);
+                }
             }
         }
     }
@@ -564,11 +574,11 @@ impl ParticleType {
     }
 
     // Mass of this particle
-    fn mass(&self) -> f32 {
+    fn density(&self) -> f32 {
         match self {
-            Self::Rock => 1.,
+            Self::Rock => 2.,
             Self::Water => 1.,
-            Self::Sediment => 2.,
+            Self::Sediment => 3.,
         }
     }
 
