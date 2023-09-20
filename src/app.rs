@@ -52,7 +52,7 @@ impl TemplateApp {
             (120, 80)
         };
         let n_particles = 4_000;
-        let particle_radius = 0.16;
+        let particle_radius = 0.2;
 
         let n_colors = 3;
         let life = ErosionConfig {  neighborhood_radius: 1.0 };
