@@ -309,15 +309,15 @@ impl TemplateApp {
                         .speed(1e-2),
                 );
                 ui.checkbox(&mut self.calc_rest_density_from_radius, "From radius");
-                if self.calc_rest_density_from_radius {
-                    self.sim.rest_density = calc_rest_density(self.sim.particle_radius);
-                }
             });
             ui.add(
                 DragValue::new(&mut self.stiffness)
                     .prefix("Stiffness: ")
                     .speed(1e-2),
             );
+        }
+        if self.calc_rest_density_from_radius {
+            self.sim.rest_density = calc_rest_density(self.sim.particle_radius);
         }
 
         if self.advanced {
