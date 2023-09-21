@@ -527,7 +527,7 @@ fn particle_interactions(
     let mut new_particles = vec![];
     let mut delete_list = vec![];
 
-    for i in 0..particles.len() {
+    'parts: for i in 0..particles.len() {
         let mut lived = true;
 
         for neighbor in accel.query_neighbors(&points, i, points[i]) {
@@ -548,6 +548,7 @@ fn particle_interactions(
                     cfg,
                     ParticleType::Water,
                 ));
+                continue 'parts;
             }
 
             // Erosion
@@ -557,6 +558,7 @@ fn particle_interactions(
             {
                 particles[neighbor].ty = ParticleType::Sediment;
                 delete_list.push(i);
+                continue 'parts;
             }
         }
 
