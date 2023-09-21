@@ -95,15 +95,24 @@ impl Sim {
         // Uniformly placed, random particles
         let mut rng = rand::thread_rng();
         let mut particles: Vec<Particle> = (0..n_particles)
-            .map(|_| random_particle(&mut rng, width, height, &life, ParticleType::Sediment))
+            .map(|_| random_particle(&mut rng, width, height, &life, ParticleType::Water))
             .collect();
 
-        for x in 1..width - 1 {
-            particles.push(Particle {
-                pos: Vec2::new(x as f32, 1.01),
-                ty: ParticleType::Rock,
-                ..Default::default()
-            });
+        let mut x = 1.0;
+        let mut y = height as f32 / 5.;
+        while x < width as f32 - 1. {
+            x += particle_radius * 2.;
+            y += rng.gen_range(-particle_radius * 8.0..=particle_radius * 8.0);
+            y = y.max(1.);
+            let mut yy = y;
+            while yy > 0. {
+                particles.push(Particle {
+                    pos: Vec2::new(x, yy),
+                    ty: ParticleType::Rock,
+                    ..Default::default()
+                });
+                yy -= particle_radius * 1.8;
+            }
         }
 
         // Assume half-hexagonal packing density...
@@ -132,9 +141,6 @@ impl Sim {
         enable_incompress: bool,
         enable_particle_collisions: bool,
     ) {
-        // Step particles
-        apply_global_force(&mut self.particles, Vec2::new(0., -gravity), dt);
-        particle_interactions(&mut self.particles, &mut self.life, dt, &self.grid);
         step_particles(&mut self.particles, dt, self.damping);
         if enable_particle_collisions {
             enforce_particle_radius(&mut self.particles, self.particle_radius);
@@ -159,16 +165,17 @@ impl Sim {
         }
 
         grid_to_particles(&mut self.particles, &self.grid);
+
+        apply_global_force(&mut self.particles, Vec2::new(0., -gravity), dt);
+        particle_interactions(&mut self.particles, &mut self.life, dt, &self.grid);
     }
 }
 
 /// Move particles forwards in time by `dt`, assuming unit mass for all particles.
 fn step_particles(particles: &mut [Particle], dt: f32, damping: f32) {
     for part in particles {
-        if part.ty.is_dynamic() {
-            let next = part.pos + part.vel * dt;
-            part.pos = next.lerp(part.pos, damping);
-        }
+        let next = part.pos + part.vel * dt;
+        part.pos = next.lerp(part.pos, damping);
     }
 }
 
@@ -473,8 +480,8 @@ fn enforce_particle_radius(particles: &mut [Particle], radius: f32) {
                     .ty
                     .density()
                     .total_cmp(&particles[neighbor].ty.density());
-                let we_move = density_compare.is_le();// && particles[i].ty.is_dynamic();
-                let they_move = density_compare.is_ge();// && particles[neighbor].ty.is_dynamic();
+                let we_move = density_compare.is_le(); // && particles[i].ty.is_dynamic();
+                let they_move = density_compare.is_ge(); // && particles[neighbor].ty.is_dynamic();
 
                 if we_move {
                     points[i] -= norm * needed_dist / 2.;
@@ -495,7 +502,12 @@ fn enforce_particle_radius(particles: &mut [Particle], radius: f32) {
         .for_each(|(part, point)| part.pos = *point);
 }
 
-fn particle_interactions(particles: &mut Vec<Particle>, cfg: &ErosionConfig, dt: f32, grid: &Array2D<GridCell>) {
+fn particle_interactions(
+    particles: &mut Vec<Particle>,
+    cfg: &ErosionConfig,
+    dt: f32,
+    grid: &Array2D<GridCell>,
+) {
     let points: Vec<Vec2> = particles.iter().map(|p| p.pos).collect();
     let accel = QueryAccelerator::new(&points, cfg.neighborhood_radius);
     //accel.stats("Life");
@@ -503,6 +515,7 @@ fn particle_interactions(particles: &mut Vec<Particle>, cfg: &ErosionConfig, dt:
     let mut rng = rand::thread_rng();
 
     let mut new_particles = vec![];
+    let mut delete_list = vec![];
 
     for i in 0..particles.len() {
         let mut lived = true;
@@ -518,7 +531,13 @@ fn particle_interactions(particles: &mut Vec<Particle>, cfg: &ErosionConfig, dt:
             {
                 a.ty = ParticleType::Rock;
                 // Rain
-                new_particles.push(random_particle(&mut rng, grid.width(), grid.height(), cfg, ParticleType::Water));
+                new_particles.push(random_particle(
+                    &mut rng,
+                    grid.width(),
+                    grid.height(),
+                    cfg,
+                    ParticleType::Water,
+                ));
             }
 
             // Erosion
@@ -527,19 +546,21 @@ fn particle_interactions(particles: &mut Vec<Particle>, cfg: &ErosionConfig, dt:
                 && a.vel.length() > cfg.erosion_vel_threshold
             {
                 particles[neighbor].ty = ParticleType::Sediment;
-                lived = false;
+                delete_list.push(i);
             }
-
-
-
         }
 
         // Set velocities of non-dynamic particles
         if !particles[i].ty.is_dynamic() {
             particles[i].vel = Vec2::ZERO;
         }
+    }
 
-        if lived {
+    let mut delete_ptr = 0;
+    for i in 0..particles.len() {
+        if delete_ptr < delete_list.len() && i == delete_list[delete_ptr] {
+            delete_ptr += 1;
+        } else {
             new_particles.push(particles[i]);
         }
     }
@@ -621,8 +642,8 @@ impl ParticleType {
 
     pub fn color(&self) -> [f32; 3] {
         match self {
-            //Self::Rock => [0.2; 3],
-            Self::Rock => [1., 0., 0.],
+            Self::Rock => [0.2; 3],
+            //Self::Rock => [1., 0., 0.],
             Self::Sediment => [0.5; 3],
             Self::Water => [0., 0.3, 1.],
         }
