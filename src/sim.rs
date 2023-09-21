@@ -144,7 +144,7 @@ impl Sim {
     ) {
         step_particles(&mut self.particles, dt, self.damping);
         if enable_particle_collisions {
-            enforce_particle_radius(&mut self.particles, self.particle_radius);
+            enforce_particle_radius(&mut self.particles, self.particle_radius, &self.grid);
         }
         enforce_particle_pos(&mut self.particles, &self.grid);
 
@@ -459,7 +459,7 @@ fn enforce_grid_boundary(grid: &mut Array2D<GridCell>) {
     }
 }
 
-fn enforce_particle_radius(particles: &mut [Particle], radius: f32) {
+fn enforce_particle_radius(particles: &mut [Particle], radius: f32, grid: &Array2D<GridCell>) {
     let mut points: Vec<Vec2> = particles.iter().map(|p| p.pos).collect();
     let mut accel = QueryAccelerator::new(&points, radius * 2.);
     //accel.stats("Collisions");
@@ -472,9 +472,15 @@ fn enforce_particle_radius(particles: &mut [Particle], radius: f32) {
         neigh.extend(accel.query_neighbors(&points, i, points[i]));
 
         for neighbor in neigh.drain(..) {
+            let is_active = grid[grid_tl(points[i])].active || grid[grid_tl(points[neighbor])].active;
+            if !is_active {
+                continue;
+            }
+
             let diff = points[neighbor] - points[i];
             let dist = diff.length();
-            if dist > 0. {
+
+            if dist > 0. && is_active {
                 let norm = diff.normalize();
                 let needed_dist = radius * 2. - dist;
                 let prev_pos = points[i];
