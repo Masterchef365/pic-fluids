@@ -472,10 +472,13 @@ fn enforce_particle_radius(particles: &mut [Particle], radius: f32, grid: &Array
         neigh.extend(accel.query_neighbors(&points, i, points[i]));
 
         for neighbor in neigh.drain(..) {
+            /*
             let is_active = grid[grid_tl(points[i])].active || grid[grid_tl(points[neighbor])].active;
             if !is_active {
                 continue;
             }
+            */
+            let is_active = true;
 
             let diff = points[neighbor] - points[i];
             let dist = diff.length();
