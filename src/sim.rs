@@ -24,6 +24,7 @@ pub struct GridCell {
     pub vel: Vec2,
     /// Pressure inside this cell
     pub pressure: f32,
+    pub active: bool,
 }
 
 #[derive(Copy, Clone, Debug)]
@@ -230,10 +231,14 @@ fn particles_to_grid(particles: &[Particle], grid: &mut Array2D<GridCell>, pic_a
         }
     });
     grid.data_mut().iter_mut().for_each(|c| c.pressure = 0.);
+    grid.data_mut().iter_mut().for_each(|c| c.active = false);
 
     // Now we actually set the pressure
     for part in particles {
         grid[grid_tl(part.pos)].pressure += 1.;
+        if part.ty.is_dynamic() {
+            grid[grid_tl(part.pos)].active = true;
+        }
     }
 }
 
@@ -306,12 +311,11 @@ fn solve_incompressibility_jacobi(
     for step in 0..iterations {
         for i in 0..grid.width() - 1 {
             for j in 0..grid.height() - 1 {
-                let local_pressure = grid[(i, j)].pressure;
-                let has_particles = local_pressure > 0.;
+                let is_active = grid[(i, j)].active;
 
                 let checkerboard = (i & 1) ^ (j & 1) ^ (step & 1);
 
-                if checkerboard == 0 && has_particles {
+                if checkerboard == 0 && is_active {
                     let horiz_div = grid[(i + 1, j)].vel.x - grid[(i, j)].vel.x;
                     let vert_div = grid[(i, j + 1)].vel.y - grid[(i, j)].vel.y;
                     let total_div = horiz_div + vert_div;
