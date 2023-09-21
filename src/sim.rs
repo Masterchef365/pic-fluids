@@ -1,9 +1,6 @@
 use crate::array2d::{Array2D, GridPos};
 use crate::query_accel::QueryAccelerator;
 
-
-
-
 use glam::Vec2;
 use rand::prelude::*;
 
@@ -51,6 +48,8 @@ pub enum IncompressibilitySolver {
 #[derive(Clone, Debug)]
 pub struct ErosionConfig {
     pub neighborhood_radius: f32,
+    pub sedimentation_vel_threshold: f32,
+    pub erosion_vel_threshold: f32,
 }
 
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
@@ -69,15 +68,18 @@ pub fn calc_rest_density(particle_radius: f32) -> f32 {
     packing_density / particle_area
 }
 
-pub fn random_particle(rng: &mut impl Rng, width: usize, height: usize, life: &ErosionConfig) -> Particle {
-    let pos = Vec2::new(
-        rng.gen_range(1.0..=(width - 2) as f32),
-        (height - 2) as f32,
-    );
+pub fn random_particle(
+    rng: &mut impl Rng,
+    width: usize,
+    height: usize,
+    life: &ErosionConfig,
+    ty: ParticleType,
+) -> Particle {
+    let pos = Vec2::new(rng.gen_range(1.0..=(width - 2) as f32), (height - 2) as f32);
     Particle {
         pos,
         vel: Vec2::ZERO,
-        ty: ParticleType::Sediment,
+        ty,
         deriv: [Vec2::ZERO; 2],
     }
 }
@@ -92,9 +94,17 @@ impl Sim {
     ) -> Self {
         // Uniformly placed, random particles
         let mut rng = rand::thread_rng();
-        let particles = (0..n_particles)
-            .map(|_| random_particle(&mut rng, width, height, &life))
+        let mut particles: Vec<Particle> = (0..n_particles)
+            .map(|_| random_particle(&mut rng, width, height, &life, ParticleType::Sediment))
             .collect();
+
+        for x in 1..width - 1 {
+            particles.push(Particle {
+                pos: Vec2::new(x as f32, 1.01),
+                ty: ParticleType::Rock,
+                ..Default::default()
+            });
+        }
 
         // Assume half-hexagonal packing density...
         //let rest_density = calc_rest_density(particle_radius);
@@ -155,8 +165,10 @@ impl Sim {
 /// Move particles forwards in time by `dt`, assuming unit mass for all particles.
 fn step_particles(particles: &mut [Particle], dt: f32, damping: f32) {
     for part in particles {
-        let next = part.pos + part.vel * dt;
-        part.pos = next.lerp(part.pos, damping);
+        if part.ty.is_dynamic() {
+            let next = part.pos + part.vel * dt;
+            part.pos = next.lerp(part.pos, damping);
+        }
     }
 }
 
@@ -457,9 +469,12 @@ fn enforce_particle_radius(particles: &mut [Particle], radius: f32) {
                 let prev_pos = points[i];
                 let prev_neighbor = points[neighbor];
 
-                let density_compare = particles[i].ty.density().total_cmp(&particles[neighbor].ty.density());
-                let we_move = density_compare.is_le();
-                let they_move = density_compare.is_ge();
+                let density_compare = particles[i]
+                    .ty
+                    .density()
+                    .total_cmp(&particles[neighbor].ty.density());
+                let we_move = density_compare.is_le() && particles[i].ty.is_dynamic();
+                let they_move = density_compare.is_ge() && particles[neighbor].ty.is_dynamic();
 
                 if we_move {
                     points[i] -= norm * needed_dist / 2.;
@@ -481,36 +496,19 @@ fn enforce_particle_radius(particles: &mut [Particle], radius: f32) {
 }
 
 fn particle_interactions(particles: &mut [Particle], cfg: &ErosionConfig, dt: f32) {
-    /*
     let points: Vec<Vec2> = particles.iter().map(|p| p.pos).collect();
-    let accel = QueryAccelerator::new(&points, cfg.max_interaction_radius());
+    let accel = QueryAccelerator::new(&points, cfg.neighborhood_radius);
     //accel.stats("Life");
 
     for i in 0..particles.len() {
         for neighbor in accel.query_neighbors(&points, i, points[i]) {
-            let a = points[i];
-            let b = points[neighbor];
-
-            // The vector pointing from a to b
-            let diff = b - a;
-
-            // Distance is capped
-            let dist = diff.length();
-            if dist > 0. {
-                // Accelerate towards b
-                let normal = diff.normalize();
-                let behav = cfg.get_behaviour(particles[i].ty, particles[neighbor].ty);
-                let accel = normal * behav.force(dist);
-
-                particles[i].vel += accel * dt;
-            }
+            let a = particles[i];
+            let b = particles[neighbor];
         }
     }
-    */
 }
 
-impl ErosionConfig {
-}
+impl ErosionConfig {}
 
 pub fn random_color(rng: &mut impl Rng) -> [f32; 3] {
     hsv_to_rgb(rng.gen_range(0.0..=360.0), 1., 1.)
@@ -584,9 +582,31 @@ impl ParticleType {
 
     pub fn color(&self) -> [f32; 3] {
         match self {
-            Self::Rock => [0.01; 3],
-            Self::Sediment => [0.3; 3],
+            //Self::Rock => [0.2; 3],
+            Self::Rock => [1., 0., 0.],
+            Self::Sediment => [0.5; 3],
             Self::Water => [0., 0.3, 1.],
+        }
+    }
+}
+
+impl Default for ErosionConfig {
+    fn default() -> Self {
+        Self {
+            neighborhood_radius: 1.,
+            sedimentation_vel_threshold: 1e-1,
+            erosion_vel_threshold: 1e-1,
+        }
+    }
+}
+
+impl Default for Particle {
+    fn default() -> Self {
+        Self {
+            pos: Vec2::ZERO,
+            vel: Vec2::ZERO,
+            ty: ParticleType::Water,
+            deriv: [Vec2::ZERO; 2],
         }
     }
 }

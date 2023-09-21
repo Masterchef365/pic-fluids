@@ -55,7 +55,7 @@ impl TemplateApp {
         let particle_radius = 0.2;
 
         let n_colors = 3;
-        let life = ErosionConfig {  neighborhood_radius: 1.0 };
+        let life = ErosionConfig::default();
         let sim = Sim::new(width, height, n_particles, particle_radius, life);
 
         Self {
@@ -209,6 +209,7 @@ impl TemplateApp {
                     self.sim.grid.width(),
                     self.sim.grid.height(),
                     &self.sim.life,
+                    self.source_color_idx,
                 )
             });
         }
