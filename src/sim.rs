@@ -495,15 +495,27 @@ fn enforce_particle_radius(particles: &mut [Particle], radius: f32) {
         .for_each(|(part, point)| part.pos = *point);
 }
 
-fn particle_interactions(particles: &mut [Particle], cfg: &ErosionConfig, dt: f32) {
+fn particle_interactions(particles: &mut Vec<Particle>, cfg: &ErosionConfig, dt: f32) {
     let points: Vec<Vec2> = particles.iter().map(|p| p.pos).collect();
     let accel = QueryAccelerator::new(&points, cfg.neighborhood_radius);
     //accel.stats("Life");
 
     for i in 0..particles.len() {
         for neighbor in accel.query_neighbors(&points, i, points[i]) {
-            let a = particles[i];
             let b = particles[neighbor];
+            let a = &mut particles[i];
+
+            if a.ty == ParticleType::Sediment
+                && b.ty == ParticleType::Rock
+                && a.vel.length() < cfg.sedimentation_vel_threshold
+            {
+                a.ty = ParticleType::Rock;
+            }
+        }
+
+        // Set velocities of non-dynamic particles
+        if !particles[i].ty.is_dynamic() {
+            particles[i].vel = Vec2::ZERO;
         }
     }
 }
@@ -593,7 +605,7 @@ impl ParticleType {
 impl Default for ErosionConfig {
     fn default() -> Self {
         Self {
-            neighborhood_radius: 1.,
+            neighborhood_radius: 5e-1,
             sedimentation_vel_threshold: 1e-1,
             erosion_vel_threshold: 1e-1,
         }
