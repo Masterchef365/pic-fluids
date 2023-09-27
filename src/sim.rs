@@ -669,8 +669,8 @@ impl Default for ErosionConfig {
     fn default() -> Self {
         Self {
             neighborhood_radius: 5e-1,
-            sedimentation_vel_threshold: 1e-1,
-            erosion_vel_threshold: 1e-1,
+            sedimentation_vel_threshold: 2e-1,
+            erosion_vel_threshold: 7e-1,
         }
     }
 }
