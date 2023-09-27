@@ -69,7 +69,7 @@ impl TemplateApp {
             single_step: false,
             dt: 0.02,
             solver_iters: 25,
-            stiffness: 2.,
+            stiffness: 1.,
             gravity: 9.8,
             sim,
             width,
