@@ -171,12 +171,9 @@ impl TemplateApp {
 
         // Draw particles
         let painter = ui.painter_at(rect);
-        let radius = 1.0;
-        /*
         let radius = coords
-            .sim_to_egui_vect(Vec2::splat(self.sim.particle_radius))
+            .sim_to_egui_vect(Vec2::new(1., 1.).normalize() * self.sim.particle_radius)
             .length();
-        */
 
         for part in &self.sim.particles {
             let color = part.ty.color();

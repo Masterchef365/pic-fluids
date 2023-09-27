@@ -425,7 +425,7 @@ fn enforce_particle_pos(particles: &mut [Particle], grid: &Array2D<GridCell>) {
         let max_y = (grid.height() - 2) as f32;
 
         if part.pos.x < min_x {
-            part.pos.x = min_x;
+            part.pos.x = 2. * min_x - part.pos.x;
             part.vel.x *= -1.;
         }
 
@@ -435,7 +435,7 @@ fn enforce_particle_pos(particles: &mut [Particle], grid: &Array2D<GridCell>) {
         }
 
         if part.pos.y < min_y {
-            part.pos.y = min_y;
+            part.pos.y = 2. * min_y - part.pos.y;
             part.vel.y *= -1.;
         }
 
