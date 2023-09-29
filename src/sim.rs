@@ -150,12 +150,13 @@ impl Sim {
         // Step grid
         zero_non_dynamic_velocities(&mut self.particles);
 
-        particles_to_grid(&self.particles, &mut self.grid, pic_apic_ratio);
         let solver_fn = match solver {
             IncompressibilitySolver::Jacobi => solve_incompressibility_jacobi,
             IncompressibilitySolver::GaussSeidel => solve_incompressibility_gauss_seidel,
         };
 
+        // Solve solids incompressibility
+        particles_to_grid(&self.particles, &mut self.grid, pic_apic_ratio, |ty| !ty.is_dynamic());
         if enable_incompress {
             solver_fn(
                 &mut self.grid,
@@ -165,8 +166,21 @@ impl Sim {
                 stiffness,
             );
         }
+        grid_to_particles(&mut self.particles, &self.grid, |ty| !ty.is_dynamic());
+        step_particles(&mut self.particles, dt, self.damping);
 
-        grid_to_particles(&mut self.particles, &self.grid);
+        // Solve liquids incompressibility
+        particles_to_grid(&self.particles, &mut self.grid, pic_apic_ratio, |_ty| true);
+        if enable_incompress {
+            solver_fn(
+                &mut self.grid,
+                solver_iters,
+                self.rest_density,
+                self.over_relax,
+                stiffness,
+            );
+        }
+        grid_to_particles(&mut self.particles, &self.grid, |ty| ty.is_dynamic());
         step_particles(&mut self.particles, dt, self.damping);
 
         apply_global_force(&mut self.particles, Vec2::new(0., -gravity), dt);
@@ -195,7 +209,12 @@ const OFFSET_U: Vec2 = Vec2::new(0., 0.5);
 const OFFSET_V: Vec2 = Vec2::new(0.5, 0.);
 
 /// Insert information such as velocity and pressure into the grid
-fn particles_to_grid(particles: &[Particle], grid: &mut Array2D<GridCell>, pic_apic_ratio: f32) {
+fn particles_to_grid(
+    particles: &[Particle],
+    grid: &mut Array2D<GridCell>,
+    pic_apic_ratio: f32,
+    filt: impl Fn(ParticleType) -> bool,
+) {
     // Clear the grid
     grid.data_mut()
         .iter_mut()
@@ -203,7 +222,7 @@ fn particles_to_grid(particles: &[Particle], grid: &mut Array2D<GridCell>, pic_a
 
     // Accumulate velocity on grid
     // Here we abuse the pressure of each grid cell to by mass correctly
-    for part in particles {
+    for part in particles.iter().filter(|p| filt(p.ty)) {
         let u_pos = part.pos - OFFSET_U;
         scatter(u_pos, grid, |c, n, w| {
             c.vel.x +=
@@ -219,7 +238,7 @@ fn particles_to_grid(particles: &[Particle], grid: &mut Array2D<GridCell>, pic_a
     grid.data_mut().iter_mut().for_each(|c| c.pressure = 0.);
 
     // And then we do again for u
-    for part in particles {
+    for part in particles.iter().filter(|p| filt(p.ty)) {
         let v_pos = part.pos - OFFSET_V;
         scatter(v_pos, grid, |c, n, w| {
             c.vel.y +=
@@ -236,7 +255,7 @@ fn particles_to_grid(particles: &[Particle], grid: &mut Array2D<GridCell>, pic_a
     grid.data_mut().iter_mut().for_each(|c| c.active = false);
 
     // Now we actually set the pressure
-    for part in particles {
+    for part in particles.iter().filter(|p| filt(p.ty)) {
         grid[grid_tl(part.pos)].pressure += 1.;
         if part.ty.is_dynamic() {
             grid[grid_tl(part.pos)].active = true;
@@ -373,8 +392,12 @@ fn solve_incompressibility_gauss_seidel(
     }
 }
 
-fn grid_to_particles(particles: &mut [Particle], grid: &Array2D<GridCell>) {
-    for part in particles {
+fn grid_to_particles(
+    particles: &mut [Particle],
+    grid: &Array2D<GridCell>,
+    filt: impl Fn(ParticleType) -> bool,
+) {
+    for part in particles.iter_mut().filter(|p| filt(p.ty)) {
         let u_pos = part.pos - OFFSET_U;
         let v_pos = part.pos - OFFSET_V;
 
@@ -402,15 +425,6 @@ fn grid_to_particles(particles: &mut [Particle], grid: &Array2D<GridCell>) {
                 }
             }
         }
-
-        /*
-        let v = Vec2::new(0.25, 0.15);
-        dbg!(gradient((0, 0), v));
-        dbg!(gradient((1, 0), v));
-        dbg!(gradient((0, 1), v));
-        dbg!(gradient((1, 1), v));
-        todo!();
-        */
 
         // Interpolate grid vectors
         part.deriv[0] = gather_vector(u_pos, |p| grid[p].vel.x * gradient(p, u_pos));
