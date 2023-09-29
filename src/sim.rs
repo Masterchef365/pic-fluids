@@ -169,8 +169,6 @@ impl Sim {
         grid_to_particles(&mut self.particles, &self.grid);
         step_particles(&mut self.particles, dt, self.damping);
 
-        zero_non_dynamic_velocities(&mut self.particles);
-
         apply_global_force(&mut self.particles, Vec2::new(0., -gravity), dt);
         particle_interactions(&mut self.particles, &mut self.life, dt, &self.grid);
     }
