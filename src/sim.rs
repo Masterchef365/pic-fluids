@@ -142,13 +142,14 @@ impl Sim {
         enable_incompress: bool,
         enable_particle_collisions: bool,
     ) {
-        step_particles(&mut self.particles, dt, self.damping);
         if enable_particle_collisions {
             enforce_particle_radius(&mut self.particles, self.particle_radius, &self.grid);
         }
         enforce_particle_pos(&mut self.particles, &self.grid);
 
         // Step grid
+        zero_non_dynamic_velocities(&mut self.particles);
+
         particles_to_grid(&self.particles, &mut self.grid, pic_apic_ratio);
         let solver_fn = match solver {
             IncompressibilitySolver::Jacobi => solve_incompressibility_jacobi,
@@ -166,6 +167,9 @@ impl Sim {
         }
 
         grid_to_particles(&mut self.particles, &self.grid);
+        step_particles(&mut self.particles, dt, self.damping);
+
+        zero_non_dynamic_velocities(&mut self.particles);
 
         apply_global_force(&mut self.particles, Vec2::new(0., -gravity), dt);
         particle_interactions(&mut self.particles, &mut self.life, dt, &self.grid);
@@ -564,11 +568,6 @@ fn particle_interactions(
                 continue 'parts;
             }
         }
-
-        // Set velocities of non-dynamic particles
-        if !particles[i].ty.is_dynamic() {
-            particles[i].vel = Vec2::ZERO;
-        }
     }
 
     let mut delete_ptr = 0;
@@ -581,6 +580,10 @@ fn particle_interactions(
     }
 
     *particles = new_particles;
+}
+
+fn zero_non_dynamic_velocities(particles: &mut [Particle]) {
+    particles.iter_mut().filter(|p| !p.ty.is_dynamic()).for_each(|p| p.vel = Vec2::ZERO);
 }
 
 impl ErosionConfig {}
@@ -649,9 +652,9 @@ impl ParticleType {
     // Mass of this particle
     fn density(&self) -> f32 {
         match self {
-            Self::Rock => 5.,
+            Self::Rock => 3.,
             Self::Water => 1.,
-            Self::Sediment => 3.,
+            Self::Sediment => 2.,
         }
     }
 
