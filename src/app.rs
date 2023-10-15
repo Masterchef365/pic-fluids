@@ -173,7 +173,7 @@ impl TemplateApp {
         let painter = ui.painter_at(rect);
         let radius = coords
             .sim_to_egui_vect(Vec2::splat(self.sim.particle_radius))
-            .length();
+            .length() / 2_f32.sqrt();
 
         for part in &self.sim.particles {
             let color = self.sim.life.colors[part.color as usize];
