@@ -22,7 +22,6 @@ pub struct TemplateApp {
 
     width: usize,
     height: usize,
-    n_particles: usize,
     calc_rest_density_from_radius: bool,
     show_arrows: bool,
     show_grid: bool,
@@ -74,7 +73,6 @@ impl TemplateApp {
             sim,
             width,
             height,
-            n_particles,
             solver: IncompressibilitySolver::GaussSeidel,
             well: false,
             source_color_idx: 0,
@@ -190,9 +188,10 @@ impl TemplateApp {
         ui.separator();
         ui.strong("Simulation state");
 
+        let mut n_particles = self.sim.particles.len();
         if ui
             .add(
-                DragValue::new(&mut self.n_particles)
+                DragValue::new(&mut n_particles)
                     .prefix("# of particles: ")
                     .clamp_range(1..=usize::MAX)
                     .speed(4),
@@ -200,7 +199,7 @@ impl TemplateApp {
             .changed()
         {
             let mut rng = rand::thread_rng();
-            self.sim.particles.resize_with(self.n_particles, || {
+            self.sim.particles.resize_with(n_particles, || {
                 random_particle(
                     &mut rng,
                     self.sim.grid.width(),
@@ -448,7 +447,7 @@ impl TemplateApp {
             self.sim = Sim::new(
                 self.width,
                 self.height,
-                self.n_particles,
+                self.sim.particles.len(),
                 self.sim.particle_radius,
                 self.sim.life.clone(),
             );
