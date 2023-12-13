@@ -33,6 +33,7 @@ pub struct TemplateApp {
     enable_incompress: bool,
     enable_particle_collisions: bool,
     enable_grid_transfer: bool,
+    translational_damping: f32,
 
     well: bool,
     source_color_idx: ParticleType,
@@ -84,6 +85,7 @@ impl TemplateApp {
             //grid_vel_scale: 0.05,
             //show_grid: false,
             show_settings_only: false,
+            translational_damping: 0.0,
             //mult: 1.0,
         }
     }
@@ -152,6 +154,7 @@ impl TemplateApp {
                 self.enable_incompress,
                 self.enable_particle_collisions,
                 self.enable_grid_transfer,
+                self.translational_damping,
             );
 
             self.single_step = false;
@@ -283,6 +286,7 @@ impl TemplateApp {
             ui.add(Slider::new(&mut self.sim.damping, 0.0..=1.0).text("Damping"));
             ui.checkbox(&mut self.enable_grid_transfer, "Grid transfer (required for incompressibility solver!)");
             ui.add(Slider::new(&mut self.pic_apic_ratio, 0.0..=1.0).text("PIC - APIC"));
+            ui.add(Slider::new(&mut self.translational_damping, 0.0..=1.0).text("Translational damping"));
         }
 
         ui.separator();

@@ -155,6 +155,7 @@ impl Sim {
         enable_incompress: bool,
         enable_particle_collisions: bool,
         enable_grid_transfer: bool,
+        translational_damping: f32,
     ) {
         // Step particles
         apply_global_force(&mut self.particles, Vec2::new(0., -gravity), dt);
@@ -167,7 +168,21 @@ impl Sim {
 
         // Step grid
         if enable_grid_transfer {
+            let mut pic_only_grid = None;
+            if translational_damping != 0.0 {
+                let mut dup_grid = self.grid.clone();
+                particles_to_grid(&self.particles, &mut dup_grid, 0.);
+                pic_only_grid = Some(dup_grid);
+            }
+
             particles_to_grid(&self.particles, &mut self.grid, pic_apic_ratio);
+
+            if let Some(pic_only_grid) = pic_only_grid {
+                for (apic, pic_only) in self.grid.data_mut().iter_mut().zip(pic_only_grid.data()) {
+                    apic.vel -= pic_only.vel * translational_damping;
+                }
+            }
+
             let solver_fn = match solver {
                 IncompressibilitySolver::Jacobi => solve_incompressibility_jacobi,
                 IncompressibilitySolver::GaussSeidel => solve_incompressibility_gauss_seidel,
