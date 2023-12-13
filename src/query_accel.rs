@@ -78,6 +78,7 @@ impl QueryAccelerator {
             .push(idx);
     }
 
+    #[allow(unused)]
     pub fn stats(&self, name: &str) {
         println!("{} accel stats: ", name);
         let parts_per_cell =

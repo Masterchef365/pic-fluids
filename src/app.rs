@@ -23,19 +23,21 @@ pub struct TemplateApp {
     width: usize,
     height: usize,
     calc_rest_density_from_radius: bool,
-    show_arrows: bool,
-    show_grid: bool,
-    grid_vel_scale: f32,
+    //show_arrows: bool,
+    //show_grid: bool,
+    //grid_vel_scale: f32,
     pause: bool,
     single_step: bool,
     pic_apic_ratio: f32,
     n_colors: usize,
     enable_incompress: bool,
     enable_particle_collisions: bool,
+    enable_grid_transfer: bool,
 
     well: bool,
     source_color_idx: ParticleType,
     source_rate: usize,
+    //mult: f32,
 
     show_settings_only: bool,
 
@@ -60,6 +62,7 @@ impl TemplateApp {
         Self {
             enable_particle_collisions: false,
             enable_incompress: true,
+            enable_grid_transfer: true,
             advanced: false,
             n_colors,
             source_rate: 0,
@@ -76,11 +79,12 @@ impl TemplateApp {
             solver: IncompressibilitySolver::GaussSeidel,
             well: false,
             source_color_idx: 0,
-            show_arrows: false,
+            //show_arrows: false,
             pause: false,
-            grid_vel_scale: 0.05,
-            show_grid: false,
+            //grid_vel_scale: 0.05,
+            //show_grid: false,
             show_settings_only: false,
+            //mult: 1.0,
         }
     }
 }
@@ -147,6 +151,7 @@ impl TemplateApp {
                 self.solver,
                 self.enable_incompress,
                 self.enable_particle_collisions,
+                self.enable_grid_transfer,
             );
 
             self.single_step = false;
@@ -281,6 +286,7 @@ impl TemplateApp {
         );
         if self.advanced {
             ui.add(Slider::new(&mut self.pic_apic_ratio, 0.0..=1.0).text("PIC - APIC"));
+            ui.checkbox(&mut self.enable_grid_transfer, "Grid transfer (required for incompressibility solver!)");
         }
 
         ui.separator();
@@ -313,7 +319,7 @@ impl TemplateApp {
             );
         }
 
-        if self.advanced {
+        if self.advanced && self.enable_grid_transfer {
             ui.separator();
             ui.horizontal(|ui| {
                 ui.strong("Incompressibility Solver");
@@ -360,7 +366,7 @@ impl TemplateApp {
         if self.advanced {
             ui.add(
                 DragValue::new(&mut behav_cfg.max_inter_dist)
-                    .clamp_range(0.0..=4.0)
+                    .clamp_range(0.0..=20.0)
                     .speed(1e-2)
                     .prefix("Max interaction dist: "),
             );
@@ -371,7 +377,7 @@ impl TemplateApp {
             );
             ui.add(
                 DragValue::new(&mut behav_cfg.inter_threshold)
-                    .clamp_range(0.0..=4.0)
+                    .clamp_range(0.0..=20.0)
                     .speed(1e-2)
                     .prefix("Interaction threshold: "),
             );
@@ -427,6 +433,12 @@ impl TemplateApp {
 
         /*
         if self.advanced {
+            ui.add(DragValue::new(&mut self.mult).speed(1e-2));
+        }
+        */
+
+        /*
+        if self.advanced {
             ui.separator();
             ui.strong("Debug");
             ui.checkbox(&mut self.show_grid, "Show grid");
@@ -462,6 +474,7 @@ impl TemplateApp {
     }
 }
 
+/*
 const SIM_TO_MODEL_DOWNSCALE: f32 = 100.;
 fn simspace_to_modelspace(pos: Vec2) -> [f32; 3] {
     [
@@ -470,6 +483,7 @@ fn simspace_to_modelspace(pos: Vec2) -> [f32; 3] {
         (pos.y / SIM_TO_MODEL_DOWNSCALE) * 2. - 1.,
     ]
 }
+*/
 
 /// Maps sim coordinates to/from egui coordinates
 struct CoordinateMapping {

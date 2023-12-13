@@ -1,9 +1,6 @@
 use crate::array2d::{Array2D, GridPos};
 use crate::query_accel::QueryAccelerator;
 
-
-
-
 use glam::Vec2;
 use rand::prelude::*;
 
@@ -99,7 +96,12 @@ pub fn calc_rest_density(particle_radius: f32) -> f32 {
     packing_density / particle_area
 }
 
-pub fn random_particle(rng: &mut impl Rng, width: usize, height: usize, life: &LifeConfig) -> Particle {
+pub fn random_particle(
+    rng: &mut impl Rng,
+    width: usize,
+    height: usize,
+    life: &LifeConfig,
+) -> Particle {
     let pos = Vec2::new(
         rng.gen_range(1.0..=(width - 2) as f32),
         rng.gen_range(1.0..=(height - 2) as f32),
@@ -152,6 +154,7 @@ impl Sim {
         solver: IncompressibilitySolver,
         enable_incompress: bool,
         enable_particle_collisions: bool,
+        enable_grid_transfer: bool,
     ) {
         // Step particles
         apply_global_force(&mut self.particles, Vec2::new(0., -gravity), dt);
@@ -163,31 +166,33 @@ impl Sim {
         enforce_particle_pos(&mut self.particles, &self.grid);
 
         // Step grid
-        particles_to_grid(&self.particles, &mut self.grid, pic_apic_ratio);
-        let solver_fn = match solver {
-            IncompressibilitySolver::Jacobi => solve_incompressibility_jacobi,
-            IncompressibilitySolver::GaussSeidel => solve_incompressibility_gauss_seidel,
-        };
+        if enable_grid_transfer {
+            particles_to_grid(&self.particles, &mut self.grid, pic_apic_ratio);
+            let solver_fn = match solver {
+                IncompressibilitySolver::Jacobi => solve_incompressibility_jacobi,
+                IncompressibilitySolver::GaussSeidel => solve_incompressibility_gauss_seidel,
+            };
 
-        if enable_incompress {
-            solver_fn(
-                &mut self.grid,
-                solver_iters,
-                self.rest_density,
-                self.over_relax,
-                stiffness,
-            );
+            if enable_incompress {
+                solver_fn(
+                    &mut self.grid,
+                    solver_iters,
+                    self.rest_density,
+                    self.over_relax,
+                    stiffness,
+                );
+            }
+
+            grid_to_particles(&mut self.particles, &self.grid);
         }
-
-        grid_to_particles(&mut self.particles, &self.grid);
     }
 }
 
 /// Move particles forwards in time by `dt`, assuming unit mass for all particles.
 fn step_particles(particles: &mut [Particle], dt: f32, damping: f32) {
     for part in particles {
-        let next = part.pos + part.vel * dt;
-        part.pos = next.lerp(part.pos, damping);
+        part.vel *= 1. - damping;
+        part.pos += part.vel * dt;
     }
 }
 
