@@ -53,7 +53,7 @@ impl TemplateApp {
             (120, 80)
         };
         let n_particles = 4_000;
-        let particle_radius = 0.16;
+        let particle_radius = 0.28;
 
         let n_colors = 3;
         let life = LifeConfig::random(n_colors);
@@ -67,11 +67,11 @@ impl TemplateApp {
             n_colors,
             source_rate: 0,
             pic_apic_ratio: 1.,
-            calc_rest_density_from_radius: false,
+            calc_rest_density_from_radius: true,
             single_step: false,
             dt: 0.02,
             solver_iters: 25,
-            stiffness: 0.3,
+            stiffness: 1.0,
             gravity: 9.8,
             sim,
             width,
@@ -308,15 +308,16 @@ impl TemplateApp {
                         .speed(1e-2),
                 );
                 ui.checkbox(&mut self.calc_rest_density_from_radius, "From radius");
-                if self.calc_rest_density_from_radius {
-                    self.sim.rest_density = calc_rest_density(self.sim.particle_radius);
-                }
             });
             ui.add(
                 DragValue::new(&mut self.stiffness)
                     .prefix("Stiffness: ")
                     .speed(1e-2),
             );
+        }
+
+        if self.calc_rest_density_from_radius {
+            self.sim.rest_density = calc_rest_density(self.sim.particle_radius);
         }
 
         if self.advanced && self.enable_grid_transfer {
