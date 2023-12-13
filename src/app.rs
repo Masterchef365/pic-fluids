@@ -1,4 +1,4 @@
-use crate::array2d::{Array2D};
+use crate::array2d::Array2D;
 
 use eframe::egui::{DragValue, Grid, Rgba, RichText, ScrollArea, Slider, Ui};
 use egui::os::OperatingSystem;
@@ -39,7 +39,6 @@ pub struct TemplateApp {
     source_color_idx: ParticleType,
     source_rate: usize,
     //mult: f32,
-
     show_settings_only: bool,
 
     advanced: bool,
@@ -179,7 +178,8 @@ impl TemplateApp {
         let painter = ui.painter_at(rect);
         let radius = coords
             .sim_to_egui_vect(Vec2::splat(self.sim.particle_radius))
-            .length() / 2_f32.sqrt();
+            .length()
+            / 2_f32.sqrt();
 
         for part in &self.sim.particles {
             let color = self.sim.life.colors[part.color as usize];
@@ -284,9 +284,18 @@ impl TemplateApp {
         });
         if self.advanced {
             ui.add(Slider::new(&mut self.sim.damping, 0.0..=1.0).text("Damping"));
-            ui.checkbox(&mut self.enable_grid_transfer, "Grid transfer (required for incompressibility solver!)");
+            ui.checkbox(
+                &mut self.enable_grid_transfer,
+                "Grid transfer (required for incompressibility solver!)",
+            );
             ui.add(Slider::new(&mut self.pic_apic_ratio, 0.0..=1.0).text("PIC - APIC"));
-            ui.add(Slider::new(&mut self.translational_damping, 0.0..=1.0).text("Translational damping"));
+            let damp = self.translational_damping;
+            ui.add(
+                DragValue::new(&mut self.translational_damping)
+                    .speed(1e-3)
+                    .clamp_range(0.0..=1.0)
+                    .prefix("Translational damping: ")
+            );
         }
 
         ui.separator();
