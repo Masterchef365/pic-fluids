@@ -279,14 +279,10 @@ impl TemplateApp {
                 self.gravity = 0.;
             }
         });
-        ui.add(
-            DragValue::new(&mut self.sim.damping)
-                .prefix("Damping: ")
-                .speed(1e-3),
-        );
         if self.advanced {
-            ui.add(Slider::new(&mut self.pic_apic_ratio, 0.0..=1.0).text("PIC - APIC"));
+            ui.add(Slider::new(&mut self.sim.damping, 0.0..=1.0).text("Damping"));
             ui.checkbox(&mut self.enable_grid_transfer, "Grid transfer (required for incompressibility solver!)");
+            ui.add(Slider::new(&mut self.pic_apic_ratio, 0.0..=1.0).text("PIC - APIC"));
         }
 
         ui.separator();
