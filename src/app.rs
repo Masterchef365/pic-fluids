@@ -269,7 +269,7 @@ impl TemplateApp {
         ui.add(
             DragValue::new(&mut self.dt)
                 .prefix("Δt (time step): ")
-                .speed(1e-3),
+                .speed(1e-4),
         );
         ui.horizontal(|ui| {
             ui.add(
