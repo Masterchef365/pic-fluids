@@ -23,6 +23,7 @@ pub struct TemplateApp {
     width: usize,
     height: usize,
     calc_rest_density_from_radius: bool,
+    set_inter_dist_to_radius: bool,
     //show_arrows: bool,
     //show_grid: bool,
     //grid_vel_scale: f32,
@@ -84,6 +85,7 @@ impl TemplateApp {
             //grid_vel_scale: 0.05,
             //show_grid: false,
             show_settings_only: false,
+            set_inter_dist_to_radius: false,
             //mult: 1.0,
         }
     }
@@ -372,12 +374,18 @@ impl TemplateApp {
                     .speed(1e-2)
                     .prefix("Default repulse: "),
             );
+            ui.horizontal(|ui| {
             ui.add(
                 DragValue::new(&mut behav_cfg.inter_threshold)
                     .clamp_range(0.0..=20.0)
                     .speed(1e-2)
                     .prefix("Interaction threshold: "),
             );
+            ui.checkbox(&mut self.set_inter_dist_to_radius, "From radius");
+            });
+        }
+        if self.set_inter_dist_to_radius {
+            behav_cfg.inter_threshold = self.sim.particle_radius;
         }
         for b in self.sim.life.behaviours.data_mut() {
             b.max_inter_dist = behav_cfg.max_inter_dist;
