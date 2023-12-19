@@ -15,6 +15,7 @@ pub struct QueryAccelerator {
 impl QueryAccelerator {
     /// Construct a new query accelerator
     pub fn new(points: &[Vec2], radius: f32) -> Self {
+        puffin::profile_scope!("Build query accelerator");
         let mut cells: HashMap<[i32; 2], CellContainer> = HashMap::default();
 
         for (idx, &point) in points.iter().enumerate() {

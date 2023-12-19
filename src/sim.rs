@@ -156,6 +156,7 @@ impl Sim {
         enable_particle_collisions: bool,
         enable_grid_transfer: bool,
     ) {
+        //puffin::profile_scope!("Complete Step");
         // Step particles
         apply_global_force(&mut self.particles, Vec2::new(0., -gravity), dt);
         particle_interactions(&mut self.particles, &mut self.life, dt);
@@ -190,6 +191,7 @@ impl Sim {
 
 /// Move particles forwards in time by `dt`, assuming unit mass for all particles.
 fn step_particles(particles: &mut [Particle], dt: f32, damping: f32) {
+    puffin::profile_scope!("Move particles");
     for part in particles {
         part.vel *= 1. - damping;
         part.pos += part.vel * dt;
@@ -198,6 +200,7 @@ fn step_particles(particles: &mut [Particle], dt: f32, damping: f32) {
 
 /// Apply a force to all particles, e.g. gravity
 fn apply_global_force(particles: &mut [Particle], g: Vec2, dt: f32) {
+    puffin::profile_scope!("Applying global force");
     for part in particles {
         part.vel += g * dt;
     }
@@ -210,6 +213,7 @@ const OFFSET_V: Vec2 = Vec2::new(0.5, 0.);
 
 /// Insert information such as velocity and pressure into the grid
 fn particles_to_grid(particles: &[Particle], grid: &mut Array2D<GridCell>, pic_apic_ratio: f32) {
+    puffin::profile_scope!("Transfer particles to grid");
     // Clear the grid
     grid.data_mut()
         .iter_mut()
@@ -318,6 +322,7 @@ fn solve_incompressibility_jacobi(
     overrelaxation: f32,
     stiffness: f32,
 ) {
+    puffin::profile_scope!("Solve incompressibility (Jacobi)");
     let mut tmp = grid.clone();
 
     for step in 0..iterations {
@@ -359,6 +364,7 @@ fn solve_incompressibility_gauss_seidel(
     overrelaxation: f32,
     stiffness: f32,
 ) {
+    puffin::profile_scope!("Solve incompressibility (Gauss-Seidel)");
     // TODO: Use Jacobi method instead!
     for _ in 0..iterations {
         for i in 0..grid.width() - 1 {
@@ -385,6 +391,7 @@ fn solve_incompressibility_gauss_seidel(
 }
 
 fn grid_to_particles(particles: &mut [Particle], grid: &Array2D<GridCell>) {
+    puffin::profile_scope!("Grid transfer to particles");
     for part in particles {
         let u_pos = part.pos - OFFSET_U;
         let v_pos = part.pos - OFFSET_V;
@@ -430,6 +437,7 @@ fn grid_to_particles(particles: &mut [Particle], grid: &Array2D<GridCell>) {
 }
 
 fn enforce_particle_pos(particles: &mut [Particle], grid: &Array2D<GridCell>) {
+    puffin::profile_scope!("Keep particles in boundaries");
     for part in particles {
         // Ensure particles are within the grid
         let min_x = 1.0;
@@ -473,6 +481,7 @@ fn enforce_grid_boundary(grid: &mut Array2D<GridCell>) {
 }
 
 fn enforce_particle_radius(particles: &mut [Particle], radius: f32) {
+    puffin::profile_scope!("Push particles apart");
     let mut points: Vec<Vec2> = particles.iter().map(|p| p.pos).collect();
     let mut accel = QueryAccelerator::new(&points, radius * 2.);
     //accel.stats("Collisions");
@@ -507,6 +516,7 @@ fn enforce_particle_radius(particles: &mut [Particle], radius: f32) {
 }
 
 fn particle_interactions(particles: &mut [Particle], cfg: &LifeConfig, dt: f32) {
+    puffin::profile_scope!("Particle interactions");
     let points: Vec<Vec2> = particles.iter().map(|p| p.pos).collect();
     let accel = QueryAccelerator::new(&points, cfg.max_interaction_radius());
     //accel.stats("Life");

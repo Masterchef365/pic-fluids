@@ -9,9 +9,10 @@ fn main() -> eframe::Result<()> {
     let native_options = eframe::NativeOptions::default();
 
     // Set up debugging server
-    let server_addr = format!("127.0.0.1:{}", puffin_http::DEFAULT_PORT);
-    puffin_http::Server::new(&server_addr).unwrap();
-
+    puffin::set_scopes_on(true); // tell puffin to collect data
+    let server_addr = format!("0.0.0.0:{}", puffin_http::DEFAULT_PORT);
+    let srv = puffin_http::Server::new(&server_addr).unwrap();
+    std::mem::forget(srv);
 
     eframe::run_native(
         "eframe template",
