@@ -522,7 +522,7 @@ fn particle_interactions(particles: &mut [Particle], cfg: &LifeConfig, dt: f32) 
     //accel.stats("Life");
 
     for i in 0..particles.len() {
-        for neighbor in accel.query_neighbors(&points, i, points[i]) {
+        for neighbor in accel.query_neighbors_fast(i, points[i]) {
             let a = points[i];
             let b = points[neighbor];
 

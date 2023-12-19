@@ -65,6 +65,28 @@ impl QueryAccelerator {
             .flatten()
     }
 
+    // Approximate neighbors; neighbors considered may be outside of the radius! 
+    pub fn query_neighbors_fast<'s, 'p: 's>(
+        &'s self,
+        query_idx: usize,
+        query_point: Vec2,
+    ) -> impl Iterator<Item = usize> + 's {
+        let origin = quantize(query_point, self.radius);
+
+        self.neighbors
+            .iter()
+            .filter_map(move |diff| {
+                let key = add(origin, *diff);
+                self.cells.get(&key).map(|cell_indices| {
+                    cell_indices.iter().copied().filter(move |&idx| {
+                        idx != query_idx
+                    })
+                })
+            })
+            .flatten()
+    }
+
+
     pub fn replace_point(&mut self, idx: usize, prev: Vec2, current: Vec2) {
         // TODO: Keep points in sorted order and use binary search! Or use hashsets for O(n)?
         // Find this point in our cells and remove it
