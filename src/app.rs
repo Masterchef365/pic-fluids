@@ -97,6 +97,9 @@ fn is_mobile(ctx: &egui::Context) -> bool {
 
 impl eframe::App for TemplateApp {
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
+        #[cfg(not(target_arch = "wasm32"))]
+        puffin::GlobalProfiler::lock().new_frame();
+
         ctx.set_visuals(egui::Visuals::dark());
 
         // Update continuously

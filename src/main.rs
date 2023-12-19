@@ -7,6 +7,12 @@ fn main() -> eframe::Result<()> {
     env_logger::init(); // Log to stderr (if you run with `RUST_LOG=debug`).
 
     let native_options = eframe::NativeOptions::default();
+
+    // Set up debugging server
+    let server_addr = format!("127.0.0.1:{}", puffin_http::DEFAULT_PORT);
+    puffin_http::Server::new(&server_addr).unwrap();
+
+
     eframe::run_native(
         "eframe template",
         native_options,
