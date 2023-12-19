@@ -85,7 +85,7 @@ impl TemplateApp {
             //grid_vel_scale: 0.05,
             //show_grid: false,
             show_settings_only: false,
-            set_inter_dist_to_radius: false,
+            set_inter_dist_to_radius: true,
             //mult: 1.0,
         }
     }
@@ -388,7 +388,7 @@ impl TemplateApp {
             });
         }
         if self.set_inter_dist_to_radius {
-            behav_cfg.inter_threshold = self.sim.particle_radius;
+            behav_cfg.inter_threshold = self.sim.particle_radius * 2.;
         }
         for b in self.sim.life.behaviours.data_mut() {
             b.max_inter_dist = behav_cfg.max_inter_dist;
