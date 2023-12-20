@@ -155,11 +155,14 @@ impl Sim {
         enable_incompress: bool,
         enable_particle_collisions: bool,
         enable_grid_transfer: bool,
+        enable_particle_life: bool,
     ) {
         //puffin::profile_scope!("Complete Step");
         // Step particles
         apply_global_force(&mut self.particles, Vec2::new(0., -gravity), dt);
-        particle_interactions(&mut self.particles, &mut self.life, dt);
+        if enable_particle_life {
+            particle_interactions(&mut self.particles, &mut self.life, dt);
+        }
         step_particles(&mut self.particles, dt, self.damping);
         if enable_particle_collisions {
             enforce_particle_radius(&mut self.particles, self.particle_radius);

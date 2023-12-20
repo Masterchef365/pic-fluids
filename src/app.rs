@@ -34,6 +34,7 @@ pub struct TemplateApp {
     enable_incompress: bool,
     enable_particle_collisions: bool,
     enable_grid_transfer: bool,
+    enable_particle_life: bool,
     random_std_dev: f32,
 
     well: bool,
@@ -65,6 +66,7 @@ impl TemplateApp {
             enable_particle_collisions: false,
             enable_incompress: true,
             enable_grid_transfer: true,
+            enable_particle_life: true,
             advanced: false,
             n_colors,
             source_rate: 0,
@@ -159,6 +161,7 @@ impl TemplateApp {
                 self.enable_incompress,
                 self.enable_particle_collisions,
                 self.enable_grid_transfer,
+                self.enable_particle_life,
             );
 
             self.single_step = false;
@@ -299,7 +302,6 @@ impl TemplateApp {
         ui.separator();
         ui.horizontal(|ui| {
             ui.strong("Particle collisions");
-            ui.checkbox(&mut self.enable_particle_collisions, "");
         });
         ui.add(
             DragValue::new(&mut self.sim.particle_radius)
@@ -308,6 +310,7 @@ impl TemplateApp {
                 .clamp_range(1e-2..=5.0),
         );
         if self.advanced {
+            ui.checkbox(&mut self.enable_particle_collisions, "Hard collisions");
             ui.horizontal(|ui| {
                 ui.add(
                     DragValue::new(&mut self.sim.rest_density)
@@ -369,7 +372,12 @@ impl TemplateApp {
         ui.checkbox(&mut self.well, "Particle well");
 
         ui.separator();
-        ui.strong("Particle life");
+        ui.horizontal(|ui| {
+            ui.strong("Particle life");
+            if self.advanced {
+                ui.checkbox(&mut self.enable_particle_life, "");
+            }
+        });
         let mut behav_cfg = self.sim.life.behaviours[(0, 0)];
         if self.advanced {
             ui.add(
@@ -444,6 +452,7 @@ impl TemplateApp {
                 }
             }
         }
+        /*
         if ui.button("Lifeless").clicked() {
             self.sim
                 .life
@@ -452,6 +461,7 @@ impl TemplateApp {
                 .iter_mut()
                 .for_each(|b| b.inter_strength = 0.);
         }
+        */
 
         /*
         if self.advanced {
