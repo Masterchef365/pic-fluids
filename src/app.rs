@@ -355,7 +355,7 @@ impl TemplateApp {
 
         ui.separator();
         ui.strong("Particle source");
-        ui.add(DragValue::new(&mut self.source_rate).prefix("Particle inflow rate: "));
+        ui.add(DragValue::new(&mut self.source_rate).prefix("Particle inflow rate: ").speed(1e-1));
         ui.horizontal(|ui| {
             ui.label("Particle inflow color: ");
             for (idx, &color) in self.sim.life.colors.iter().enumerate() {
