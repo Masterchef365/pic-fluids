@@ -55,7 +55,7 @@ impl TemplateApp {
         };
         let n_particles = 4_000;
         let particle_radius = 0.28;
-        let random_std_dev = 10.;
+        let random_std_dev = 5.;
 
         let n_colors = 3;
         let life = LifeConfig::random(n_colors, random_std_dev);
@@ -314,7 +314,7 @@ impl TemplateApp {
                         .prefix("Rest density: ")
                         .speed(1e-2),
                 );
-                ui.checkbox(&mut self.calc_rest_density_from_radius, "From radius");
+                ui.checkbox(&mut self.calc_rest_density_from_radius, "From radius (assumes optimal packing)");
             });
             ui.add(
                 DragValue::new(&mut self.stiffness)
