@@ -3,6 +3,7 @@ use crate::query_accel::QueryAccelerator;
 
 use glam::Vec2;
 use rand::prelude::*;
+use rayon::prelude::{IndexedParallelIterator, IntoParallelRefMutIterator, ParallelIterator};
 
 #[derive(Clone)]
 pub struct Sim {
@@ -521,26 +522,33 @@ fn particle_interactions(particles: &mut [Particle], cfg: &LifeConfig, dt: f32) 
     let accel = QueryAccelerator::new(&points, cfg.max_interaction_radius());
     //accel.stats("Life");
 
-    for i in 0..particles.len() {
-        for neighbor in accel.query_neighbors_fast(i, points[i]) {
-            let a = points[i];
-            let b = points[neighbor];
+    let mut new_particles = particles.to_vec();
 
-            // The vector pointing from a to b
-            let diff = b - a;
+    new_particles
+        .par_iter_mut()
+        .enumerate()
+        .for_each(|(i, part)| {
+            for neighbor in accel.query_neighbors_fast(i, points[i]) {
+                let a = points[i];
+                let b = points[neighbor];
 
-            // Distance is capped
-            let dist = diff.length();
-            if dist > 0. {
-                // Accelerate towards b
-                let normal = diff.normalize();
-                let behav = cfg.get_behaviour(particles[i].color, particles[neighbor].color);
-                let accel = normal * behav.force(dist);
+                // The vector pointing from a to b
+                let diff = b - a;
 
-                particles[i].vel += accel * dt;
+                // Distance is capped
+                let dist = diff.length();
+                if dist > 0. {
+                    // Accelerate towards b
+                    let normal = diff.normalize();
+                    let behav = cfg.get_behaviour(particles[i].color, particles[neighbor].color);
+                    let accel = normal * behav.force(dist);
+
+                    part.vel += accel * dt;
+                }
             }
-        }
-    }
+        });
+
+    particles.copy_from_slice(&new_particles);
 }
 
 impl LifeConfig {
