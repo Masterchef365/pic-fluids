@@ -1,4 +1,4 @@
-use crate::array2d::{Array2D};
+use crate::array2d::Array2D;
 
 use eframe::egui::{DragValue, Grid, Rgba, RichText, ScrollArea, Slider, Ui};
 use egui::os::OperatingSystem;
@@ -34,12 +34,13 @@ pub struct TemplateApp {
     enable_incompress: bool,
     enable_particle_collisions: bool,
     enable_grid_transfer: bool,
+    enable_particle_life: bool,
+    random_std_dev: f32,
 
     well: bool,
     source_color_idx: ParticleType,
     source_rate: usize,
     //mult: f32,
-
     show_settings_only: bool,
 
     advanced: bool,
@@ -55,15 +56,17 @@ impl TemplateApp {
         };
         let n_particles = 4_000;
         let particle_radius = 0.28;
+        let random_std_dev = 5.;
 
         let n_colors = 3;
-        let life = LifeConfig::random(n_colors);
+        let life = LifeConfig::random(n_colors, random_std_dev);
         let sim = Sim::new(width, height, n_particles, particle_radius, life);
 
         Self {
             enable_particle_collisions: false,
             enable_incompress: true,
             enable_grid_transfer: true,
+            enable_particle_life: true,
             advanced: false,
             n_colors,
             source_rate: 0,
@@ -80,6 +83,7 @@ impl TemplateApp {
             solver: IncompressibilitySolver::GaussSeidel,
             well: false,
             source_color_idx: 0,
+            random_std_dev,
             //show_arrows: false,
             pause: false,
             //grid_vel_scale: 0.05,
@@ -157,6 +161,7 @@ impl TemplateApp {
                 self.enable_incompress,
                 self.enable_particle_collisions,
                 self.enable_grid_transfer,
+                self.enable_particle_life,
             );
 
             self.single_step = false;
@@ -181,7 +186,8 @@ impl TemplateApp {
         let painter = ui.painter_at(rect);
         let radius = coords
             .sim_to_egui_vect(Vec2::splat(self.sim.particle_radius))
-            .length() / 2_f32.sqrt();
+            .length()
+            / 2_f32.sqrt();
 
         for part in &self.sim.particles {
             let color = self.sim.life.colors[part.color as usize];
@@ -233,7 +239,7 @@ impl TemplateApp {
                     if i < old_size && j < old_size {
                         new_behav_array[(i, j)] = self.sim.life.behaviours[(i, j)];
                     } else {
-                        new_behav_array[(i, j)] = LifeConfig::random_behaviour();
+                        new_behav_array[(i, j)] = LifeConfig::random_behaviour(self.random_std_dev);
                     }
                 }
             }
@@ -286,14 +292,16 @@ impl TemplateApp {
         });
         if self.advanced {
             ui.add(Slider::new(&mut self.sim.damping, 0.0..=1.0).text("Damping"));
-            ui.checkbox(&mut self.enable_grid_transfer, "Grid transfer (required for incompressibility solver!)");
+            ui.checkbox(
+                &mut self.enable_grid_transfer,
+                "Grid transfer (required for incompressibility solver!)",
+            );
             ui.add(Slider::new(&mut self.pic_apic_ratio, 0.0..=1.0).text("PIC - APIC"));
         }
 
         ui.separator();
         ui.horizontal(|ui| {
             ui.strong("Particle collisions");
-            ui.checkbox(&mut self.enable_particle_collisions, "");
         });
         ui.add(
             DragValue::new(&mut self.sim.particle_radius)
@@ -302,19 +310,15 @@ impl TemplateApp {
                 .clamp_range(1e-2..=5.0),
         );
         if self.advanced {
+            ui.checkbox(&mut self.enable_particle_collisions, "Hard collisions");
             ui.horizontal(|ui| {
                 ui.add(
                     DragValue::new(&mut self.sim.rest_density)
                         .prefix("Rest density: ")
                         .speed(1e-2),
                 );
-                ui.checkbox(&mut self.calc_rest_density_from_radius, "From radius");
+                ui.checkbox(&mut self.calc_rest_density_from_radius, "From radius (assumes optimal packing)");
             });
-            ui.add(
-                DragValue::new(&mut self.stiffness)
-                    .prefix("Stiffness: ")
-                    .speed(1e-2),
-            );
         }
 
         if self.calc_rest_density_from_radius {
@@ -342,11 +346,16 @@ impl TemplateApp {
                     "Gauss Seidel",
                 );
             });
+            ui.add(
+                DragValue::new(&mut self.stiffness)
+                    .prefix("Density compensation stiffness: ")
+                    .speed(1e-2),
+            );
         }
 
         ui.separator();
         ui.strong("Particle source");
-        ui.add(DragValue::new(&mut self.source_rate).prefix("Particle inflow rate: "));
+        ui.add(DragValue::new(&mut self.source_rate).prefix("Particle inflow rate: ").speed(1e-1));
         ui.horizontal(|ui| {
             ui.label("Particle inflow color: ");
             for (idx, &color) in self.sim.life.colors.iter().enumerate() {
@@ -363,7 +372,12 @@ impl TemplateApp {
         ui.checkbox(&mut self.well, "Particle well");
 
         ui.separator();
-        ui.strong("Particle life");
+        ui.horizontal(|ui| {
+            ui.strong("Particle life");
+            if self.advanced {
+                ui.checkbox(&mut self.enable_particle_life, "");
+            }
+        });
         let mut behav_cfg = self.sim.life.behaviours[(0, 0)];
         if self.advanced {
             ui.add(
@@ -378,13 +392,13 @@ impl TemplateApp {
                     .prefix("Default repulse: "),
             );
             ui.horizontal(|ui| {
-            ui.add(
-                DragValue::new(&mut behav_cfg.inter_threshold)
-                    .clamp_range(0.0..=20.0)
-                    .speed(1e-2)
-                    .prefix("Interaction threshold: "),
-            );
-            ui.checkbox(&mut self.set_inter_dist_to_radius, "From radius");
+                ui.add(
+                    DragValue::new(&mut behav_cfg.inter_threshold)
+                        .clamp_range(0.0..=20.0)
+                        .speed(1e-2)
+                        .prefix("Interaction threshold: "),
+                );
+                ui.checkbox(&mut self.set_inter_dist_to_radius, "From radius");
             });
         }
         if self.set_inter_dist_to_radius {
@@ -418,10 +432,18 @@ impl TemplateApp {
             }
         });
 
-        if ui.button("Randomize behaviours").clicked() {
-            self.sim.life = LifeConfig::random(self.n_colors);
-            reset = true;
-        }
+        ui.horizontal(|ui| {
+            if ui.button("Randomize behaviours").clicked() {
+                self.sim.life = LifeConfig::random(self.n_colors, self.random_std_dev);
+                reset = true;
+            }
+            ui.add(
+                DragValue::new(&mut self.random_std_dev)
+                    .prefix("std. dev: ")
+                    .speed(1e-2)
+                    .clamp_range(0.0..=f32::MAX),
+            )
+        });
         if ui.button("Symmetric forces").clicked() {
             let n = self.sim.life.colors.len();
             for i in 0..n {
@@ -430,6 +452,7 @@ impl TemplateApp {
                 }
             }
         }
+        /*
         if ui.button("Lifeless").clicked() {
             self.sim
                 .life
@@ -438,6 +461,7 @@ impl TemplateApp {
                 .iter_mut()
                 .for_each(|b| b.inter_strength = 0.);
         }
+        */
 
         /*
         if self.advanced {
