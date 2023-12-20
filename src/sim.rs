@@ -557,22 +557,24 @@ impl LifeConfig {
         self.behaviours[(a as usize, b as usize)]
     }
 
-    pub fn random_behaviour() -> Behaviour {
+    pub fn random_behaviour(random_std_dev: f32) -> Behaviour {
         let mut rng = rand::thread_rng();
         let mut behav = Behaviour::default();
-        behav.inter_strength = rng.gen_range(-20.0..=20.0);
+        behav.inter_strength = rand_distr::Normal::new(0., random_std_dev)
+            .map(|distr| distr.sample(&mut rng))
+            .unwrap_or(0.);
         if behav.inter_strength < 0. {
             behav.inter_strength *= 10.;
         }
         behav
     }
 
-    pub fn random(rule_count: usize) -> Self {
+    pub fn random(rule_count: usize, random_std_dev: f32) -> Self {
         let mut rng = rand::thread_rng();
 
         let colors: Vec<[f32; 3]> = (0..rule_count).map(|_| random_color(&mut rng)).collect();
         let behaviours = (0..rule_count.pow(2))
-            .map(|_| Self::random_behaviour())
+            .map(|_| Self::random_behaviour(random_std_dev))
             .collect();
         let behaviours = Array2D::from_array(rule_count, behaviours);
 
