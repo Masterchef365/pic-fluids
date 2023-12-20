@@ -319,11 +319,6 @@ impl TemplateApp {
                 );
                 ui.checkbox(&mut self.calc_rest_density_from_radius, "From radius (assumes optimal packing)");
             });
-            ui.add(
-                DragValue::new(&mut self.stiffness)
-                    .prefix("Stiffness: ")
-                    .speed(1e-2),
-            );
         }
 
         if self.calc_rest_density_from_radius {
@@ -351,6 +346,11 @@ impl TemplateApp {
                     "Gauss Seidel",
                 );
             });
+            ui.add(
+                DragValue::new(&mut self.stiffness)
+                    .prefix("Density compensation stiffness: ")
+                    .speed(1e-2),
+            );
         }
 
         ui.separator();
