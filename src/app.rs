@@ -2,7 +2,7 @@ use crate::array2d::Array2D;
 
 use eframe::egui::{DragValue, Grid, Rgba, RichText, ScrollArea, Slider, Ui};
 use egui::os::OperatingSystem;
-use egui::SidePanel;
+use egui::{SidePanel, Painter, Color32};
 use egui::{CentralPanel, Frame, Rect, Sense};
 use glam::Vec2;
 
@@ -95,18 +95,8 @@ impl TemplateApp {
 
         // Draw particles
         let painter = ui.painter_at(rect);
-        let radius = coords.sim_to_egui_vect(Vec2::splat(0.25)).length() / 2_f32.sqrt();
-
-        /*
-        for part in &self.sim.particles {
-            let color = self.sim.life.colors[part.color as usize];
-            painter.circle_filled(
-                coords.sim_to_egui(part.pos) + rect.left_top().to_vec2(),
-                radius,
-                color_to_egui(color),
-            );
-        }
-        */
+        draw_sim(&self.sim, &coords, &rect, &painter);
+        
     }
 
     fn settings_gui(&mut self, ui: &mut Ui) {
@@ -225,4 +215,22 @@ fn push_particles(particles: &mut [Particle], radius: f32, pos: Vec2, vel: Vec2)
 
 fn color_to_egui([r, g, b]: [f32; 3]) -> Rgba {
     Rgba::from_rgb(r, g, b)
+}
+
+fn draw_sim(sim: &Sim, coords: &CoordinateMapping, rect: &Rect, painter: &Painter) {
+    for part in &sim.protons {
+        painter.circle_filled(
+            coords.sim_to_egui(*part) + rect.left_top().to_vec2(),
+            1.0,
+            Color32::RED,
+        );
+    }
+
+    for part in &sim.electrons {
+        painter.circle_filled(
+            coords.sim_to_egui(*part) + rect.left_top().to_vec2(),
+            1.0,
+            Color32::YELLOW,
+        );
+    }
 }
