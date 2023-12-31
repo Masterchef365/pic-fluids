@@ -122,7 +122,9 @@ impl TemplateApp {
 
         ui.add(DragValue::new(&mut self.tweak.electron_steps).prefix("e- steps: ").speed(1e-1));
         ui.add(DragValue::new(&mut self.tweak.electron_sigma).prefix("e- sigma: ").speed(1e-3));
-        ui.add(DragValue::new(&mut self.tweak.electron_temperature).prefix("e- temp: ").speed(1e-3));
+        ui.add(DragValue::new(&mut self.tweak.electron_temperature).prefix("e- temp: ").speed(1e-5));
+        ui.add(DragValue::new(&mut self.tweak.electron_electron_smooth).prefix("e- to e- smooth: ").speed(1e-3));
+        ui.add(DragValue::new(&mut self.tweak.electron_proton_smooth).prefix("e- to p+ smooth: ").speed(1e-3));
 
         if reset {
             self.sim = Sim::new();
