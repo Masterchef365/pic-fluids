@@ -19,15 +19,22 @@ pub struct TemplateApp {
     advanced: bool,
     show_settings_only: bool,
 
+    n_protons: usize,
+    n_electrons: usize,
     tweak: SimTweaks,
 }
 
 impl TemplateApp {
     /// Called once before the first frame.
     pub fn new(cc: &eframe::CreationContext<'_>) -> Self {
-        let sim = Sim::new();
+        let n_protons = 9;
+        let n_electrons = 10;
+
+        let sim = Sim::new(n_protons, n_electrons);
 
         Self {
+            n_protons,
+            n_electrons,
             tweak: SimTweaks::default(),
             sim,
             pause: false,
@@ -113,21 +120,65 @@ impl TemplateApp {
         }
 
         ui.separator();
+
+        ui.add(
+            DragValue::new(&mut self.n_protons)
+                .prefix("# of protons: ")
+                .speed(1e-1),
+        );
+        ui.add(
+            DragValue::new(&mut self.n_electrons)
+                .prefix("# of electrons: ")
+                .speed(1e-1),
+        );
+
+        ui.label("Protons");
         ui.strong("Kinematics");
         ui.add(
             DragValue::new(&mut self.tweak.proton_dt)
                 .prefix("Δt (time step): ")
                 .speed(1e-4),
         );
+        ui.add(
+            DragValue::new(&mut self.tweak.proton_electron_smooth)
+                .prefix("p+ to e- smooth: ")
+                .speed(1e-3),
+        );
+        ui.add(
+            DragValue::new(&mut self.tweak.proton_proton_smooth)
+                .prefix("p+ to p+ smooth: ")
+                .speed(1e-3),
+        );
 
-        ui.add(DragValue::new(&mut self.tweak.electron_steps).prefix("e- steps: ").speed(1e-1));
-        ui.add(DragValue::new(&mut self.tweak.electron_sigma).prefix("e- sigma: ").speed(1e-3));
-        ui.add(DragValue::new(&mut self.tweak.electron_temperature).prefix("e- temp: ").speed(1e-5));
-        ui.add(DragValue::new(&mut self.tweak.electron_electron_smooth).prefix("e- to e- smooth: ").speed(1e-3));
-        ui.add(DragValue::new(&mut self.tweak.electron_proton_smooth).prefix("e- to p+ smooth: ").speed(1e-3));
+        ui.label("Electrons");
+        ui.add(
+            DragValue::new(&mut self.tweak.electron_steps)
+                .prefix("e- steps: ")
+                .speed(1e-1),
+        );
+        ui.add(
+            DragValue::new(&mut self.tweak.electron_sigma)
+                .prefix("e- sigma: ")
+                .speed(1e-3),
+        );
+        ui.add(
+            DragValue::new(&mut self.tweak.electron_temperature)
+                .prefix("e- temp: ")
+                .speed(1e-5),
+        );
+        ui.add(
+            DragValue::new(&mut self.tweak.electron_electron_smooth)
+                .prefix("e- to e- smooth: ")
+                .speed(1e-3),
+        );
+        ui.add(
+            DragValue::new(&mut self.tweak.electron_proton_smooth)
+                .prefix("e- to p+ smooth: ")
+                .speed(1e-3),
+        );
 
         if reset {
-            self.sim = Sim::new();
+            self.sim = Sim::new(self.n_protons, self.n_electrons);
         }
 
         ui.checkbox(&mut self.advanced, "Advanced settings");
