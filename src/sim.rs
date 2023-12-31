@@ -100,7 +100,7 @@ impl Sim {
             // Accumulate electron forces
             for elect in &self.electrons {
                 let diff = elect.pos - pos;
-                force += smoothed_force(diff, tweak.proton_proton_smooth);
+                force += smoothed_force(diff, tweak.proton_electron_smooth);
             }
 
             // Step proton
@@ -145,14 +145,14 @@ impl Default for SimTweaks {
         Self {
             // The proton is about 1800 times heavier than the electron...
             proton_dt: 1./1800.,
-            proton_proton_smooth: 1.0,
+            proton_proton_smooth: 0.0,
             proton_electron_smooth: 1.0,
 
-            electron_steps: 1,
+            electron_steps: 5,
             electron_sigma: 0.05,
             electron_temperature: 1e-4,
             electron_proton_smooth: 1.0,
-            electron_electron_smooth: 1.0,
+            electron_electron_smooth: 0.0,
         }
     }
 }

@@ -27,8 +27,8 @@ pub struct TemplateApp {
 impl TemplateApp {
     /// Called once before the first frame.
     pub fn new(cc: &eframe::CreationContext<'_>) -> Self {
-        let n_protons = 9;
-        let n_electrons = 10;
+        let n_protons = 50;
+        let n_electrons = 50;
 
         let sim = Sim::new(n_protons, n_electrons);
 
