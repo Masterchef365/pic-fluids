@@ -22,17 +22,19 @@ pub struct TemplateApp {
     n_protons: usize,
     n_electrons: usize,
     tweak: SimTweaks,
+    current_cloud: Vec<Electron>,
 }
 
 impl TemplateApp {
     /// Called once before the first frame.
     pub fn new(cc: &eframe::CreationContext<'_>) -> Self {
-        let n_protons = 25;
-        let n_electrons = 50;
+        let n_protons = 3;
+        let n_electrons = 100;
 
         let sim = Sim::new(n_protons, n_electrons);
 
         Self {
+            current_cloud: vec![],
             n_protons,
             n_electrons,
             tweak: SimTweaks::default(),
@@ -82,13 +84,13 @@ impl TemplateApp {
     fn update(&mut self) {
         // Update
         if !self.pause || self.single_step {
-            self.sim.step(&self.tweak);
+            self.current_cloud = self.sim.step(&self.tweak);
             self.single_step = false;
         }
     }
 
     fn sim_widget(&mut self, ui: &mut Ui) {
-        let (rect, response) = ui.allocate_exact_size(ui.available_size(), Sense::click_and_drag());
+        let (rect, _response) = ui.allocate_exact_size(ui.available_size(), Sense::click_and_drag());
 
         let coords = CoordinateMapping::new(100, 100, rect);
 
@@ -103,7 +105,7 @@ impl TemplateApp {
 
         // Draw particles
         let painter = ui.painter_at(rect);
-        draw_sim(&self.sim, &coords, &rect, &painter);
+        draw_sim(&self.sim, &self.current_cloud, &coords, &rect, &painter);
     }
 
     fn settings_gui(&mut self, ui: &mut Ui) {
@@ -274,7 +276,7 @@ fn color_to_egui([r, g, b]: [f32; 3]) -> Rgba {
     Rgba::from_rgb(r, g, b)
 }
 
-fn draw_sim(sim: &Sim, coords: &CoordinateMapping, rect: &Rect, painter: &Painter) {
+fn draw_sim(sim: &Sim, cloud: &[Electron], coords: &CoordinateMapping, rect: &Rect, painter: &Painter) {
     for part in &sim.protons {
         painter.circle_filled(
             coords.sim_to_egui(part.pos) + rect.left_top().to_vec2(),
@@ -283,7 +285,17 @@ fn draw_sim(sim: &Sim, coords: &CoordinateMapping, rect: &Rect, painter: &Painte
         );
     }
 
+    /*
     for part in &sim.electrons {
+        painter.circle_filled(
+            coords.sim_to_egui(part.pos) + rect.left_top().to_vec2(),
+            1.0,
+            Color32::YELLOW,
+        );
+    }
+    */
+
+    for part in cloud {
         painter.circle_filled(
             coords.sim_to_egui(part.pos) + rect.left_top().to_vec2(),
             1.0,

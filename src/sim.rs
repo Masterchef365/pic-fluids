@@ -47,7 +47,7 @@ impl Sim {
         let mut protons = vec![];
         for _ in 0..n_protons {
             protons.push(Proton {
-                pos: Vec2::new(rng.gen_range(0.0..100.0), rng.gen_range(0.0..100.0)),
+                pos: Vec2::new(rng.gen_range(25.0..75.0), rng.gen_range(25.0..75.0)),
                 vel: Vec2::ZERO,
             });
         }
@@ -59,10 +59,12 @@ impl Sim {
         }
     }
 
-    pub fn step(&mut self, tweak: &SimTweaks) {
+    /// Returns the history of the electron cloud during this step
+    pub fn step(&mut self, tweak: &SimTweaks) -> Vec<Electron> {
         let mut rng = rand::thread_rng();
 
         // Propose a new configuration for electrons
+        let mut cloud = self.electrons.clone();
         for _ in 0..tweak.electron_steps * self.electrons.len() {
             let idx = rng.gen_range(0..self.electrons.len());
             let old_u = self.electron_potential_energy(idx, tweak);
@@ -77,7 +79,10 @@ impl Sim {
             let rate = (-du / tweak.electron_temperature).exp().min(0.99);
 
             if !rng.gen_bool(rate as _) {
+                // Reject
                 self.electrons[idx].pos = old_pos;
+            } else {
+                cloud.push(self.electrons[idx]);
             }
         }
 
@@ -98,7 +103,7 @@ impl Sim {
             }
 
             // Accumulate electron forces
-            for elect in &self.electrons {
+            for elect in &cloud {
                 let diff = elect.pos - pos;
                 force += smoothed_force(diff, tweak.proton_electron_smooth);
             }
@@ -108,6 +113,8 @@ impl Sim {
             let vel = self.protons[idx].vel;
             self.protons[idx].pos += vel * tweak.proton_dt;
         }
+
+        cloud
     }
 
     fn electron_potential_energy(&self, idx: usize, tweak: &SimTweaks) -> f32 {
@@ -144,13 +151,13 @@ impl Default for SimTweaks {
     fn default() -> Self {
         Self {
             // The proton is about 1800 times heavier than the electron...
-            proton_dt: 1./1800.,
+            proton_dt: 1e-5,
             proton_proton_smooth: 0.0,
             proton_electron_smooth: 1.0,
 
-            electron_steps: 5,
-            electron_sigma: 0.05,
-            electron_temperature: 5e-2,
+            electron_steps: 100,
+            electron_sigma: 1.0,
+            electron_temperature: 1e-1,
             electron_proton_smooth: 1.0,
             electron_electron_smooth: 0.0,
         }
