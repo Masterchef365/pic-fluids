@@ -150,7 +150,7 @@ impl Default for SimTweaks {
 
             electron_steps: 5,
             electron_sigma: 0.05,
-            electron_temperature: 1e-4,
+            electron_temperature: 5e-2,
             electron_proton_smooth: 1.0,
             electron_electron_smooth: 0.0,
         }
