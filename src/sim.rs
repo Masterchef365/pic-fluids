@@ -1,26 +1,102 @@
 use glam::Vec2;
 use rand::prelude::*;
+use rand_distr::Normal;
+
+/// Parameters which may change between frames
+#[derive(Clone, Debug)]
+pub struct SimTweaks {
+    pub proton_dt: f32,
+    pub electron_steps: usize,
+    pub electron_temperature: f32,
+    pub electron_sigma: f32,
+}
+
+#[derive(Clone, Copy, Debug)]
+pub struct Electron {
+    pub pos: Vec2,
+}
+
+#[derive(Clone, Copy, Debug)]
+pub struct Proton {
+    pub pos: Vec2,
+    pub vel: Vec2,
+}
 
 #[derive(Clone)]
 pub struct Sim {
-    pub protons: Vec<Vec2>,
-    pub electrons: Vec<Vec2>,
+    pub protons: Vec<Proton>,
+    pub electrons: Vec<Electron>,
 }
 
 impl Sim {
-    pub fn new(
-    ) -> Self {
+    pub fn new() -> Self {
         let mut rng = rand::thread_rng();
 
         Sim {
-            protons: vec![Vec2::new(50., 50.)],
-            electrons: vec![Vec2::new(30., 30.)],
+            protons: vec![Proton {
+                pos: Vec2::new(50., 50.),
+                vel: Vec2::ZERO,
+            }],
+            electrons: vec![Electron {
+                pos: Vec2::new(30., 30.),
+            }],
         }
     }
 
-    pub fn step(
-        &mut self,
-        dt: f32,
-    ) {
+    pub fn step(&mut self, tweak: &SimTweaks) {
+        let mut rng = rand::thread_rng();
+
+        // Propose a new configuration for electrons
+        for _ in 0..tweak.electron_steps {
+            let idx = rng.gen_range(0..self.electrons.len());
+            let old_u = self.electron_potential_energy(idx);
+            let old_pos = self.electrons[idx].pos;
+
+            let normal = Normal::new(0., tweak.electron_sigma).unwrap();
+            let new_pos = old_pos + Vec2::new(normal.sample(&mut rng), normal.sample(&mut rng));
+            self.electrons[idx].pos = new_pos;
+            let new_u = self.electron_potential_energy(idx);
+
+            let du = new_u - old_u;
+            let rate = (-du / tweak.electron_temperature).exp().min(1.);
+            dbg!(new_u);
+
+            if !rng.gen_bool(rate as _) {
+                self.electrons[idx].pos = old_pos;
+            }
+        }
+    }
+
+    fn electron_potential_energy(&self, idx: usize) -> f32 {
+        let mut u = 0.0;
+
+        let pos = self.electrons[idx].pos;
+
+        for i in 0..self.electrons.len() {
+            if i != idx {
+                u += smoothed_potential(self.electrons[i].pos.distance(pos))
+            }
+        }
+
+        for prot in &self.protons {
+            u -= smoothed_potential(prot.pos.distance(pos));
+        }
+
+        u
+    }
+}
+
+fn smoothed_potential(r: f32) -> f32 {
+    1. / (r.abs() + 1e-3)
+}
+
+impl Default for SimTweaks {
+    fn default() -> Self {
+        Self {
+            proton_dt: 1e-2,
+            electron_steps: 10,
+            electron_sigma: 0.5,
+            electron_temperature: 0.5,
+        }
     }
 }

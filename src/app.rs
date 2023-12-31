@@ -2,8 +2,8 @@ use crate::array2d::Array2D;
 
 use eframe::egui::{DragValue, Grid, Rgba, RichText, ScrollArea, Slider, Ui};
 use egui::os::OperatingSystem;
-use egui::{SidePanel, Painter, Color32};
 use egui::{CentralPanel, Frame, Rect, Sense};
+use egui::{Color32, Painter, SidePanel};
 use glam::Vec2;
 
 use crate::sim::*;
@@ -14,11 +14,12 @@ pub struct TemplateApp {
     sim: Sim,
 
     // Settings
-    dt: f32,
     pause: bool,
     single_step: bool,
     advanced: bool,
     show_settings_only: bool,
+
+    tweak: SimTweaks,
 }
 
 impl TemplateApp {
@@ -27,7 +28,7 @@ impl TemplateApp {
         let sim = Sim::new();
 
         Self {
-            dt: 0.02,
+            tweak: SimTweaks::default(),
             sim,
             pause: false,
             advanced: false,
@@ -74,7 +75,7 @@ impl TemplateApp {
     fn update(&mut self) {
         // Update
         if !self.pause || self.single_step {
-            self.sim.step(self.dt);
+            self.sim.step(&self.tweak);
             self.single_step = false;
         }
     }
@@ -96,7 +97,6 @@ impl TemplateApp {
         // Draw particles
         let painter = ui.painter_at(rect);
         draw_sim(&self.sim, &coords, &rect, &painter);
-        
     }
 
     fn settings_gui(&mut self, ui: &mut Ui) {
@@ -115,10 +115,14 @@ impl TemplateApp {
         ui.separator();
         ui.strong("Kinematics");
         ui.add(
-            DragValue::new(&mut self.dt)
+            DragValue::new(&mut self.tweak.proton_dt)
                 .prefix("Δt (time step): ")
                 .speed(1e-4),
         );
+
+        ui.add(DragValue::new(&mut self.tweak.electron_steps).prefix("e- steps: ").speed(1e-1));
+        ui.add(DragValue::new(&mut self.tweak.electron_sigma).prefix("e- sigma: ").speed(1e-3));
+        ui.add(DragValue::new(&mut self.tweak.electron_temperature).prefix("e- temp: ").speed(1e-3));
 
         if reset {
             self.sim = Sim::new();
@@ -220,15 +224,15 @@ fn color_to_egui([r, g, b]: [f32; 3]) -> Rgba {
 fn draw_sim(sim: &Sim, coords: &CoordinateMapping, rect: &Rect, painter: &Painter) {
     for part in &sim.protons {
         painter.circle_filled(
-            coords.sim_to_egui(*part) + rect.left_top().to_vec2(),
-            1.0,
+            coords.sim_to_egui(part.pos) + rect.left_top().to_vec2(),
+            3.0,
             Color32::RED,
         );
     }
 
     for part in &sim.electrons {
         painter.circle_filled(
-            coords.sim_to_egui(*part) + rect.left_top().to_vec2(),
+            coords.sim_to_egui(part.pos) + rect.left_top().to_vec2(),
             1.0,
             Color32::YELLOW,
         );
