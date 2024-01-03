@@ -8,6 +8,7 @@ pub struct SimTweaks {
     pub proton_dt: f32,
     pub proton_proton_smooth: f32,
     pub proton_electron_smooth: f32,
+    pub bohr_radius: f32,
 
     pub electron_steps: usize,
     pub electron_temperature: f32,
@@ -52,11 +53,7 @@ impl Sim {
             });
         }
 
-
-        Sim {
-            protons,
-            electrons,
-        }
+        Sim { protons, electrons }
     }
 
     /// Returns the history of the electron cloud during this step
@@ -72,6 +69,10 @@ impl Sim {
 
             let normal = Normal::new(0., tweak.electron_sigma).unwrap();
             let new_pos = old_pos + Vec2::new(normal.sample(&mut rng), normal.sample(&mut rng));
+
+            // TODO: Proper clamping
+            let new_pos = new_pos.clamp(Vec2::ZERO, Vec2::splat(100.));
+
             self.electrons[idx].pos = new_pos;
             let new_u = self.electron_potential_energy(idx, tweak);
 
@@ -105,7 +106,8 @@ impl Sim {
             // Accumulate electron forces
             for elect in &cloud {
                 let diff = elect.pos - pos;
-                force += smoothed_force(diff, tweak.proton_electron_smooth);
+                force += smoothed_force(diff, tweak.proton_electron_smooth)
+                    / tweak.electron_steps as f32;
             }
 
             // Step proton
@@ -127,20 +129,25 @@ impl Sim {
                 u += smoothed_potential(
                     self.electrons[i].pos.distance(pos),
                     tweak.electron_electron_smooth,
+                    0.,
                 )
             }
         }
 
         for prot in &self.protons {
-            u -= smoothed_potential(prot.pos.distance(pos), tweak.electron_proton_smooth);
+            u -= smoothed_potential(
+                prot.pos.distance(pos),
+                tweak.electron_proton_smooth,
+                tweak.bohr_radius,
+            );
         }
 
         u
     }
 }
 
-fn smoothed_potential(r: f32, smooth: f32) -> f32 {
-    1. / (r.abs() + smooth)
+fn smoothed_potential(r: f32, smooth: f32, bohr_radius: f32) -> f32 {
+    1. / ((r - bohr_radius).abs() + smooth)
 }
 
 fn smoothed_force(r: Vec2, smooth: f32) -> Vec2 {
@@ -151,13 +158,14 @@ impl Default for SimTweaks {
     fn default() -> Self {
         Self {
             // The proton is about 1800 times heavier than the electron...
-            proton_dt: 1e-5,
+            proton_dt: 1e-3,
             proton_proton_smooth: 0.0,
             proton_electron_smooth: 1.0,
+            bohr_radius: 2.0,
 
-            electron_steps: 100,
+            electron_steps: 1000,
             electron_sigma: 1.0,
-            electron_temperature: 1e-1,
+            electron_temperature: 5e-2,
             electron_proton_smooth: 1.0,
             electron_electron_smooth: 0.0,
         }

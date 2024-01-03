@@ -29,7 +29,7 @@ impl TemplateApp {
     /// Called once before the first frame.
     pub fn new(cc: &eframe::CreationContext<'_>) -> Self {
         let n_protons = 3;
-        let n_electrons = 100;
+        let n_electrons = 3;
 
         let sim = Sim::new(n_protons, n_electrons);
 
@@ -135,7 +135,6 @@ impl TemplateApp {
         );
 
         ui.label("Protons");
-        ui.strong("Kinematics");
         ui.add(
             DragValue::new(&mut self.tweak.proton_dt)
                 .prefix("Δt (time step): ")
@@ -151,6 +150,12 @@ impl TemplateApp {
                 .prefix("p+ to p+ smooth: ")
                 .speed(1e-3),
         );
+        ui.add(
+            DragValue::new(&mut self.tweak.bohr_radius)
+                .prefix("Bohr radius: ")
+                .speed(1e-3),
+        );
+
 
         ui.label("Electrons");
         ui.add(
