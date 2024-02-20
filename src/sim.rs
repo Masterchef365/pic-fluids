@@ -328,6 +328,10 @@ fn solve_incompressibility_jacobi(
     puffin::profile_scope!("Solve incompressibility (Jacobi)");
     let mut tmp = grid.clone();
 
+    let mut grid = grid.clone();
+    grid.data_mut().iter_mut().for_each(|cell| cell.vel *= f32::from(cell.pressure > 0.));
+    let grid = &mut grid;
+
     for step in 0..iterations {
         for i in 0..grid.width() - 1 {
             for j in 0..grid.height() - 1 {
