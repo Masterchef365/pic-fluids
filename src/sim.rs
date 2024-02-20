@@ -335,12 +335,12 @@ fn solve_incompressibility_jacobi(
     for step in 0..iterations {
         for i in 0..grid.width() - 1 {
             for j in 0..grid.height() - 1 {
-                let local_pressure = grid[(i, j)].pressure;
-                let has_particles = local_pressure > 0.;
+                //let local_pressure = grid[(i, j)].pressure;
+                //let has_particles = local_pressure > 0.;
 
                 let checkerboard = (i & 1) ^ (j & 1) ^ (step & 1);
 
-                if checkerboard == 0 && has_particles {
+                if checkerboard == 0 {
                     let horiz_div = grid[(i + 1, j)].vel.x - grid[(i, j)].vel.x;
                     let vert_div = grid[(i, j + 1)].vel.y - grid[(i, j)].vel.y;
                     let total_div = horiz_div + vert_div;
