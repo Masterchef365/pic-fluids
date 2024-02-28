@@ -5,6 +5,7 @@ use crate::query_accel::QueryAccelerator;
 
 use glam::Vec2;
 use rand::prelude::*;
+use vorpal_widgets::vorpal_core::{ExternParameters, ExternInputId, Value};
 use vorpal_widgets::vorpal_core::{Node, native_backend::evaluate_node};
 
 #[derive(Clone)]
@@ -678,12 +679,33 @@ fn hsv_to_rgb(h: f32, s: f32, v: f32) -> [f32; 3] {
     [r, g, b]
 }
 
-fn node_interactions(particles: &mut [Particle], root: &Rc<Node>, cfg: &NodeInteractionCfg, dt: f32) {
-    //evaluate_node(node, ctx)
-}
-
 impl Default for NodeInteractionCfg {
     fn default() -> Self {
         Self { neighbor_radius: 0.5 }
     }
+}
+
+fn node_interactions(particles: &mut [Particle], node: &Rc<Node>, cfg: &NodeInteractionCfg, dt: f32) {
+    //evaluate_node(node, ctx)
+    puffin::profile_scope!("Particle interactions");
+    let points: Vec<Vec2> = particles.iter().map(|p| p.pos).collect();
+    let accel = QueryAccelerator::new(&points, cfg.neighbor_radius);
+    //accel.stats("Life");
+
+    for i in 0..particles.len() {
+        for neighbor in accel.query_neighbors_fast(i, points[i]) {
+            // The vector pointing from a to b
+            let diff = points[i] - points[neighbor];
+
+            let inputs = [
+                (ExternInputId::new("neigh-radius".into()), Value::Scalar(cfg.neighbor_radius)),
+                (ExternInputId::new("pos-diff".into()), Value::Vec2(diff.to_array())),
+            ];
+            let params = ExternParameters { inputs: inputs.into_iter().collect() };
+
+            let Value::Vec4([fx, fy, e1, e2]) = evaluate_node(&node, &params).unwrap() else { panic!() };
+            particles[i].vel += dt * Vec2::new(fx, fy);
+        }
+    }
+
 }
