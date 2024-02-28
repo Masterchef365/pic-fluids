@@ -5,6 +5,8 @@ use egui::os::OperatingSystem;
 use egui::SidePanel;
 use egui::{CentralPanel, Frame, Rect, Sense};
 use glam::Vec2;
+use vorpal_widgets::node_editor::NodeGraphWidget;
+use vorpal_widgets::vorpal_core::ParameterList;
 
 use crate::sim::*;
 
@@ -12,6 +14,8 @@ use crate::sim::*;
 pub struct TemplateApp {
     // Sim state
     sim: Sim,
+
+    nodes: NodeGraphWidget,
 
     // Settings
     dt: f32,
@@ -62,7 +66,12 @@ impl TemplateApp {
         let life = LifeConfig::random(n_colors, random_std_dev);
         let sim = Sim::new(width, height, n_particles, particle_radius, life);
 
+        let params = ParameterList::default();
+
+        let nodes = NodeGraphWidget::new(nodegraph_fn_inputs());
+
         Self {
+            nodes,
             enable_particle_collisions: false,
             enable_incompress: true,
             enable_grid_transfer: true,
@@ -121,6 +130,10 @@ impl eframe::App for TemplateApp {
             SidePanel::left("Settings").show(ctx, |ui| {
                 ScrollArea::both().show(ui, |ui| self.settings_gui(ui))
             });
+            SidePanel::right("NodeGraph").show(ctx, |ui| {
+                self.nodes.show(ui);
+            });
+
             CentralPanel::default().show(ctx, |ui| {
                 Frame::canvas(ui.style()).show(ui, |ui| self.sim_widget(ui))
             });
@@ -669,3 +682,24 @@ fn draw_grid(mesh: &mut Mesh, grid: &Array2D<GridCell>) {
     }
 }
 */
+
+
+
+fn nodegraph_fn_inputs() -> ParameterList {
+    use vorpal_widgets::vorpal_core::{ExternInputId, DataType};
+    let params = [
+        (
+            ExternInputId::new("time".to_string()),
+            DataType::Scalar,
+        ),
+        (
+            ExternInputId::new("position".to_string()),
+            DataType::Vec2,
+        ),
+    ]
+    .into_iter()
+    .collect();
+
+    ParameterList(params)
+}
+
