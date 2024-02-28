@@ -16,6 +16,8 @@ pub struct TemplateApp {
     sim: Sim,
 
     nodes: NodeGraphWidget,
+    node_cfg: NodeInteractionCfg,
+    particle_mode: ParticleBehaviourMode,
 
     // Settings
     dt: f32,
@@ -38,7 +40,6 @@ pub struct TemplateApp {
     enable_incompress: bool,
     enable_particle_collisions: bool,
     enable_grid_transfer: bool,
-    enable_particle_life: bool,
     random_std_dev: f32,
 
     well: bool,
@@ -69,13 +70,15 @@ impl TemplateApp {
         let params = ParameterList::default();
 
         let nodes = NodeGraphWidget::new(nodegraph_fn_inputs());
+        let node_cfg = NodeInteractionCfg::default();
 
         Self {
+            node_cfg,
+            particle_mode: ParticleBehaviourMode::NodeGraph,
             nodes,
             enable_particle_collisions: false,
             enable_incompress: true,
             enable_grid_transfer: true,
-            enable_particle_life: true,
             advanced: false,
             n_colors,
             source_rate: 0,
@@ -130,9 +133,12 @@ impl eframe::App for TemplateApp {
             SidePanel::left("Settings").show(ctx, |ui| {
                 ScrollArea::both().show(ui, |ui| self.settings_gui(ui))
             });
-            SidePanel::right("NodeGraph").show(ctx, |ui| {
-                self.nodes.show(ui);
-            });
+
+            if self.particle_mode == ParticleBehaviourMode::NodeGraph {
+                SidePanel::right("NodeGraph").show(ctx, |ui| {
+                    self.nodes.show(ui);
+                });
+            }
 
             CentralPanel::default().show(ctx, |ui| {
                 Frame::canvas(ui.style()).show(ui, |ui| self.sim_widget(ui))
@@ -174,7 +180,9 @@ impl TemplateApp {
                 self.enable_incompress,
                 self.enable_particle_collisions,
                 self.enable_grid_transfer,
-                self.enable_particle_life,
+                self.particle_mode,
+                &self.node_cfg,
+                &self.nodes.extract_output_node(),
             );
 
             self.single_step = false;
@@ -330,7 +338,10 @@ impl TemplateApp {
                         .prefix("Rest density: ")
                         .speed(1e-2),
                 );
-                ui.checkbox(&mut self.calc_rest_density_from_radius, "From radius (assumes optimal packing)");
+                ui.checkbox(
+                    &mut self.calc_rest_density_from_radius,
+                    "From radius (assumes optimal packing)",
+                );
             });
         }
 
@@ -368,7 +379,11 @@ impl TemplateApp {
 
         ui.separator();
         ui.strong("Particle source");
-        ui.add(DragValue::new(&mut self.source_rate).prefix("Particle inflow rate: ").speed(1e-1));
+        ui.add(
+            DragValue::new(&mut self.source_rate)
+                .prefix("Particle inflow rate: ")
+                .speed(1e-1),
+        );
         ui.horizontal(|ui| {
             ui.label("Particle inflow color: ");
             for (idx, &color) in self.sim.life.colors.iter().enumerate() {
@@ -386,85 +401,103 @@ impl TemplateApp {
 
         ui.separator();
         ui.horizontal(|ui| {
-            ui.strong("Particle life");
-            if self.advanced {
-                ui.checkbox(&mut self.enable_particle_life, "");
-            }
+            ui.selectable_value(&mut self.particle_mode, ParticleBehaviourMode::Off, "Off");
+            ui.selectable_value(
+                &mut self.particle_mode,
+                ParticleBehaviourMode::NodeGraph,
+                "Node graph",
+            );
+            ui.selectable_value(
+                &mut self.particle_mode,
+                ParticleBehaviourMode::ParticleLife,
+                "Particle life",
+            );
         });
-        let mut behav_cfg = self.sim.life.behaviours[(0, 0)];
-        if self.advanced {
-            ui.add(
-                DragValue::new(&mut behav_cfg.max_inter_dist)
-                    .clamp_range(0.0..=20.0)
-                    .speed(1e-2)
-                    .prefix("Max interaction dist: "),
-            );
-            ui.add(
-                DragValue::new(&mut behav_cfg.default_repulse)
-                    .speed(1e-2)
-                    .prefix("Default repulse: "),
-            );
-            ui.horizontal(|ui| {
+
+        if self.particle_mode == ParticleBehaviourMode::NodeGraph {
+            ui.add(DragValue::new(&mut self.node_cfg.neighbor_radius)
+                .clamp_range(0.0..=20.0)
+                .speed(1e-2)
+                .prefix("Neighbor_radius: "));
+        }
+
+        if self.particle_mode == ParticleBehaviourMode::ParticleLife {
+            let mut behav_cfg = self.sim.life.behaviours[(0, 0)];
+            if self.advanced {
                 ui.add(
-                    DragValue::new(&mut behav_cfg.inter_threshold)
+                    DragValue::new(&mut behav_cfg.max_inter_dist)
                         .clamp_range(0.0..=20.0)
                         .speed(1e-2)
-                        .prefix("Interaction threshold: "),
+                        .prefix("Max interaction dist: "),
                 );
-                ui.checkbox(&mut self.set_inter_dist_to_radius, "From radius");
-            });
-        }
-        if self.set_inter_dist_to_radius {
-            behav_cfg.inter_threshold = self.sim.particle_radius * 2.;
-        }
-        for b in self.sim.life.behaviours.data_mut() {
-            b.max_inter_dist = behav_cfg.max_inter_dist;
-            b.inter_threshold = behav_cfg.inter_threshold;
-            b.default_repulse = behav_cfg.default_repulse;
-        }
-
-        ui.label("Interactions:");
-        Grid::new("Particle Life Grid").show(ui, |ui| {
-            // Top row
-            //ui.label("Life");
-            ui.label("");
-            for color in &mut self.sim.life.colors {
-                ui.color_edit_button_rgb(color);
+                ui.add(
+                    DragValue::new(&mut behav_cfg.default_repulse)
+                        .speed(1e-2)
+                        .prefix("Default repulse: "),
+                );
+                ui.horizontal(|ui| {
+                    ui.add(
+                        DragValue::new(&mut behav_cfg.inter_threshold)
+                            .clamp_range(0.0..=20.0)
+                            .speed(1e-2)
+                            .prefix("Interaction threshold: "),
+                    );
+                    ui.checkbox(&mut self.set_inter_dist_to_radius, "From radius");
+                });
             }
-            ui.end_row();
+            if self.set_inter_dist_to_radius {
+                behav_cfg.inter_threshold = self.sim.particle_radius * 2.;
+            }
+            for b in self.sim.life.behaviours.data_mut() {
+                b.max_inter_dist = behav_cfg.max_inter_dist;
+                b.inter_threshold = behav_cfg.inter_threshold;
+                b.default_repulse = behav_cfg.default_repulse;
+            }
 
-            // Grid
-            let len = self.sim.life.colors.len();
-            for (row_idx, color) in self.sim.life.colors.iter_mut().enumerate() {
-                ui.color_edit_button_rgb(color);
-                for column in 0..len {
-                    let behav = &mut self.sim.life.behaviours[(column, row_idx)];
-                    ui.add(DragValue::new(&mut behav.inter_strength).speed(1e-2));
+            ui.label("Interactions:");
+            Grid::new("Particle Life Grid").show(ui, |ui| {
+                // Top row
+                //ui.label("Life");
+                ui.label("");
+                for color in &mut self.sim.life.colors {
+                    ui.color_edit_button_rgb(color);
                 }
                 ui.end_row();
-            }
-        });
 
-        ui.horizontal(|ui| {
-            if ui.button("Randomize behaviours").clicked() {
-                self.sim.life = LifeConfig::random(self.n_colors, self.random_std_dev);
-                reset = true;
-            }
-            ui.add(
-                DragValue::new(&mut self.random_std_dev)
-                    .prefix("std. dev: ")
-                    .speed(1e-2)
-                    .clamp_range(0.0..=f32::MAX),
-            )
-        });
-        if ui.button("Symmetric forces").clicked() {
-            let n = self.sim.life.colors.len();
-            for i in 0..n {
-                for j in 0..i {
-                    self.sim.life.behaviours[(i, j)] = self.sim.life.behaviours[(j, i)]
+                // Grid
+                let len = self.sim.life.colors.len();
+                for (row_idx, color) in self.sim.life.colors.iter_mut().enumerate() {
+                    ui.color_edit_button_rgb(color);
+                    for column in 0..len {
+                        let behav = &mut self.sim.life.behaviours[(column, row_idx)];
+                        ui.add(DragValue::new(&mut behav.inter_strength).speed(1e-2));
+                    }
+                    ui.end_row();
+                }
+            });
+
+            ui.horizontal(|ui| {
+                if ui.button("Randomize behaviours").clicked() {
+                    self.sim.life = LifeConfig::random(self.n_colors, self.random_std_dev);
+                    reset = true;
+                }
+                ui.add(
+                    DragValue::new(&mut self.random_std_dev)
+                        .prefix("std. dev: ")
+                        .speed(1e-2)
+                        .clamp_range(0.0..=f32::MAX),
+                )
+            });
+            if ui.button("Symmetric forces").clicked() {
+                let n = self.sim.life.colors.len();
+                for i in 0..n {
+                    for j in 0..i {
+                        self.sim.life.behaviours[(i, j)] = self.sim.life.behaviours[(j, i)]
+                    }
                 }
             }
         }
+
         /*
         if ui.button("Lifeless").clicked() {
             self.sim
@@ -683,23 +716,14 @@ fn draw_grid(mesh: &mut Mesh, grid: &Array2D<GridCell>) {
 }
 */
 
-
-
 fn nodegraph_fn_inputs() -> ParameterList {
-    use vorpal_widgets::vorpal_core::{ExternInputId, DataType};
+    use vorpal_widgets::vorpal_core::{DataType, ExternInputId};
     let params = [
-        (
-            ExternInputId::new("time".to_string()),
-            DataType::Scalar,
-        ),
-        (
-            ExternInputId::new("position".to_string()),
-            DataType::Vec2,
-        ),
+        (ExternInputId::new("time".to_string()), DataType::Scalar),
+        (ExternInputId::new("position".to_string()), DataType::Vec2),
     ]
     .into_iter()
     .collect();
 
     ParameterList(params)
 }
-

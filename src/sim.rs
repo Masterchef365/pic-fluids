@@ -1,8 +1,11 @@
+use std::rc::Rc;
+
 use crate::array2d::{Array2D, GridPos};
 use crate::query_accel::QueryAccelerator;
 
 use glam::Vec2;
 use rand::prelude::*;
+use vorpal_widgets::vorpal_core::{Node, native_backend::evaluate_node};
 
 #[derive(Clone)]
 pub struct Sim {
@@ -65,6 +68,20 @@ pub struct Behaviour {
     pub inter_strength: f32,
     /// Maximum distance of particle interaction (0 to 1)
     pub max_inter_dist: f32,
+}
+
+/// External particle behaviours
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum ParticleBehaviourMode {
+    ParticleLife,
+    NodeGraph,
+    Off,
+}
+
+/// Configuration for node interactions
+#[derive(Clone, Copy, Debug)]
+pub struct NodeInteractionCfg {
+    pub neighbor_radius: f32,
 }
 
 impl Behaviour {
@@ -155,14 +172,19 @@ impl Sim {
         enable_incompress: bool,
         enable_particle_collisions: bool,
         enable_grid_transfer: bool,
-        enable_particle_life: bool,
+        particle_mode: ParticleBehaviourMode,
+        node_cfg: &NodeInteractionCfg,
+        nodes: &Rc<Node>,
     ) {
         //puffin::profile_scope!("Complete Step");
         // Step particles
         apply_global_force(&mut self.particles, Vec2::new(0., -gravity), dt);
-        if enable_particle_life {
-            particle_interactions(&mut self.particles, &mut self.life, dt);
+        match particle_mode {
+            ParticleBehaviourMode::ParticleLife => particle_life_interactions(&mut self.particles, &mut self.life, dt),
+            ParticleBehaviourMode::NodeGraph => node_interactions(&mut self.particles, nodes, node_cfg, dt),
+            ParticleBehaviourMode::Off => (),
         }
+
         step_particles(&mut self.particles, dt, self.damping);
         if enable_particle_collisions {
             enforce_particle_radius(&mut self.particles, self.particle_radius);
@@ -522,7 +544,7 @@ fn enforce_particle_radius(particles: &mut [Particle], radius: f32) {
         .for_each(|(part, point)| part.pos = *point);
 }
 
-fn particle_interactions(particles: &mut [Particle], cfg: &LifeConfig, dt: f32) {
+fn particle_life_interactions(particles: &mut [Particle], cfg: &LifeConfig, dt: f32) {
     puffin::profile_scope!("Particle interactions");
     let points: Vec<Vec2> = particles.iter().map(|p| p.pos).collect();
     let accel = QueryAccelerator::new(&points, cfg.max_interaction_radius());
@@ -654,4 +676,14 @@ fn hsv_to_rgb(h: f32, s: f32, v: f32) -> [f32; 3] {
     b += m;
 
     [r, g, b]
+}
+
+fn node_interactions(particles: &mut [Particle], root: &Rc<Node>, cfg: &NodeInteractionCfg, dt: f32) {
+    //evaluate_node(node, ctx)
+}
+
+impl Default for NodeInteractionCfg {
+    fn default() -> Self {
+        Self { neighbor_radius: 0.5 }
+    }
 }
