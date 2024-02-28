@@ -715,15 +715,3 @@ fn draw_grid(mesh: &mut Mesh, grid: &Array2D<GridCell>) {
     }
 }
 */
-
-fn nodegraph_fn_inputs() -> ParameterList {
-    use vorpal_widgets::vorpal_core::{DataType, ExternInputId};
-    let params = [
-        (ExternInputId::new("time".to_string()), DataType::Scalar),
-        (ExternInputId::new("position".to_string()), DataType::Vec2),
-    ]
-    .into_iter()
-    .collect();
-
-    ParameterList(params)
-}

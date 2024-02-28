@@ -5,7 +5,7 @@ use crate::query_accel::QueryAccelerator;
 
 use glam::Vec2;
 use rand::prelude::*;
-use vorpal_widgets::vorpal_core::{ExternParameters, ExternInputId, Value};
+use vorpal_widgets::vorpal_core::{ExternParameters, ExternInputId, Value, ParameterList, DataType};
 use vorpal_widgets::vorpal_core::{Node, native_backend::evaluate_node};
 
 #[derive(Clone)]
@@ -695,7 +695,7 @@ fn node_interactions(particles: &mut [Particle], node: &Rc<Node>, cfg: &NodeInte
     for i in 0..particles.len() {
         for neighbor in accel.query_neighbors_fast(i, points[i]) {
             // The vector pointing from a to b
-            let diff = points[i] - points[neighbor];
+            let diff = points[neighbor] - points[i];
 
             let inputs = [
                 (ExternInputId::new("neigh-radius".into()), Value::Scalar(cfg.neighbor_radius)),
@@ -708,4 +708,15 @@ fn node_interactions(particles: &mut [Particle], node: &Rc<Node>, cfg: &NodeInte
         }
     }
 
+}
+
+pub fn nodegraph_fn_inputs() -> ParameterList {
+    let params = [
+        (ExternInputId::new("neigh-radius".to_string()), DataType::Scalar),
+        (ExternInputId::new("pos-diff".to_string()), DataType::Vec2),
+    ]
+    .into_iter()
+    .collect();
+
+    ParameterList(params)
 }
