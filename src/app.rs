@@ -416,7 +416,7 @@ impl TemplateApp {
 
         if self.particle_mode == ParticleBehaviourMode::NodeGraph {
             ui.add(DragValue::new(&mut self.node_cfg.neighbor_radius)
-                .clamp_range(0.0..=20.0)
+                .clamp_range(1e-2..=20.0)
                 .speed(1e-2)
                 .prefix("Neighbor_radius: "));
         }
