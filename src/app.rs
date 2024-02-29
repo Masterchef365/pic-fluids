@@ -170,6 +170,8 @@ impl TemplateApp {
                 }
             }
 
+            let node = vorpal_widgets::vorpal_core::highlevel::convert_node(self.nodes.extract_output_node());
+
             self.sim.step(
                 self.dt,
                 self.solver_iters,
@@ -182,7 +184,7 @@ impl TemplateApp {
                 self.enable_grid_transfer,
                 self.particle_mode,
                 &self.node_cfg,
-                &self.nodes.extract_output_node(),
+                &node,
             );
 
             self.single_step = false;
