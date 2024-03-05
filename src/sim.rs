@@ -745,7 +745,23 @@ fn node_interactions(
     }
 }
 
-pub fn nodegraph_fn_inputs() -> ParameterList {
+pub fn per_particle_fn_inputs() -> ParameterList {
+    let params = [
+        (
+            ExternInputId::new("neigh-radius".to_string()),
+            DataType::Scalar,
+        ),
+        (ExternInputId::new("our-type".into()), DataType::Scalar),
+        (ExternInputId::new("position".into()), DataType::Vec2),
+        (ExternInputId::new("velocity".into()), DataType::Vec2),
+    ]
+    .into_iter()
+    .collect();
+
+    ParameterList(params)
+}
+
+pub fn per_neighbor_fn_inputs() -> ParameterList {
     let params = [
         (
             ExternInputId::new("neigh-radius".to_string()),

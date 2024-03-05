@@ -16,7 +16,8 @@ pub struct TemplateApp {
     sim: Sim,
 
     life: LifeConfig,
-    nodes: NodeGraphWidget,
+    per_particle_fn: NodeGraphWidget,
+    per_neighbor_fn: NodeGraphWidget,
     node_cfg: NodeInteractionCfg,
 
     // Settings
@@ -69,7 +70,9 @@ impl TemplateApp {
         let life = LifeConfig::random(n_colors, random_std_dev);
         let sim = Sim::new(width, height, n_particles, &life);
 
-        let nodes = NodeGraphWidget::new(nodegraph_fn_inputs(), DataType::Vec2, "Acceleration".to_owned());
+        let per_neighbor_fn = NodeGraphWidget::new(per_neighbor_fn_inputs(), DataType::Vec2, "Acceleration".to_owned());
+        let per_particle_fn = NodeGraphWidget::new(per_particle_fn_inputs(), DataType::Vec2, "Acceleration".to_owned());
+
         let node_cfg = NodeInteractionCfg::default();
 
         Self {
@@ -78,7 +81,8 @@ impl TemplateApp {
             life,
             tweak,
             node_cfg,
-            nodes,
+            per_neighbor_fn,
+            per_particle_fn,
             advanced: false,
             n_colors,
             source_rate: 0,
@@ -95,9 +99,15 @@ impl TemplateApp {
             //show_grid: false,
             show_settings_only: false,
             set_inter_dist_to_radius: true,
+            node_graph_fn_viewed: NodeGraphFns::PerParticle,
             //mult: 1.0,
         }
     }
+}
+
+enum NodeGraphFns {
+    PerNeighbor,
+    PerParticle,
 }
 
 fn is_mobile(ctx: &egui::Context) -> bool {
@@ -134,7 +144,7 @@ impl eframe::App for TemplateApp {
 
             if self.tweak.particle_mode == ParticleBehaviourMode::NodeGraph {
                 SidePanel::right("NodeGraph").show(ctx, |ui| {
-                    self.nodes.show(ui);
+                    self.per_neighbor_fn.show(ui);
                 });
             }
 
@@ -170,7 +180,7 @@ impl TemplateApp {
             }
 
             let node = vorpal_widgets::vorpal_core::highlevel::convert_node(
-                self.nodes.extract_output_node(),
+                self.per_neighbor_fn.extract_output_node(),
             );
 
             self.sim
