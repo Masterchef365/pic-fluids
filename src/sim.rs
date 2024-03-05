@@ -736,10 +736,11 @@ fn node_interactions(
                 inputs: inputs.into_iter().collect(),
             };
 
-            let Value::Vec4([fx, fy, _, _]) = evaluate_node(&node, &params).unwrap() else {
-                panic!()
+            let ret = evaluate_node(&node, &params);
+            let Value::Vec2([fx, fy]) = ret.as_ref().unwrap() else {
+                panic!("{:?}", &ret);
             };
-            particles[i].vel += dt * Vec2::new(fx, fy);
+            particles[i].vel += dt * Vec2::new(*fx, *fy);
         }
     }
 }

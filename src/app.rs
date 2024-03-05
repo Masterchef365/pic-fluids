@@ -6,6 +6,7 @@ use egui::SidePanel;
 use egui::{CentralPanel, Frame, Rect, Sense};
 use glam::Vec2;
 use vorpal_widgets::node_editor::NodeGraphWidget;
+use vorpal_widgets::vorpal_core::DataType;
 
 use crate::sim::*;
 
@@ -67,7 +68,7 @@ impl TemplateApp {
         let life = LifeConfig::random(n_colors, random_std_dev);
         let sim = Sim::new(width, height, n_particles, &life);
 
-        let nodes = NodeGraphWidget::new(nodegraph_fn_inputs());
+        let nodes = NodeGraphWidget::new(nodegraph_fn_inputs(), DataType::Vec2, "Acceleration".to_owned());
         let node_cfg = NodeInteractionCfg::default();
 
         Self {
