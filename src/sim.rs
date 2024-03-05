@@ -702,6 +702,8 @@ fn node_interactions(particles: &mut [Particle], node: &Rc<Node>, cfg: &NodeInte
                 (ExternInputId::new("pos-diff".into()), Value::Vec2(diff.to_array())),
                 (ExternInputId::new("neigh-type".into()), Value::Scalar(particles[neighbor].color as f32)),
                 (ExternInputId::new("our-type".into()), Value::Scalar(particles[i].color as f32)),
+                (ExternInputId::new("position".into()), Value::Vec2(particles[i].pos.to_array())),
+                (ExternInputId::new("velocity".into()), Value::Vec2(particles[i].vel.to_array())),
             ];
             let params = ExternParameters { inputs: inputs.into_iter().collect() };
 
@@ -718,6 +720,8 @@ pub fn nodegraph_fn_inputs() -> ParameterList {
         (ExternInputId::new("pos-diff".to_string()), DataType::Vec2),
         (ExternInputId::new("neigh-type".into()), DataType::Scalar),
         (ExternInputId::new("our-type".into()), DataType::Scalar),
+        (ExternInputId::new("position".into()), DataType::Vec2),
+        (ExternInputId::new("velocity".into()), DataType::Vec2),
     ]
     .into_iter()
     .collect();
