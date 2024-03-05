@@ -7,7 +7,6 @@ use egui::{CentralPanel, Frame, Rect, Sense};
 use glam::Vec2;
 use vorpal_widgets::node_editor::NodeGraphWidget;
 
-
 use crate::sim::*;
 
 #[derive(serde::Serialize, serde::Deserialize)]
@@ -31,6 +30,8 @@ pub struct TemplateApp {
     single_step: bool,
     n_colors: usize,
     random_std_dev: f32,
+
+    n_particles: usize,
 
     well: bool,
     source_color_idx: ParticleType,
@@ -56,11 +57,7 @@ impl TemplateApp {
 
     pub fn new_from_ctx(ctx: &egui::Context) -> Self {
         // Otherwise create a new random sim state
-        let (width, height) = if is_mobile(ctx) {
-            (70, 150)
-        } else {
-            (120, 80)
-        };
+        let (width, height) = if is_mobile(ctx) { (70, 150) } else { (120, 80) };
         let n_particles = 4_000;
         let random_std_dev = 5.;
 
@@ -74,6 +71,7 @@ impl TemplateApp {
         let node_cfg = NodeInteractionCfg::default();
 
         Self {
+            n_particles,
             life,
             tweak,
             node_cfg,
@@ -171,7 +169,8 @@ impl TemplateApp {
                 self.nodes.extract_output_node(),
             );
 
-            self.sim.step(&self.tweak, &self.life, &self.node_cfg, &node);
+            self.sim
+                .step(&self.tweak, &self.life, &self.node_cfg, &node);
 
             self.single_step = false;
         }
@@ -181,6 +180,8 @@ impl TemplateApp {
         let (rect, response) = ui.allocate_exact_size(ui.available_size(), Sense::click_and_drag());
 
         let coords = CoordinateMapping::new(&self.sim.grid, rect);
+
+        self.enforce_particle_count();
 
         // Move particles
         move_particles_from_egui(
@@ -214,23 +215,10 @@ impl TemplateApp {
         }
     }
 
-    fn settings_gui(&mut self, ui: &mut Ui) {
-        let mut reset = false;
-        ui.separator();
-        ui.strong("Simulation state");
-
-        let mut n_particles = self.sim.particles.len();
-        if ui
-            .add(
-                DragValue::new(&mut n_particles)
-                    .prefix("# of particles: ")
-                    .clamp_range(1..=usize::MAX)
-                    .speed(4),
-            )
-            .changed()
-        {
+    fn enforce_particle_count(&mut self) {
+        if self.n_particles != self.sim.particles.len() {
             let mut rng = rand::thread_rng();
-            self.sim.particles.resize_with(n_particles, || {
+            self.sim.particles.resize_with(self.n_particles, || {
                 random_particle(
                     &mut rng,
                     self.sim.grid.width(),
@@ -239,6 +227,20 @@ impl TemplateApp {
                 )
             });
         }
+    }
+
+    fn settings_gui(&mut self, ui: &mut Ui) {
+        let mut reset = false;
+        ui.separator();
+        ui.strong("Simulation state");
+
+        ui.add(
+            DragValue::new(&mut self.n_particles)
+                .prefix("# of particles: ")
+                .clamp_range(1..=usize::MAX)
+                .speed(4),
+        );
+
         if ui
             .add(
                 DragValue::new(&mut self.n_colors)
@@ -260,8 +262,7 @@ impl TemplateApp {
             }
             self.life.behaviours = new_behav_array;
 
-            self
-                .life
+            self.life
                 .colors
                 .resize_with(self.n_colors, || random_color(&mut rand::thread_rng()));
             reset = true;
@@ -331,23 +332,30 @@ impl TemplateApp {
             );
             ui.horizontal(|ui| {
                 let mut rest_density = self.tweak.rest_density();
-                if ui.add(
-                    DragValue::new(&mut rest_density)
-                        .prefix("Rest density: ")
-                        .speed(1e-2),
-                ).changed() {
+                if ui
+                    .add(
+                        DragValue::new(&mut rest_density)
+                            .prefix("Rest density: ")
+                            .speed(1e-2),
+                    )
+                    .changed()
+                {
                     self.tweak.rest_density = Some(rest_density);
                 }
 
                 let mut calc_rest_density_from_radius = self.tweak.rest_density.is_none();
-                if ui.checkbox(
-                    &mut calc_rest_density_from_radius,
-                    "From radius (assumes optimal packing)",
-                ).changed() {
+                if ui
+                    .checkbox(
+                        &mut calc_rest_density_from_radius,
+                        "From radius (assumes optimal packing)",
+                    )
+                    .changed()
+                {
                     if calc_rest_density_from_radius {
                         self.tweak.rest_density = None;
                     } else {
-                        self.tweak.rest_density = Some(calc_rest_density(self.tweak.particle_radius));
+                        self.tweak.rest_density =
+                            Some(calc_rest_density(self.tweak.particle_radius));
                     }
                 }
             });
@@ -401,15 +409,17 @@ impl TemplateApp {
                     self.source_color_idx = idx as u8;
                 }
             }
-            self.source_color_idx = self
-                .source_color_idx
-                .min(self.life.colors.len() as u8 - 1);
+            self.source_color_idx = self.source_color_idx.min(self.life.colors.len() as u8 - 1);
         });
         ui.checkbox(&mut self.well, "Particle well");
 
         ui.separator();
         ui.horizontal(|ui| {
-            ui.selectable_value(&mut self.tweak.particle_mode, ParticleBehaviourMode::Off, "Off");
+            ui.selectable_value(
+                &mut self.tweak.particle_mode,
+                ParticleBehaviourMode::Off,
+                "Off",
+            );
             ui.selectable_value(
                 &mut self.tweak.particle_mode,
                 ParticleBehaviourMode::NodeGraph,
