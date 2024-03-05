@@ -17,7 +17,6 @@ pub struct TemplateApp {
 
     nodes: NodeGraphWidget,
     node_cfg: NodeInteractionCfg,
-    particle_mode: ParticleBehaviourMode,
 
     // Settings
     tweak: SimTweak,
@@ -64,7 +63,6 @@ impl TemplateApp {
         Self {
             tweak,
             node_cfg,
-            particle_mode: ParticleBehaviourMode::NodeGraph,
             nodes,
             advanced: false,
             n_colors,
@@ -114,7 +112,7 @@ impl eframe::App for TemplateApp {
                 ScrollArea::both().show(ui, |ui| self.settings_gui(ui))
             });
 
-            if self.particle_mode == ParticleBehaviourMode::NodeGraph {
+            if self.tweak.particle_mode == ParticleBehaviourMode::NodeGraph {
                 SidePanel::right("NodeGraph").show(ctx, |ui| {
                     self.nodes.show(ui);
                 });
@@ -392,20 +390,20 @@ impl TemplateApp {
 
         ui.separator();
         ui.horizontal(|ui| {
-            ui.selectable_value(&mut self.particle_mode, ParticleBehaviourMode::Off, "Off");
+            ui.selectable_value(&mut self.tweak.particle_mode, ParticleBehaviourMode::Off, "Off");
             ui.selectable_value(
-                &mut self.particle_mode,
+                &mut self.tweak.particle_mode,
                 ParticleBehaviourMode::NodeGraph,
                 "Node graph",
             );
             ui.selectable_value(
-                &mut self.particle_mode,
+                &mut self.tweak.particle_mode,
                 ParticleBehaviourMode::ParticleLife,
                 "Particle life",
             );
         });
 
-        if self.particle_mode == ParticleBehaviourMode::NodeGraph {
+        if self.tweak.particle_mode == ParticleBehaviourMode::NodeGraph {
             ui.add(
                 DragValue::new(&mut self.node_cfg.neighbor_radius)
                     .clamp_range(1e-2..=20.0)
@@ -414,7 +412,7 @@ impl TemplateApp {
             );
         }
 
-        if self.particle_mode == ParticleBehaviourMode::ParticleLife {
+        if self.tweak.particle_mode == ParticleBehaviourMode::ParticleLife {
             let mut behav_cfg = self.sim.life.behaviours[(0, 0)];
             if self.advanced {
                 ui.add(
