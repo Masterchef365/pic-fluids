@@ -43,6 +43,8 @@ pub struct TemplateApp {
     show_settings_only: bool,
 
     advanced: bool,
+
+    node_graph_fn_viewed: NodeGraphFns,
 }
 
 impl TemplateApp {
@@ -105,6 +107,8 @@ impl TemplateApp {
     }
 }
 
+#[derive(Clone, Copy, PartialEq, Eq)] 
+#[derive(serde::Serialize, serde::Deserialize)]
 enum NodeGraphFns {
     PerNeighbor,
     PerParticle,
@@ -144,7 +148,10 @@ impl eframe::App for TemplateApp {
 
             if self.tweak.particle_mode == ParticleBehaviourMode::NodeGraph {
                 SidePanel::right("NodeGraph").show(ctx, |ui| {
-                    self.per_neighbor_fn.show(ui);
+                    match self.node_graph_fn_viewed {
+                        NodeGraphFns::PerNeighbor => self.per_neighbor_fn.show(ui),
+                        NodeGraphFns::PerParticle => self.per_particle_fn.show(ui),
+                    }
                 });
             }
 
@@ -179,12 +186,16 @@ impl TemplateApp {
                 }
             }
 
-            let node = vorpal_widgets::vorpal_core::highlevel::convert_node(
+            let per_neighbor_node = vorpal_widgets::vorpal_core::highlevel::convert_node(
                 self.per_neighbor_fn.extract_output_node(),
             );
 
+            let per_particle_node = vorpal_widgets::vorpal_core::highlevel::convert_node(
+                self.per_particle_fn.extract_output_node(),
+            );
+
             self.sim
-                .step(&self.tweak, &self.life, &self.node_cfg, &node);
+                .step(&self.tweak, &self.life, &self.node_cfg, &per_neighbor_node, &per_particle_node);
 
             self.single_step = false;
         }
@@ -244,6 +255,26 @@ impl TemplateApp {
     }
 
     fn settings_gui(&mut self, ui: &mut Ui) {
+        ui.separator();
+        ui.label("Particle behaviour");
+        ui.horizontal(|ui| {
+            ui.selectable_value(
+                &mut self.tweak.particle_mode,
+                ParticleBehaviourMode::Off,
+                "Off",
+            );
+            ui.selectable_value(
+                &mut self.tweak.particle_mode,
+                ParticleBehaviourMode::NodeGraph,
+                "Node graph",
+            );
+            ui.selectable_value(
+                &mut self.tweak.particle_mode,
+                ParticleBehaviourMode::ParticleLife,
+                "Particle life",
+            );
+        });
+
         let mut reset = false;
         ui.separator();
         ui.strong("Simulation state");
@@ -440,26 +471,12 @@ impl TemplateApp {
         });
         ui.checkbox(&mut self.well, "Particle well");
 
-        ui.separator();
-        ui.horizontal(|ui| {
-            ui.selectable_value(
-                &mut self.tweak.particle_mode,
-                ParticleBehaviourMode::Off,
-                "Off",
-            );
-            ui.selectable_value(
-                &mut self.tweak.particle_mode,
-                ParticleBehaviourMode::NodeGraph,
-                "Node graph",
-            );
-            ui.selectable_value(
-                &mut self.tweak.particle_mode,
-                ParticleBehaviourMode::ParticleLife,
-                "Particle life",
-            );
-        });
-
         if self.tweak.particle_mode == ParticleBehaviourMode::NodeGraph {
+            ui.strong("Node graph configuration");
+            ui.horizontal(|ui| {
+                ui.selectable_value(&mut self.node_graph_fn_viewed, NodeGraphFns::PerNeighbor, "Per-neighbor accel");
+                ui.selectable_value(&mut self.node_graph_fn_viewed, NodeGraphFns::PerParticle, "Per-particle accel");
+            });
             ui.add(
                 DragValue::new(&mut self.node_cfg.neighbor_radius)
                     .clamp_range(1e-2..=20.0)
@@ -469,6 +486,7 @@ impl TemplateApp {
         }
 
         if self.tweak.particle_mode == ParticleBehaviourMode::ParticleLife {
+            ui.strong("Particle life configuration");
             let mut behav_cfg = self.life.behaviours[(0, 0)];
             if self.advanced {
                 ui.add(

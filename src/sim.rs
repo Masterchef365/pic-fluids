@@ -172,7 +172,7 @@ impl Sim {
         }
     }
 
-    pub fn step(&mut self, tweak: &SimTweak, life: &LifeConfig, node_cfg: &NodeInteractionCfg, nodes: &Rc<Node>) {
+    pub fn step(&mut self, tweak: &SimTweak, life: &LifeConfig, node_cfg: &NodeInteractionCfg, per_neighbor_nodes: &Rc<Node>, per_particle_nodes: &Rc<Node>) {
         //puffin::profile_scope!("Complete Step");
         // Step particles
         apply_global_force(&mut self.particles, Vec2::new(0., -tweak.gravity), tweak.dt);
@@ -181,7 +181,8 @@ impl Sim {
                 particle_life_interactions(&mut self.particles, life, tweak.dt)
             }
             ParticleBehaviourMode::NodeGraph => {
-                node_interactions(&mut self.particles, nodes, node_cfg, tweak.dt)
+                per_neighbor_node_interactions(&mut self.particles, per_neighbor_nodes, node_cfg, tweak.dt);
+                per_particle_node_interactions(&mut self.particles, per_particle_nodes, node_cfg, tweak.dt);
             }
             ParticleBehaviourMode::Off => (),
         }
@@ -689,14 +690,86 @@ impl Default for NodeInteractionCfg {
     }
 }
 
-fn node_interactions(
+pub fn per_particle_fn_inputs() -> ParameterList {
+    let params = [
+        (
+            ExternInputId::new("neigh-radius".to_string()),
+            DataType::Scalar,
+        ),
+        (ExternInputId::new("our-type".into()), DataType::Scalar),
+        (ExternInputId::new("position".into()), DataType::Vec2),
+        (ExternInputId::new("velocity".into()), DataType::Vec2),
+    ]
+    .into_iter()
+    .collect();
+
+    ParameterList(params)
+}
+
+fn per_particle_node_interactions(
     particles: &mut [Particle],
     node: &Rc<Node>,
     cfg: &NodeInteractionCfg,
     dt: f32,
 ) {
     //evaluate_node(node, ctx)
-    puffin::profile_scope!("Particle interactions");
+    puffin::profile_scope!("Per-Particle node interactions");
+    for i in 0..particles.len() {
+        // The vector pointing from a to b
+        //let diff = points[neighbor] - points[i];
+
+        let inputs = [
+            (
+                ExternInputId::new("our-type".into()),
+                Value::Scalar(particles[i].color as f32),
+            ),
+            (
+                ExternInputId::new("position".into()),
+                Value::Vec2(particles[i].pos.to_array()),
+            ),
+            (
+                ExternInputId::new("velocity".into()),
+                Value::Vec2(particles[i].vel.to_array()),
+            ),
+        ];
+        let params = ExternParameters {
+            inputs: inputs.into_iter().collect(),
+        };
+
+        let ret = evaluate_node(&node, &params);
+        let Value::Vec2([fx, fy]) = ret.as_ref().unwrap() else {
+            panic!("{:?}", &ret);
+        };
+        particles[i].vel += dt * Vec2::new(*fx, *fy);
+    }
+}
+
+pub fn per_neighbor_fn_inputs() -> ParameterList {
+    let params = [
+        (
+            ExternInputId::new("neigh-radius".to_string()),
+            DataType::Scalar,
+        ),
+        (ExternInputId::new("pos-diff".to_string()), DataType::Vec2),
+        (ExternInputId::new("neigh-type".into()), DataType::Scalar),
+        (ExternInputId::new("our-type".into()), DataType::Scalar),
+        (ExternInputId::new("position".into()), DataType::Vec2),
+        (ExternInputId::new("velocity".into()), DataType::Vec2),
+    ]
+    .into_iter()
+    .collect();
+
+    ParameterList(params)
+}
+
+fn per_neighbor_node_interactions(
+    particles: &mut [Particle],
+    node: &Rc<Node>,
+    cfg: &NodeInteractionCfg,
+    dt: f32,
+) {
+    //evaluate_node(node, ctx)
+    puffin::profile_scope!("Per-Neighbor node interactions");
     let points: Vec<Vec2> = particles.iter().map(|p| p.pos).collect();
     let accel = QueryAccelerator::new(&points, cfg.neighbor_radius);
     //accel.stats("Life");
@@ -745,39 +818,7 @@ fn node_interactions(
     }
 }
 
-pub fn per_particle_fn_inputs() -> ParameterList {
-    let params = [
-        (
-            ExternInputId::new("neigh-radius".to_string()),
-            DataType::Scalar,
-        ),
-        (ExternInputId::new("our-type".into()), DataType::Scalar),
-        (ExternInputId::new("position".into()), DataType::Vec2),
-        (ExternInputId::new("velocity".into()), DataType::Vec2),
-    ]
-    .into_iter()
-    .collect();
 
-    ParameterList(params)
-}
-
-pub fn per_neighbor_fn_inputs() -> ParameterList {
-    let params = [
-        (
-            ExternInputId::new("neigh-radius".to_string()),
-            DataType::Scalar,
-        ),
-        (ExternInputId::new("pos-diff".to_string()), DataType::Vec2),
-        (ExternInputId::new("neigh-type".into()), DataType::Scalar),
-        (ExternInputId::new("our-type".into()), DataType::Scalar),
-        (ExternInputId::new("position".into()), DataType::Vec2),
-        (ExternInputId::new("velocity".into()), DataType::Vec2),
-    ]
-    .into_iter()
-    .collect();
-
-    ParameterList(params)
-}
 
 impl Default for SimTweak {
     fn default() -> Self {
