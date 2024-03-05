@@ -21,7 +21,8 @@ On Fedora Rawhide you need to run:
 Just run `trunk build --release`.
 
 ### ROADMAP:
- - [ ] Add save states
+ - [x] Add save states
+ - [ ] Add a way to keep a certain set of "projects" around
  - [ ] Add another set of nodes for per-particle alongside the existing per-neighbor. Include a dt!
  - [ ] Specify output node type!
  - [ ] Subroutines? !
