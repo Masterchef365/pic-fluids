@@ -747,6 +747,10 @@ fn per_particle_node_interactions(
 pub fn per_neighbor_fn_inputs() -> ParameterList {
     let params = [
         (
+            ExternInputId::new("num-neighbors".to_string()),
+            DataType::Scalar,
+        ),
+        (
             ExternInputId::new("neigh-radius".to_string()),
             DataType::Scalar,
         ),
@@ -774,12 +778,19 @@ fn per_neighbor_node_interactions(
     let accel = QueryAccelerator::new(&points, cfg.neighbor_radius);
     //accel.stats("Life");
 
+    let mut neigh_buf = vec![];
     for i in 0..particles.len() {
-        for neighbor in accel.query_neighbors_fast(i, points[i]) {
+        neigh_buf.clear();
+        neigh_buf.extend(accel.query_neighbors_fast(i, points[i]));
+        for &neighbor in &neigh_buf {
             // The vector pointing from a to b
             let diff = points[neighbor] - points[i];
 
             let inputs = [
+                (
+                    ExternInputId::new("num-neighbors".into()),
+                    Value::Scalar(neigh_buf.len() as f32),
+                ),
                 (
                     ExternInputId::new("neigh-radius".into()),
                     Value::Scalar(cfg.neighbor_radius),
