@@ -5,8 +5,10 @@ use crate::query_accel::QueryAccelerator;
 
 use glam::Vec2;
 use rand::prelude::*;
-use vorpal_widgets::vorpal_core::{ExternParameters, ExternInputId, Value, ParameterList, DataType};
-use vorpal_widgets::vorpal_core::{Node, native_backend::evaluate_node};
+use vorpal_widgets::vorpal_core::{native_backend::evaluate_node, Node};
+use vorpal_widgets::vorpal_core::{
+    DataType, ExternInputId, ExternParameters, ParameterList, Value,
+};
 
 pub struct SimTweak {
     pub dt: f32,
@@ -175,18 +177,17 @@ impl Sim {
         }
     }
 
-    pub fn step(
-        &mut self,
-        tweak: &SimTweak,
-        node_cfg: &NodeInteractionCfg,
-        nodes: &Rc<Node>,
-    ) {
+    pub fn step(&mut self, tweak: &SimTweak, node_cfg: &NodeInteractionCfg, nodes: &Rc<Node>) {
         //puffin::profile_scope!("Complete Step");
         // Step particles
         apply_global_force(&mut self.particles, Vec2::new(0., -tweak.gravity), tweak.dt);
         match tweak.particle_mode {
-            ParticleBehaviourMode::ParticleLife => particle_life_interactions(&mut self.particles, &mut self.life, tweak.dt),
-            ParticleBehaviourMode::NodeGraph => node_interactions(&mut self.particles, nodes, node_cfg, tweak.dt),
+            ParticleBehaviourMode::ParticleLife => {
+                particle_life_interactions(&mut self.particles, &mut self.life, tweak.dt)
+            }
+            ParticleBehaviourMode::NodeGraph => {
+                node_interactions(&mut self.particles, nodes, node_cfg, tweak.dt)
+            }
             ParticleBehaviourMode::Off => (),
         }
 
@@ -356,7 +357,9 @@ fn solve_incompressibility_jacobi(
     let mut tmp = grid.clone();
 
     let mut grid = grid.clone();
-    grid.data_mut().iter_mut().for_each(|cell| cell.vel *= f32::from(cell.pressure > 0.));
+    grid.data_mut()
+        .iter_mut()
+        .for_each(|cell| cell.vel *= f32::from(cell.pressure > 0.));
     let grid = &mut grid;
 
     for step in 0..iterations {
@@ -456,13 +459,13 @@ fn grid_to_particles(particles: &mut [Particle], grid: &Array2D<GridCell>) {
         }
 
         /*
-           let v = Vec2::new(0.25, 0.15);
-           dbg!(gradient((0, 0), v));
-           dbg!(gradient((1, 0), v));
-           dbg!(gradient((0, 1), v));
-           dbg!(gradient((1, 1), v));
-           todo!();
-           */
+        let v = Vec2::new(0.25, 0.15);
+        dbg!(gradient((0, 0), v));
+        dbg!(gradient((1, 0), v));
+        dbg!(gradient((0, 1), v));
+        dbg!(gradient((1, 1), v));
+        todo!();
+        */
 
         // Interpolate grid vectors
         part.deriv[0] = gather_vector(u_pos, |p| grid[p].vel.x * gradient(p, u_pos));
@@ -547,7 +550,7 @@ fn enforce_particle_radius(particles: &mut [Particle], radius: f32) {
         .iter_mut()
         .zip(&points)
         .for_each(|(part, point)| part.pos = *point);
-    }
+}
 
 fn particle_life_interactions(particles: &mut [Particle], cfg: &LifeConfig, dt: f32) {
     puffin::profile_scope!("Particle interactions");
@@ -685,11 +688,18 @@ fn hsv_to_rgb(h: f32, s: f32, v: f32) -> [f32; 3] {
 
 impl Default for NodeInteractionCfg {
     fn default() -> Self {
-        Self { neighbor_radius: 0.5 }
+        Self {
+            neighbor_radius: 0.5,
+        }
     }
 }
 
-fn node_interactions(particles: &mut [Particle], node: &Rc<Node>, cfg: &NodeInteractionCfg, dt: f32) {
+fn node_interactions(
+    particles: &mut [Particle],
+    node: &Rc<Node>,
+    cfg: &NodeInteractionCfg,
+    dt: f32,
+) {
     //evaluate_node(node, ctx)
     puffin::profile_scope!("Particle interactions");
     let points: Vec<Vec2> = particles.iter().map(|p| p.pos).collect();
@@ -702,33 +712,57 @@ fn node_interactions(particles: &mut [Particle], node: &Rc<Node>, cfg: &NodeInte
             let diff = points[neighbor] - points[i];
 
             let inputs = [
-                (ExternInputId::new("neigh-radius".into()), Value::Scalar(cfg.neighbor_radius)),
-                (ExternInputId::new("pos-diff".into()), Value::Vec2(diff.to_array())),
-                (ExternInputId::new("neigh-type".into()), Value::Scalar(particles[neighbor].color as f32)),
-                (ExternInputId::new("our-type".into()), Value::Scalar(particles[i].color as f32)),
-                (ExternInputId::new("position".into()), Value::Vec2(particles[i].pos.to_array())),
-                (ExternInputId::new("velocity".into()), Value::Vec2(particles[i].vel.to_array())),
+                (
+                    ExternInputId::new("neigh-radius".into()),
+                    Value::Scalar(cfg.neighbor_radius),
+                ),
+                (
+                    ExternInputId::new("pos-diff".into()),
+                    Value::Vec2(diff.to_array()),
+                ),
+                (
+                    ExternInputId::new("neigh-type".into()),
+                    Value::Scalar(particles[neighbor].color as f32),
+                ),
+                (
+                    ExternInputId::new("our-type".into()),
+                    Value::Scalar(particles[i].color as f32),
+                ),
+                (
+                    ExternInputId::new("position".into()),
+                    Value::Vec2(particles[i].pos.to_array()),
+                ),
+                (
+                    ExternInputId::new("velocity".into()),
+                    Value::Vec2(particles[i].vel.to_array()),
+                ),
             ];
-            let params = ExternParameters { inputs: inputs.into_iter().collect() };
+            let params = ExternParameters {
+                inputs: inputs.into_iter().collect(),
+            };
 
-            let Value::Vec4([fx, fy, _, _]) = evaluate_node(&node, &params).unwrap() else { panic!() };
+            let Value::Vec4([fx, fy, _, _]) = evaluate_node(&node, &params).unwrap() else {
+                panic!()
+            };
             particles[i].vel += dt * Vec2::new(fx, fy);
         }
     }
-
 }
 
 pub fn nodegraph_fn_inputs() -> ParameterList {
     let params = [
-        (ExternInputId::new("neigh-radius".to_string()), DataType::Scalar),
+        (
+            ExternInputId::new("neigh-radius".to_string()),
+            DataType::Scalar,
+        ),
         (ExternInputId::new("pos-diff".to_string()), DataType::Vec2),
         (ExternInputId::new("neigh-type".into()), DataType::Scalar),
         (ExternInputId::new("our-type".into()), DataType::Scalar),
         (ExternInputId::new("position".into()), DataType::Vec2),
         (ExternInputId::new("velocity".into()), DataType::Vec2),
     ]
-        .into_iter()
-        .collect();
+    .into_iter()
+    .collect();
 
     ParameterList(params)
 }

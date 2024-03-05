@@ -6,7 +6,7 @@ use egui::SidePanel;
 use egui::{CentralPanel, Frame, Rect, Sense};
 use glam::Vec2;
 use vorpal_widgets::node_editor::NodeGraphWidget;
-use vorpal_widgets::vorpal_core::ParameterList;
+
 
 use crate::sim::*;
 
@@ -20,7 +20,6 @@ pub struct TemplateApp {
     particle_mode: ParticleBehaviourMode,
 
     // Settings
-
     tweak: SimTweak,
     width: usize,
     height: usize,
@@ -58,8 +57,6 @@ impl TemplateApp {
         let n_colors = 3;
         let life = LifeConfig::random(n_colors, random_std_dev);
         let sim = Sim::new(width, height, n_particles, particle_radius, life);
-
-        let params = ParameterList::default();
 
         let nodes = NodeGraphWidget::new(nodegraph_fn_inputs());
         let node_cfg = NodeInteractionCfg::default();
@@ -154,13 +151,11 @@ impl TemplateApp {
                 }
             }
 
-            let node = vorpal_widgets::vorpal_core::highlevel::convert_node(self.nodes.extract_output_node());
-
-            self.sim.step(
-                &self.tweak,
-                &self.node_cfg,
-                &node,
+            let node = vorpal_widgets::vorpal_core::highlevel::convert_node(
+                self.nodes.extract_output_node(),
             );
+
+            self.sim.step(&self.tweak, &self.node_cfg, &node);
 
             self.single_step = false;
         }
@@ -172,7 +167,13 @@ impl TemplateApp {
         let coords = CoordinateMapping::new(&self.sim.grid, rect);
 
         // Move particles
-        move_particles_from_egui(&mut self.sim.particles, 4., &coords, self.tweak.dt, response);
+        move_particles_from_egui(
+            &mut self.sim.particles,
+            4.,
+            &coords,
+            self.tweak.dt,
+            response,
+        );
 
         // Step particles
         if !self.pause || self.single_step {
@@ -308,7 +309,10 @@ impl TemplateApp {
                 .clamp_range(1e-2..=5.0),
         );
         if self.advanced {
-            ui.checkbox(&mut self.tweak.enable_particle_collisions, "Hard collisions");
+            ui.checkbox(
+                &mut self.tweak.enable_particle_collisions,
+                "Hard collisions",
+            );
             ui.horizontal(|ui| {
                 ui.add(
                     DragValue::new(&mut self.sim.rest_density)
@@ -340,7 +344,11 @@ impl TemplateApp {
                     .clamp_range(0.0..=1.95),
             );
             ui.horizontal(|ui| {
-                ui.selectable_value(&mut self.tweak.solver, IncompressibilitySolver::Jacobi, "Jacobi");
+                ui.selectable_value(
+                    &mut self.tweak.solver,
+                    IncompressibilitySolver::Jacobi,
+                    "Jacobi",
+                );
                 ui.selectable_value(
                     &mut self.tweak.solver,
                     IncompressibilitySolver::GaussSeidel,
@@ -392,10 +400,12 @@ impl TemplateApp {
         });
 
         if self.particle_mode == ParticleBehaviourMode::NodeGraph {
-            ui.add(DragValue::new(&mut self.node_cfg.neighbor_radius)
-                .clamp_range(1e-2..=20.0)
-                .speed(1e-2)
-                .prefix("Neighbor_radius: "));
+            ui.add(
+                DragValue::new(&mut self.node_cfg.neighbor_radius)
+                    .clamp_range(1e-2..=20.0)
+                    .speed(1e-2)
+                    .prefix("Neighbor_radius: "),
+            );
         }
 
         if self.particle_mode == ParticleBehaviourMode::ParticleLife {
