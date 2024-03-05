@@ -156,6 +156,7 @@ impl TemplateApp {
                     color: self.source_color_idx,
                 });
             }
+            self.n_particles = self.sim.particles.len();
 
             if self.well {
                 for part in &mut self.sim.particles {
