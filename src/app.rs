@@ -51,8 +51,12 @@ impl TemplateApp {
             }
         }
 
+        Self::new_from_ctx(&cc.egui_ctx)
+    }
+
+    pub fn new_from_ctx(ctx: &egui::Context) -> Self {
         // Otherwise create a new random sim state
-        let (width, height) = if is_mobile(&cc.egui_ctx) {
+        let (width, height) = if is_mobile(ctx) {
             (70, 150)
         } else {
             (120, 80)
@@ -548,6 +552,9 @@ impl TemplateApp {
         }
 
         ui.checkbox(&mut self.advanced, "Advanced settings");
+        if ui.button("Reset everything").clicked() {
+            *self = Self::new_from_ctx(ui.ctx());
+        }
         ui.hyperlink_to(
             "GitHub repository",
             "https://github.com/Masterchef365/pic-fluids",
