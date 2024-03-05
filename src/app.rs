@@ -2,7 +2,7 @@ use crate::array2d::Array2D;
 
 use eframe::egui::{DragValue, Grid, Rgba, RichText, ScrollArea, Slider, Ui};
 use egui::os::OperatingSystem;
-use egui::SidePanel;
+use egui::{SidePanel, TopBottomPanel};
 use egui::{CentralPanel, Frame, Rect, Sense};
 use glam::Vec2;
 use vorpal_widgets::node_editor::NodeGraphWidget;
@@ -146,12 +146,14 @@ impl eframe::App for TemplateApp {
         // Update continuously
         ctx.request_repaint();
         if is_mobile(ctx) {
-            CentralPanel::default().show(ctx, |ui| {
+            TopBottomPanel::top("mobile_stuff").show(ctx, |ui| {
                 ui.horizontal(|ui| {
                     ui.selectable_value(&mut self.mobile_tab, MobileTab::Main, "Main");
                     ui.selectable_value(&mut self.mobile_tab, MobileTab::Settings, "Settings");
                     ui.selectable_value(&mut self.mobile_tab, MobileTab::NodeGraph, "NodeGraph")
                 });
+            });
+            CentralPanel::default().show(ctx, |ui| {
                 match self.mobile_tab {
                     MobileTab::Settings => {
                         ScrollArea::both().show(ui, |ui| self.settings_gui(ui));
