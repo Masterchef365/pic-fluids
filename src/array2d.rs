@@ -59,9 +59,3 @@ impl<T> std::ops::IndexMut<GridPos> for Array2D<T> {
         &mut self.data[idx]
     }
 }
-
-impl<T: Default> Default for Array2D<T> {
-    fn default() -> Self {
-        Self { width: 0, data: vec![] }
-    }
-}

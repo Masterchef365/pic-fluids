@@ -15,6 +15,7 @@ pub struct TemplateApp {
     // Sim state
     sim: Sim,
 
+    life: LifeConfig,
     nodes: NodeGraphWidget,
     node_cfg: NodeInteractionCfg,
 
@@ -63,12 +64,13 @@ impl TemplateApp {
         let tweak = SimTweak::default();
 
         let life = LifeConfig::random(n_colors, random_std_dev);
-        let sim = Sim::new(width, height, n_particles, life);
+        let sim = Sim::new(width, height, n_particles, &life);
 
         let nodes = NodeGraphWidget::new(nodegraph_fn_inputs());
         let node_cfg = NodeInteractionCfg::default();
 
         Self {
+            life,
             tweak,
             node_cfg,
             nodes,
@@ -165,7 +167,7 @@ impl TemplateApp {
                 self.nodes.extract_output_node(),
             );
 
-            self.sim.step(&self.tweak, &self.node_cfg, &node);
+            self.sim.step(&self.tweak, &self.life, &self.node_cfg, &node);
 
             self.single_step = false;
         }
@@ -199,7 +201,7 @@ impl TemplateApp {
             / 2_f32.sqrt();
 
         for part in &self.sim.particles {
-            let color = self.sim.life.colors[part.color as usize];
+            let color = self.life.colors[part.color as usize];
             painter.circle_filled(
                 coords.sim_to_egui(part.pos) + rect.left_top().to_vec2(),
                 radius,
@@ -229,7 +231,7 @@ impl TemplateApp {
                     &mut rng,
                     self.sim.grid.width(),
                     self.sim.grid.height(),
-                    &self.sim.life,
+                    &self.life,
                 )
             });
         }
@@ -241,20 +243,20 @@ impl TemplateApp {
             )
             .changed()
         {
-            let old_size = self.sim.life.behaviours.width();
+            let old_size = self.life.behaviours.width();
             let mut new_behav_array = Array2D::new(self.n_colors, self.n_colors);
             for i in 0..self.n_colors {
                 for j in 0..self.n_colors {
                     if i < old_size && j < old_size {
-                        new_behav_array[(i, j)] = self.sim.life.behaviours[(i, j)];
+                        new_behav_array[(i, j)] = self.life.behaviours[(i, j)];
                     } else {
                         new_behav_array[(i, j)] = LifeConfig::random_behaviour(self.random_std_dev);
                     }
                 }
             }
-            self.sim.life.behaviours = new_behav_array;
+            self.life.behaviours = new_behav_array;
 
-            self.sim
+            self
                 .life
                 .colors
                 .resize_with(self.n_colors, || random_color(&mut rand::thread_rng()));
@@ -388,7 +390,7 @@ impl TemplateApp {
         );
         ui.horizontal(|ui| {
             ui.label("Particle inflow color: ");
-            for (idx, &color) in self.sim.life.colors.iter().enumerate() {
+            for (idx, &color) in self.life.colors.iter().enumerate() {
                 let color_marker = RichText::new("#####").color(color_to_egui(color));
                 let button = ui.selectable_label(idx as u8 == self.source_color_idx, color_marker);
                 if button.clicked() {
@@ -397,7 +399,7 @@ impl TemplateApp {
             }
             self.source_color_idx = self
                 .source_color_idx
-                .min(self.sim.life.colors.len() as u8 - 1);
+                .min(self.life.colors.len() as u8 - 1);
         });
         ui.checkbox(&mut self.well, "Particle well");
 
@@ -426,7 +428,7 @@ impl TemplateApp {
         }
 
         if self.tweak.particle_mode == ParticleBehaviourMode::ParticleLife {
-            let mut behav_cfg = self.sim.life.behaviours[(0, 0)];
+            let mut behav_cfg = self.life.behaviours[(0, 0)];
             if self.advanced {
                 ui.add(
                     DragValue::new(&mut behav_cfg.max_inter_dist)
@@ -452,7 +454,7 @@ impl TemplateApp {
             if self.set_inter_dist_to_radius {
                 behav_cfg.inter_threshold = self.tweak.particle_radius * 2.;
             }
-            for b in self.sim.life.behaviours.data_mut() {
+            for b in self.life.behaviours.data_mut() {
                 b.max_inter_dist = behav_cfg.max_inter_dist;
                 b.inter_threshold = behav_cfg.inter_threshold;
                 b.default_repulse = behav_cfg.default_repulse;
@@ -463,17 +465,17 @@ impl TemplateApp {
                 // Top row
                 //ui.label("Life");
                 ui.label("");
-                for color in &mut self.sim.life.colors {
+                for color in &mut self.life.colors {
                     ui.color_edit_button_rgb(color);
                 }
                 ui.end_row();
 
                 // Grid
-                let len = self.sim.life.colors.len();
-                for (row_idx, color) in self.sim.life.colors.iter_mut().enumerate() {
+                let len = self.life.colors.len();
+                for (row_idx, color) in self.life.colors.iter_mut().enumerate() {
                     ui.color_edit_button_rgb(color);
                     for column in 0..len {
-                        let behav = &mut self.sim.life.behaviours[(column, row_idx)];
+                        let behav = &mut self.life.behaviours[(column, row_idx)];
                         ui.add(DragValue::new(&mut behav.inter_strength).speed(1e-2));
                     }
                     ui.end_row();
@@ -482,7 +484,7 @@ impl TemplateApp {
 
             ui.horizontal(|ui| {
                 if ui.button("Randomize behaviours").clicked() {
-                    self.sim.life = LifeConfig::random(self.n_colors, self.random_std_dev);
+                    self.life = LifeConfig::random(self.n_colors, self.random_std_dev);
                     reset = true;
                 }
                 ui.add(
@@ -493,10 +495,10 @@ impl TemplateApp {
                 )
             });
             if ui.button("Symmetric forces").clicked() {
-                let n = self.sim.life.colors.len();
+                let n = self.life.colors.len();
                 for i in 0..n {
                     for j in 0..i {
-                        self.sim.life.behaviours[(i, j)] = self.sim.life.behaviours[(j, i)]
+                        self.life.behaviours[(i, j)] = self.life.behaviours[(j, i)]
                     }
                 }
             }
@@ -541,7 +543,7 @@ impl TemplateApp {
                 self.width,
                 self.height,
                 self.sim.particles.len(),
-                self.sim.life.clone(),
+                &self.life,
             );
         }
 

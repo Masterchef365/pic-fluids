@@ -32,21 +32,20 @@ pub struct SimTweak {
 #[derive(Clone)]
 #[derive(serde::Serialize, serde::Deserialize)]
 pub struct Sim {
-    /// Particles
     #[serde(skip)]
+    /// Particles
     pub particles: Vec<Particle>,
     /// Cell wall velocity, staggered grid
-    #[serde(skip)]
     pub grid: Array2D<GridCell>,
-
-    /// Rest density, in particles/unit^2
-    pub life: LifeConfig,
 }
 
 #[derive(Copy, Clone, Debug, Default)]
+#[derive(serde::Serialize, serde::Deserialize)]
 pub struct GridCell {
+    #[serde(skip)]
     /// Flow rate through the top and left faces of this cell
     pub vel: Vec2,
+    #[serde(skip)]
     /// Pressure inside this cell
     pub pressure: f32,
 }
@@ -160,7 +159,7 @@ pub fn random_particle(
 }
 
 impl Sim {
-    pub fn new(width: usize, height: usize, n_particles: usize, life: LifeConfig) -> Self {
+    pub fn new(width: usize, height: usize, n_particles: usize, life: &LifeConfig) -> Self {
         // Uniformly placed, random particles
         let mut rng = rand::thread_rng();
         let particles = (0..n_particles)
@@ -168,19 +167,18 @@ impl Sim {
             .collect();
 
         Sim {
-            life,
             particles,
             grid: Array2D::new(width, height),
         }
     }
 
-    pub fn step(&mut self, tweak: &SimTweak, node_cfg: &NodeInteractionCfg, nodes: &Rc<Node>) {
+    pub fn step(&mut self, tweak: &SimTweak, life: &LifeConfig, node_cfg: &NodeInteractionCfg, nodes: &Rc<Node>) {
         //puffin::profile_scope!("Complete Step");
         // Step particles
         apply_global_force(&mut self.particles, Vec2::new(0., -tweak.gravity), tweak.dt);
         match tweak.particle_mode {
             ParticleBehaviourMode::ParticleLife => {
-                particle_life_interactions(&mut self.particles, &mut self.life, tweak.dt)
+                particle_life_interactions(&mut self.particles, life, tweak.dt)
             }
             ParticleBehaviourMode::NodeGraph => {
                 node_interactions(&mut self.particles, nodes, node_cfg, tweak.dt)
