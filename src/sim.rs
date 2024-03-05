@@ -693,6 +693,10 @@ impl Default for NodeInteractionCfg {
 pub fn per_particle_fn_inputs() -> ParameterList {
     let params = [
         (
+            ExternInputId::new("dt".to_string()),
+            DataType::Scalar,
+        ),
+        (
             ExternInputId::new("neigh-radius".to_string()),
             DataType::Scalar,
         ),
@@ -720,6 +724,10 @@ fn per_particle_node_interactions(
 
         let inputs = [
             (
+                ExternInputId::new("dt".to_string()),
+                Value::Scalar(dt),
+            ),
+            (
                 ExternInputId::new("our-type".into()),
                 Value::Scalar(particles[i].color as f32),
             ),
@@ -746,6 +754,10 @@ fn per_particle_node_interactions(
 
 pub fn per_neighbor_fn_inputs() -> ParameterList {
     let params = [
+        (
+            ExternInputId::new("dt".to_string()),
+            DataType::Scalar,
+        ),
         (
             ExternInputId::new("num-neighbors".to_string()),
             DataType::Scalar,
@@ -787,6 +799,10 @@ fn per_neighbor_node_interactions(
             let diff = points[neighbor] - points[i];
 
             let inputs = [
+                (
+                    ExternInputId::new("dt".to_string()),
+                    Value::Scalar(dt),
+                ),
                 (
                     ExternInputId::new("num-neighbors".into()),
                     Value::Scalar(neigh_buf.len() as f32),

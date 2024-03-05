@@ -25,6 +25,6 @@ Just run `trunk build --release`.
  - [ ] BUG: it is not possible to add new nodes in mobile!
     * Can be fixed by adding a button which floats on top and opens the finder menu
  - [ ] Add a way to keep a certain set of "projects" around
- - [ ] Add another set of nodes for per-particle alongside the existing per-neighbor. Include a dt!
+ - [x] Add another set of nodes for per-particle alongside the existing per-neighbor. Include a dt!
  - [ ] Specify output node type!
  - [ ] Subroutines? !
