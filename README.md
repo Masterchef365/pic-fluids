@@ -19,3 +19,9 @@ On Fedora Rawhide you need to run:
 
 ### Web Deploy
 Just run `trunk build --release`.
+
+### ROADMAP:
+ - [ ] Add save states
+ - [ ] Add another set of nodes for per-particle alongside the existing per-neighbor. Include a dt!
+ - [ ] Specify output node type!
+ - [ ] Subroutines? !
