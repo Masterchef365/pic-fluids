@@ -24,6 +24,7 @@ pub struct TemplateApp {
     width: usize,
     height: usize,
     set_inter_dist_to_radius: bool,
+    set_hard_collisions_based_on_particle_life: bool,
     //show_arrows: bool,
     //show_grid: bool,
     //grid_vel_scale: f32,
@@ -73,6 +74,7 @@ impl TemplateApp {
 
         Self {
             n_particles,
+            set_hard_collisions_based_on_particle_life: true,
             life,
             tweak,
             node_cfg,
@@ -327,11 +329,24 @@ impl TemplateApp {
                 .speed(1e-2)
                 .clamp_range(1e-2..=5.0),
         );
+
+        if self.set_hard_collisions_based_on_particle_life {
+            self.tweak.enable_particle_collisions = self.tweak.particle_mode != ParticleBehaviourMode::ParticleLife;
+        }
         if self.advanced {
-            ui.checkbox(
-                &mut self.tweak.enable_particle_collisions,
-                "Hard collisions",
-            );
+            ui.horizontal(|ui| {
+                ui.checkbox(
+                    &mut self.tweak.enable_particle_collisions,
+                    "Hard collisions",
+                );
+
+                ui.label("(");
+                ui.checkbox(
+                    &mut self.set_hard_collisions_based_on_particle_life,
+                    "if particle life not actv.",
+                );
+                ui.label(")");
+            });
             ui.horizontal(|ui| {
                 let mut rest_density = self.tweak.rest_density();
                 if ui
