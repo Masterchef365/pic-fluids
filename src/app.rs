@@ -23,7 +23,6 @@ pub struct TemplateApp {
     tweak: SimTweak,
     width: usize,
     height: usize,
-    calc_rest_density_from_radius: bool,
     set_inter_dist_to_radius: bool,
     //show_arrows: bool,
     //show_grid: bool,
@@ -51,25 +50,25 @@ impl TemplateApp {
             (120, 80)
         };
         let n_particles = 4_000;
-        let particle_radius = 0.28;
         let random_std_dev = 5.;
 
         let n_colors = 3;
+        let tweak = SimTweak::default();
+
         let life = LifeConfig::random(n_colors, random_std_dev);
-        let sim = Sim::new(width, height, n_particles, particle_radius, life);
+        let sim = Sim::new(width, height, n_particles, life);
 
         let nodes = NodeGraphWidget::new(nodegraph_fn_inputs());
         let node_cfg = NodeInteractionCfg::default();
 
         Self {
-            tweak: SimTweak::default(),
+            tweak,
             node_cfg,
             particle_mode: ParticleBehaviourMode::NodeGraph,
             nodes,
             advanced: false,
             n_colors,
             source_rate: 0,
-            calc_rest_density_from_radius: true,
             single_step: false,
             sim,
             width,
@@ -184,7 +183,7 @@ impl TemplateApp {
         // Draw particles
         let painter = ui.painter_at(rect);
         let radius = coords
-            .sim_to_egui_vect(Vec2::splat(self.sim.particle_radius))
+            .sim_to_egui_vect(Vec2::splat(self.tweak.particle_radius))
             .length()
             / 2_f32.sqrt();
 
@@ -290,7 +289,7 @@ impl TemplateApp {
             }
         });
         if self.advanced {
-            ui.add(Slider::new(&mut self.sim.damping, 0.0..=1.0).text("Damping"));
+            ui.add(Slider::new(&mut self.tweak.damping, 0.0..=1.0).text("Damping"));
             ui.checkbox(
                 &mut self.tweak.enable_grid_transfer,
                 "Grid transfer (required for incompressibility solver!)",
@@ -303,7 +302,7 @@ impl TemplateApp {
             ui.strong("Particle collisions");
         });
         ui.add(
-            DragValue::new(&mut self.sim.particle_radius)
+            DragValue::new(&mut self.tweak.particle_radius)
                 .prefix("Particle radius: ")
                 .speed(1e-2)
                 .clamp_range(1e-2..=5.0),
@@ -314,20 +313,27 @@ impl TemplateApp {
                 "Hard collisions",
             );
             ui.horizontal(|ui| {
-                ui.add(
-                    DragValue::new(&mut self.sim.rest_density)
+                let mut rest_density = self.tweak.rest_density();
+                if ui.add(
+                    DragValue::new(&mut rest_density)
                         .prefix("Rest density: ")
                         .speed(1e-2),
-                );
-                ui.checkbox(
-                    &mut self.calc_rest_density_from_radius,
-                    "From radius (assumes optimal packing)",
-                );
-            });
-        }
+                ).changed() {
+                    self.tweak.rest_density = Some(rest_density);
+                }
 
-        if self.calc_rest_density_from_radius {
-            self.sim.rest_density = calc_rest_density(self.sim.particle_radius);
+                let mut calc_rest_density_from_radius = self.tweak.rest_density.is_none();
+                if ui.checkbox(
+                    &mut calc_rest_density_from_radius,
+                    "From radius (assumes optimal packing)",
+                ).changed() {
+                    if calc_rest_density_from_radius {
+                        self.tweak.rest_density = None;
+                    } else {
+                        self.tweak.rest_density = Some(calc_rest_density(self.tweak.particle_radius));
+                    }
+                }
+            });
         }
 
         if self.advanced && self.tweak.enable_grid_transfer {
@@ -338,7 +344,7 @@ impl TemplateApp {
             });
             ui.add(DragValue::new(&mut self.tweak.solver_iters).prefix("Solver iterations: "));
             ui.add(
-                DragValue::new(&mut self.sim.over_relax)
+                DragValue::new(&mut self.tweak.over_relax)
                     .prefix("Over-relaxation: ")
                     .speed(1e-2)
                     .clamp_range(0.0..=1.95),
@@ -433,7 +439,7 @@ impl TemplateApp {
                 });
             }
             if self.set_inter_dist_to_radius {
-                behav_cfg.inter_threshold = self.sim.particle_radius * 2.;
+                behav_cfg.inter_threshold = self.tweak.particle_radius * 2.;
             }
             for b in self.sim.life.behaviours.data_mut() {
                 b.max_inter_dist = behav_cfg.max_inter_dist;
@@ -520,15 +526,12 @@ impl TemplateApp {
         */
 
         if reset {
-            let damp = self.sim.damping;
             self.sim = Sim::new(
                 self.width,
                 self.height,
                 self.sim.particles.len(),
-                self.sim.particle_radius,
                 self.sim.life.clone(),
             );
-            self.sim.damping = damp;
         }
 
         ui.checkbox(&mut self.advanced, "Advanced settings");

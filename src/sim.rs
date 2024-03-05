@@ -21,6 +21,11 @@ pub struct SimTweak {
     pub enable_particle_collisions: bool,
     pub enable_grid_transfer: bool,
     pub particle_mode: ParticleBehaviourMode,
+    pub particle_radius: f32,
+    pub over_relax: f32,
+    pub damping: f32,
+    /// If None, assumes hexagonal packing of particle_radius
+    pub rest_density: Option<f32>,
 }
 
 #[derive(Clone)]
@@ -30,11 +35,7 @@ pub struct Sim {
     /// Cell wall velocity, staggered grid
     pub grid: Array2D<GridCell>,
     /// Rest density, in particles/unit^2
-    pub rest_density: f32,
-    pub particle_radius: f32,
-    pub over_relax: f32,
     pub life: LifeConfig,
-    pub damping: f32,
 }
 
 #[derive(Copy, Clone, Debug, Default)]
@@ -149,31 +150,17 @@ pub fn random_particle(
 }
 
 impl Sim {
-    pub fn new(
-        width: usize,
-        height: usize,
-        n_particles: usize,
-        particle_radius: f32,
-        life: LifeConfig,
-    ) -> Self {
+    pub fn new(width: usize, height: usize, n_particles: usize, life: LifeConfig) -> Self {
         // Uniformly placed, random particles
         let mut rng = rand::thread_rng();
         let particles = (0..n_particles)
             .map(|_| random_particle(&mut rng, width, height, &life))
             .collect();
 
-        // Assume half-hexagonal packing density...
-        //let rest_density = calc_rest_density(particle_radius);
-        let rest_density = 2.8;
-
         Sim {
-            damping: 0.,
             life,
             particles,
             grid: Array2D::new(width, height),
-            rest_density,
-            particle_radius,
-            over_relax: 1.5,
         }
     }
 
@@ -191,9 +178,9 @@ impl Sim {
             ParticleBehaviourMode::Off => (),
         }
 
-        step_particles(&mut self.particles, tweak.dt, self.damping);
+        step_particles(&mut self.particles, tweak.dt, tweak.damping);
         if tweak.enable_particle_collisions {
-            enforce_particle_radius(&mut self.particles, self.particle_radius);
+            enforce_particle_radius(&mut self.particles, tweak.particle_radius);
         }
         enforce_particle_pos(&mut self.particles, &self.grid);
 
@@ -209,8 +196,8 @@ impl Sim {
                 solver_fn(
                     &mut self.grid,
                     tweak.solver_iters,
-                    self.rest_density,
-                    self.over_relax,
+                    tweak.rest_density(),
+                    tweak.over_relax,
                     tweak.stiffness,
                 );
             }
@@ -780,6 +767,17 @@ impl Default for SimTweak {
             gravity: 9.8,
             solver: IncompressibilitySolver::GaussSeidel,
             particle_mode: ParticleBehaviourMode::NodeGraph,
+            particle_radius: 0.28,
+            over_relax: 1.5,
+            damping: 0.,
+            rest_density: None,
         }
+    }
+}
+
+impl SimTweak {
+    pub fn rest_density(&self) -> f32 {
+        self.rest_density
+            .unwrap_or_else(|| calc_rest_density(self.particle_radius))
     }
 }
