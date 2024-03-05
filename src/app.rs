@@ -41,6 +41,7 @@ pub struct TemplateApp {
     source_rate: usize,
     //mult: f32,
     advanced: bool,
+    fullscreen_inside: bool,
 
     node_graph_fn_viewed: NodeGraphFns,
     mobile_tab: MobileTab,
@@ -109,6 +110,7 @@ impl TemplateApp {
             set_inter_dist_to_radius: true,
             node_graph_fn_viewed: NodeGraphFns::PerParticle,
             mobile_tab: MobileTab::Main,
+            fullscreen_inside: false,
             //mult: 1.0,
         }
     }
@@ -167,14 +169,17 @@ impl eframe::App for TemplateApp {
                 }
             });
         } else {
-            SidePanel::left("Settings").show(ctx, |ui| {
-                ScrollArea::both().show(ui, |ui| self.settings_gui(ui))
-            });
-
-            if self.tweak.particle_mode == ParticleBehaviourMode::NodeGraph {
-                SidePanel::right("NodeGraph").show(ctx, |ui| {
-                    self.show_node_graph(ui);
+            self.fullscreen_inside ^= ctx.input(|r| r.key_released(egui::Key::Tab));
+            if !self.fullscreen_inside {
+                SidePanel::left("Settings").show(ctx, |ui| {
+                    ScrollArea::both().show(ui, |ui| self.settings_gui(ui))
                 });
+
+                if self.tweak.particle_mode == ParticleBehaviourMode::NodeGraph {
+                    SidePanel::right("NodeGraph").show(ctx, |ui| {
+                        self.show_node_graph(ui);
+                    });
+                }
             }
 
             CentralPanel::default().show(ctx, |ui| {
