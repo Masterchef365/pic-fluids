@@ -40,11 +40,10 @@ pub struct TemplateApp {
     source_color_idx: ParticleType,
     source_rate: usize,
     //mult: f32,
-    show_settings_only: bool,
-
     advanced: bool,
 
     node_graph_fn_viewed: NodeGraphFns,
+    mobile_tab: MobileTab,
 }
 
 impl TemplateApp {
@@ -72,8 +71,16 @@ impl TemplateApp {
         let life = LifeConfig::random(n_colors, random_std_dev);
         let sim = Sim::new(width, height, n_particles, &life);
 
-        let per_neighbor_fn = NodeGraphWidget::new(per_neighbor_fn_inputs(), DataType::Vec2, "Acceleration".to_owned());
-        let per_particle_fn = NodeGraphWidget::new(per_particle_fn_inputs(), DataType::Vec2, "Acceleration".to_owned());
+        let per_neighbor_fn = NodeGraphWidget::new(
+            per_neighbor_fn_inputs(),
+            DataType::Vec2,
+            "Acceleration (per neighbor)".to_owned(),
+        );
+        let per_particle_fn = NodeGraphWidget::new(
+            per_particle_fn_inputs(),
+            DataType::Vec2,
+            "Acceleration (per particle)".to_owned(),
+        );
 
         let node_cfg = NodeInteractionCfg::default();
 
@@ -99,16 +106,22 @@ impl TemplateApp {
             pause: false,
             //grid_vel_scale: 0.05,
             //show_grid: false,
-            show_settings_only: false,
             set_inter_dist_to_radius: true,
             node_graph_fn_viewed: NodeGraphFns::PerParticle,
+            mobile_tab: MobileTab::Main,
             //mult: 1.0,
         }
     }
 }
 
-#[derive(Clone, Copy, PartialEq, Eq)] 
-#[derive(serde::Serialize, serde::Deserialize)]
+#[derive(Clone, Copy, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+enum MobileTab {
+    Settings,
+    Main,
+    NodeGraph,
+}
+
+#[derive(Clone, Copy, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 enum NodeGraphFns {
     PerNeighbor,
     PerParticle,
@@ -134,11 +147,19 @@ impl eframe::App for TemplateApp {
         ctx.request_repaint();
         if is_mobile(ctx) {
             CentralPanel::default().show(ctx, |ui| {
-                ui.checkbox(&mut self.show_settings_only, "Show settings");
-                if self.show_settings_only {
-                    ScrollArea::both().show(ui, |ui| self.settings_gui(ui));
-                } else {
-                    Frame::canvas(ui.style()).show(ui, |ui| self.sim_widget(ui));
+                ui.horizontal(|ui| ui.selectable_value(&mut self.mobile_tab, MobileTab::Main, "Main"));
+                ui.horizontal(|ui| ui.selectable_value(&mut self.mobile_tab, MobileTab::Settings, "Settings"));
+                ui.horizontal(|ui| ui.selectable_value(&mut self.mobile_tab, MobileTab::NodeGraph, "NodeGraph"));
+                match self.mobile_tab {
+                    MobileTab::Settings => {
+                        ScrollArea::both().show(ui, |ui| self.settings_gui(ui));
+                    }
+                    MobileTab::Main => {
+                        Frame::canvas(ui.style()).show(ui, |ui| self.sim_widget(ui));
+                    }
+                    MobileTab::NodeGraph => {
+                        self.show_node_graph(ui);
+                    }
                 }
             });
         } else {
@@ -148,10 +169,7 @@ impl eframe::App for TemplateApp {
 
             if self.tweak.particle_mode == ParticleBehaviourMode::NodeGraph {
                 SidePanel::right("NodeGraph").show(ctx, |ui| {
-                    match self.node_graph_fn_viewed {
-                        NodeGraphFns::PerNeighbor => self.per_neighbor_fn.show(ui),
-                        NodeGraphFns::PerParticle => self.per_particle_fn.show(ui),
-                    }
+                    self.show_node_graph(ui);
                 });
             }
 
@@ -163,7 +181,14 @@ impl eframe::App for TemplateApp {
 }
 
 impl TemplateApp {
-    fn update(&mut self) {
+    fn show_node_graph(&mut self, ui: &mut Ui) {
+        match self.node_graph_fn_viewed {
+            NodeGraphFns::PerNeighbor => self.per_neighbor_fn.show(ui),
+            NodeGraphFns::PerParticle => self.per_particle_fn.show(ui),
+        }
+    }
+
+    fn step_sim(&mut self) {
         // Update
         if !self.pause || self.single_step {
             for _ in 0..self.source_rate {
@@ -194,8 +219,13 @@ impl TemplateApp {
                 self.per_particle_fn.extract_output_node(),
             );
 
-            self.sim
-                .step(&self.tweak, &self.life, &self.node_cfg, &per_neighbor_node, &per_particle_node);
+            self.sim.step(
+                &self.tweak,
+                &self.life,
+                &self.node_cfg,
+                &per_neighbor_node,
+                &per_particle_node,
+            );
 
             self.single_step = false;
         }
@@ -219,7 +249,7 @@ impl TemplateApp {
 
         // Step particles
         if !self.pause || self.single_step {
-            self.update();
+            self.step_sim();
             self.single_step = false;
         }
 
@@ -255,8 +285,7 @@ impl TemplateApp {
     }
 
     fn settings_gui(&mut self, ui: &mut Ui) {
-        ui.separator();
-        ui.label("Particle behaviour");
+        ui.strong("Particle behaviour");
         ui.horizontal(|ui| {
             ui.selectable_value(
                 &mut self.tweak.particle_mode,
@@ -372,7 +401,8 @@ impl TemplateApp {
         );
 
         if self.set_hard_collisions_based_on_particle_life {
-            self.tweak.enable_particle_collisions = self.tweak.particle_mode != ParticleBehaviourMode::ParticleLife;
+            self.tweak.enable_particle_collisions =
+                self.tweak.particle_mode != ParticleBehaviourMode::ParticleLife;
         }
         if self.advanced {
             ui.horizontal(|ui| {
@@ -471,11 +501,20 @@ impl TemplateApp {
         });
         ui.checkbox(&mut self.well, "Particle well");
 
+        ui.separator();
         if self.tweak.particle_mode == ParticleBehaviourMode::NodeGraph {
             ui.strong("Node graph configuration");
             ui.horizontal(|ui| {
-                ui.selectable_value(&mut self.node_graph_fn_viewed, NodeGraphFns::PerNeighbor, "Per-neighbor accel");
-                ui.selectable_value(&mut self.node_graph_fn_viewed, NodeGraphFns::PerParticle, "Per-particle accel");
+                ui.selectable_value(
+                    &mut self.node_graph_fn_viewed,
+                    NodeGraphFns::PerNeighbor,
+                    "Per-neighbor accel",
+                );
+                ui.selectable_value(
+                    &mut self.node_graph_fn_viewed,
+                    NodeGraphFns::PerParticle,
+                    "Per-particle accel",
+                );
             });
             ui.add(
                 DragValue::new(&mut self.node_cfg.neighbor_radius)
@@ -606,6 +645,7 @@ impl TemplateApp {
             );
         }
 
+        ui.separator();
         ui.checkbox(&mut self.advanced, "Advanced settings");
         if ui.button("Reset everything").clicked() {
             *self = Self::new_from_ctx(ui.ctx());
