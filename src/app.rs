@@ -147,9 +147,11 @@ impl eframe::App for TemplateApp {
         ctx.request_repaint();
         if is_mobile(ctx) {
             CentralPanel::default().show(ctx, |ui| {
-                ui.horizontal(|ui| ui.selectable_value(&mut self.mobile_tab, MobileTab::Main, "Main"));
-                ui.horizontal(|ui| ui.selectable_value(&mut self.mobile_tab, MobileTab::Settings, "Settings"));
-                ui.horizontal(|ui| ui.selectable_value(&mut self.mobile_tab, MobileTab::NodeGraph, "NodeGraph"));
+                ui.horizontal(|ui| {
+                    ui.selectable_value(&mut self.mobile_tab, MobileTab::Main, "Main");
+                    ui.selectable_value(&mut self.mobile_tab, MobileTab::Settings, "Settings");
+                    ui.selectable_value(&mut self.mobile_tab, MobileTab::NodeGraph, "NodeGraph")
+                });
                 match self.mobile_tab {
                     MobileTab::Settings => {
                         ScrollArea::both().show(ui, |ui| self.settings_gui(ui));
