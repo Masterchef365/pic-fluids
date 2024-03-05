@@ -1,6 +1,7 @@
 pub type GridPos = (usize, usize);
 
 #[derive(Clone, Debug)]
+#[derive(serde::Serialize, serde::Deserialize)]
 pub struct Array2D<T> {
     width: usize,
     data: Vec<T>,
@@ -56,5 +57,11 @@ impl<T> std::ops::IndexMut<GridPos> for Array2D<T> {
     fn index_mut(&mut self, pos: GridPos) -> &mut T {
         let idx = self.calc_index(pos);
         &mut self.data[idx]
+    }
+}
+
+impl<T: Default> Default for Array2D<T> {
+    fn default() -> Self {
+        Self { width: 0, data: vec![] }
     }
 }

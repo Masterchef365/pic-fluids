@@ -10,7 +10,7 @@ use vorpal_widgets::node_editor::NodeGraphWidget;
 
 use crate::sim::*;
 
-/// We derive Deserialize/Serialize so we can persist app state on shutdown.
+#[derive(serde::Serialize, serde::Deserialize)]
 pub struct TemplateApp {
     // Sim state
     sim: Sim,
@@ -43,6 +43,14 @@ pub struct TemplateApp {
 impl TemplateApp {
     /// Called once before the first frame.
     pub fn new(cc: &eframe::CreationContext<'_>) -> Self {
+        // Load previous app state (if any).
+        if let Some(storage) = cc.storage {
+            if let Some(saved) = eframe::get_value(storage, eframe::APP_KEY) {
+                return saved;
+            }
+        }
+
+        // Otherwise create a new random sim state
         let (width, height) = if is_mobile(&cc.egui_ctx) {
             (70, 150)
         } else {
@@ -90,6 +98,11 @@ fn is_mobile(ctx: &egui::Context) -> bool {
 }
 
 impl eframe::App for TemplateApp {
+    /// Called by the frame work to save state before shutdown.
+    fn save(&mut self, storage: &mut dyn eframe::Storage) {
+        eframe::set_value(storage, eframe::APP_KEY, self);
+    }
+
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
         #[cfg(not(target_arch = "wasm32"))]
         puffin::GlobalProfiler::lock().new_frame();

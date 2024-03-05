@@ -2121,6 +2121,7 @@ dependencies = [
  "puffin_http",
  "rand",
  "rand_distr",
+ "serde",
  "smallvec",
  "vorpal-widgets",
  "wasm-bindgen-futures",

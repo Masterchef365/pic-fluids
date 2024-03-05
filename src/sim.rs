@@ -10,6 +10,7 @@ use vorpal_widgets::vorpal_core::{
     DataType, ExternInputId, ExternParameters, ParameterList, Value,
 };
 
+#[derive(serde::Serialize, serde::Deserialize)]
 pub struct SimTweak {
     pub dt: f32,
     pub solver_iters: usize,
@@ -29,11 +30,15 @@ pub struct SimTweak {
 }
 
 #[derive(Clone)]
+#[derive(serde::Serialize, serde::Deserialize)]
 pub struct Sim {
     /// Particles
+    #[serde(skip)]
     pub particles: Vec<Particle>,
     /// Cell wall velocity, staggered grid
+    #[serde(skip)]
     pub grid: Array2D<GridCell>,
+
     /// Rest density, in particles/unit^2
     pub life: LifeConfig,
 }
@@ -59,6 +64,7 @@ pub struct Particle {
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(serde::Serialize, serde::Deserialize)]
 pub enum IncompressibilitySolver {
     Jacobi,
     GaussSeidel,
@@ -66,6 +72,7 @@ pub enum IncompressibilitySolver {
 
 /// Display colors and physical behaviour coefficients
 #[derive(Clone, Debug)]
+#[derive(serde::Serialize, serde::Deserialize)]
 pub struct LifeConfig {
     /// Colors of each type
     pub colors: Vec<[f32; 3]>,
@@ -76,6 +83,7 @@ pub struct LifeConfig {
 pub type ParticleType = u8;
 
 #[derive(Clone, Copy, Debug)]
+#[derive(serde::Serialize, serde::Deserialize)]
 pub struct Behaviour {
     /// Magnitude of the default repulsion force
     pub default_repulse: f32,
@@ -89,6 +97,7 @@ pub struct Behaviour {
 
 /// External particle behaviours
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(serde::Serialize, serde::Deserialize)]
 pub enum ParticleBehaviourMode {
     ParticleLife,
     NodeGraph,
@@ -97,6 +106,7 @@ pub enum ParticleBehaviourMode {
 
 /// Configuration for node interactions
 #[derive(Clone, Copy, Debug)]
+#[derive(serde::Serialize, serde::Deserialize)]
 pub struct NodeInteractionCfg {
     pub neighbor_radius: f32,
 }
