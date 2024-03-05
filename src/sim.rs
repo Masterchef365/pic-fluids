@@ -8,6 +8,19 @@ use rand::prelude::*;
 use vorpal_widgets::vorpal_core::{ExternParameters, ExternInputId, Value, ParameterList, DataType};
 use vorpal_widgets::vorpal_core::{Node, native_backend::evaluate_node};
 
+pub struct SimTweak {
+    pub dt: f32,
+    pub solver_iters: usize,
+    pub stiffness: f32,
+    pub gravity: f32,
+    pub pic_apic_ratio: f32,
+    pub solver: IncompressibilitySolver,
+    pub enable_incompress: bool,
+    pub enable_particle_collisions: bool,
+    pub enable_grid_transfer: bool,
+    pub particle_mode: ParticleBehaviourMode,
+}
+
 #[derive(Clone)]
 pub struct Sim {
     /// Particles
@@ -164,49 +177,40 @@ impl Sim {
 
     pub fn step(
         &mut self,
-        dt: f32,
-        solver_iters: usize,
-        stiffness: f32,
-        gravity: f32,
-        pic_apic_ratio: f32,
-        solver: IncompressibilitySolver,
-        enable_incompress: bool,
-        enable_particle_collisions: bool,
-        enable_grid_transfer: bool,
-        particle_mode: ParticleBehaviourMode,
+        tweak: &SimTweak,
         node_cfg: &NodeInteractionCfg,
         nodes: &Rc<Node>,
     ) {
         //puffin::profile_scope!("Complete Step");
         // Step particles
-        apply_global_force(&mut self.particles, Vec2::new(0., -gravity), dt);
-        match particle_mode {
-            ParticleBehaviourMode::ParticleLife => particle_life_interactions(&mut self.particles, &mut self.life, dt),
-            ParticleBehaviourMode::NodeGraph => node_interactions(&mut self.particles, nodes, node_cfg, dt),
+        apply_global_force(&mut self.particles, Vec2::new(0., -tweak.gravity), tweak.dt);
+        match tweak.particle_mode {
+            ParticleBehaviourMode::ParticleLife => particle_life_interactions(&mut self.particles, &mut self.life, tweak.dt),
+            ParticleBehaviourMode::NodeGraph => node_interactions(&mut self.particles, nodes, node_cfg, tweak.dt),
             ParticleBehaviourMode::Off => (),
         }
 
-        step_particles(&mut self.particles, dt, self.damping);
-        if enable_particle_collisions {
+        step_particles(&mut self.particles, tweak.dt, self.damping);
+        if tweak.enable_particle_collisions {
             enforce_particle_radius(&mut self.particles, self.particle_radius);
         }
         enforce_particle_pos(&mut self.particles, &self.grid);
 
         // Step grid
-        if enable_grid_transfer {
-            particles_to_grid(&self.particles, &mut self.grid, pic_apic_ratio);
-            let solver_fn = match solver {
+        if tweak.enable_grid_transfer {
+            particles_to_grid(&self.particles, &mut self.grid, tweak.pic_apic_ratio);
+            let solver_fn = match tweak.solver {
                 IncompressibilitySolver::Jacobi => solve_incompressibility_jacobi,
                 IncompressibilitySolver::GaussSeidel => solve_incompressibility_gauss_seidel,
             };
 
-            if enable_incompress {
+            if tweak.enable_incompress {
                 solver_fn(
                     &mut self.grid,
-                    solver_iters,
+                    tweak.solver_iters,
                     self.rest_density,
                     self.over_relax,
-                    stiffness,
+                    tweak.stiffness,
                 );
             }
 
@@ -452,13 +456,13 @@ fn grid_to_particles(particles: &mut [Particle], grid: &Array2D<GridCell>) {
         }
 
         /*
-        let v = Vec2::new(0.25, 0.15);
-        dbg!(gradient((0, 0), v));
-        dbg!(gradient((1, 0), v));
-        dbg!(gradient((0, 1), v));
-        dbg!(gradient((1, 1), v));
-        todo!();
-        */
+           let v = Vec2::new(0.25, 0.15);
+           dbg!(gradient((0, 0), v));
+           dbg!(gradient((1, 0), v));
+           dbg!(gradient((0, 1), v));
+           dbg!(gradient((1, 1), v));
+           todo!();
+           */
 
         // Interpolate grid vectors
         part.deriv[0] = gather_vector(u_pos, |p| grid[p].vel.x * gradient(p, u_pos));
@@ -543,7 +547,7 @@ fn enforce_particle_radius(particles: &mut [Particle], radius: f32) {
         .iter_mut()
         .zip(&points)
         .for_each(|(part, point)| part.pos = *point);
-}
+    }
 
 fn particle_life_interactions(particles: &mut [Particle], cfg: &LifeConfig, dt: f32) {
     puffin::profile_scope!("Particle interactions");
@@ -723,8 +727,25 @@ pub fn nodegraph_fn_inputs() -> ParameterList {
         (ExternInputId::new("position".into()), DataType::Vec2),
         (ExternInputId::new("velocity".into()), DataType::Vec2),
     ]
-    .into_iter()
-    .collect();
+        .into_iter()
+        .collect();
 
     ParameterList(params)
+}
+
+impl Default for SimTweak {
+    fn default() -> Self {
+        Self {
+            enable_particle_collisions: false,
+            enable_incompress: true,
+            enable_grid_transfer: true,
+            pic_apic_ratio: 1.,
+            dt: 0.02,
+            solver_iters: 25,
+            stiffness: 1.0,
+            gravity: 9.8,
+            solver: IncompressibilitySolver::GaussSeidel,
+            particle_mode: ParticleBehaviourMode::NodeGraph,
+        }
+    }
 }

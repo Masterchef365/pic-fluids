@@ -20,12 +20,8 @@ pub struct TemplateApp {
     particle_mode: ParticleBehaviourMode,
 
     // Settings
-    dt: f32,
-    solver_iters: usize,
-    stiffness: f32,
-    gravity: f32,
-    solver: IncompressibilitySolver,
 
+    tweak: SimTweak,
     width: usize,
     height: usize,
     calc_rest_density_from_radius: bool,
@@ -35,11 +31,7 @@ pub struct TemplateApp {
     //grid_vel_scale: f32,
     pause: bool,
     single_step: bool,
-    pic_apic_ratio: f32,
     n_colors: usize,
-    enable_incompress: bool,
-    enable_particle_collisions: bool,
-    enable_grid_transfer: bool,
     random_std_dev: f32,
 
     well: bool,
@@ -73,26 +65,18 @@ impl TemplateApp {
         let node_cfg = NodeInteractionCfg::default();
 
         Self {
+            tweak: SimTweak::default(),
             node_cfg,
             particle_mode: ParticleBehaviourMode::NodeGraph,
             nodes,
-            enable_particle_collisions: false,
-            enable_incompress: true,
-            enable_grid_transfer: true,
             advanced: false,
             n_colors,
             source_rate: 0,
-            pic_apic_ratio: 1.,
             calc_rest_density_from_radius: true,
             single_step: false,
-            dt: 0.02,
-            solver_iters: 25,
-            stiffness: 1.0,
-            gravity: 9.8,
             sim,
             width,
             height,
-            solver: IncompressibilitySolver::GaussSeidel,
             well: false,
             source_color_idx: 0,
             random_std_dev,
@@ -165,7 +149,7 @@ impl TemplateApp {
             if self.well {
                 for part in &mut self.sim.particles {
                     if part.pos.x < 20. {
-                        part.vel += self.dt * 9.;
+                        part.vel += self.tweak.dt * 9.;
                     }
                 }
             }
@@ -173,16 +157,7 @@ impl TemplateApp {
             let node = vorpal_widgets::vorpal_core::highlevel::convert_node(self.nodes.extract_output_node());
 
             self.sim.step(
-                self.dt,
-                self.solver_iters,
-                self.stiffness,
-                self.gravity,
-                self.pic_apic_ratio,
-                self.solver,
-                self.enable_incompress,
-                self.enable_particle_collisions,
-                self.enable_grid_transfer,
-                self.particle_mode,
+                &self.tweak,
                 &self.node_cfg,
                 &node,
             );
@@ -197,7 +172,7 @@ impl TemplateApp {
         let coords = CoordinateMapping::new(&self.sim.grid, rect);
 
         // Move particles
-        move_particles_from_egui(&mut self.sim.particles, 4., &coords, self.dt, response);
+        move_particles_from_egui(&mut self.sim.particles, 4., &coords, self.tweak.dt, response);
 
         // Step particles
         if !self.pause || self.single_step {
@@ -299,27 +274,27 @@ impl TemplateApp {
         ui.separator();
         ui.strong("Kinematics");
         ui.add(
-            DragValue::new(&mut self.dt)
+            DragValue::new(&mut self.tweak.dt)
                 .prefix("Δt (time step): ")
                 .speed(1e-4),
         );
         ui.horizontal(|ui| {
             ui.add(
-                DragValue::new(&mut self.gravity)
+                DragValue::new(&mut self.tweak.gravity)
                     .prefix("Gravity: ")
                     .speed(1e-2),
             );
             if ui.button("Zero-G").clicked() {
-                self.gravity = 0.;
+                self.tweak.gravity = 0.;
             }
         });
         if self.advanced {
             ui.add(Slider::new(&mut self.sim.damping, 0.0..=1.0).text("Damping"));
             ui.checkbox(
-                &mut self.enable_grid_transfer,
+                &mut self.tweak.enable_grid_transfer,
                 "Grid transfer (required for incompressibility solver!)",
             );
-            ui.add(Slider::new(&mut self.pic_apic_ratio, 0.0..=1.0).text("PIC - APIC"));
+            ui.add(Slider::new(&mut self.tweak.pic_apic_ratio, 0.0..=1.0).text("PIC - APIC"));
         }
 
         ui.separator();
@@ -333,7 +308,7 @@ impl TemplateApp {
                 .clamp_range(1e-2..=5.0),
         );
         if self.advanced {
-            ui.checkbox(&mut self.enable_particle_collisions, "Hard collisions");
+            ui.checkbox(&mut self.tweak.enable_particle_collisions, "Hard collisions");
             ui.horizontal(|ui| {
                 ui.add(
                     DragValue::new(&mut self.sim.rest_density)
@@ -351,13 +326,13 @@ impl TemplateApp {
             self.sim.rest_density = calc_rest_density(self.sim.particle_radius);
         }
 
-        if self.advanced && self.enable_grid_transfer {
+        if self.advanced && self.tweak.enable_grid_transfer {
             ui.separator();
             ui.horizontal(|ui| {
                 ui.strong("Incompressibility Solver");
-                ui.checkbox(&mut self.enable_incompress, "");
+                ui.checkbox(&mut self.tweak.enable_incompress, "");
             });
-            ui.add(DragValue::new(&mut self.solver_iters).prefix("Solver iterations: "));
+            ui.add(DragValue::new(&mut self.tweak.solver_iters).prefix("Solver iterations: "));
             ui.add(
                 DragValue::new(&mut self.sim.over_relax)
                     .prefix("Over-relaxation: ")
@@ -365,15 +340,15 @@ impl TemplateApp {
                     .clamp_range(0.0..=1.95),
             );
             ui.horizontal(|ui| {
-                ui.selectable_value(&mut self.solver, IncompressibilitySolver::Jacobi, "Jacobi");
+                ui.selectable_value(&mut self.tweak.solver, IncompressibilitySolver::Jacobi, "Jacobi");
                 ui.selectable_value(
-                    &mut self.solver,
+                    &mut self.tweak.solver,
                     IncompressibilitySolver::GaussSeidel,
                     "Gauss Seidel",
                 );
             });
             ui.add(
-                DragValue::new(&mut self.stiffness)
+                DragValue::new(&mut self.tweak.stiffness)
                     .prefix("Density compensation stiffness: ")
                     .speed(1e-2),
             );
