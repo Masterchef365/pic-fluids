@@ -153,7 +153,8 @@ impl eframe::App for TemplateApp {
                 ui.horizontal(|ui| {
                     ui.selectable_value(&mut self.mobile_tab, MobileTab::Main, "Main");
                     ui.selectable_value(&mut self.mobile_tab, MobileTab::Settings, "Settings");
-                    ui.selectable_value(&mut self.mobile_tab, MobileTab::NodeGraph, "NodeGraph")
+                    ui.selectable_value(&mut self.mobile_tab, MobileTab::NodeGraph, "NodeGraph");
+                    self.save_menu(ui);
                 });
             });
             CentralPanel::default().show(ctx, |ui| {
@@ -295,6 +296,13 @@ impl TemplateApp {
         }
     }
 
+    fn save_menu(&mut self, ui: &mut Ui) {
+        if ui.button("Copy").clicked() {
+            let txt = serde_json::to_string(self).unwrap();
+            ui.ctx().copy_text(txt);
+        }
+    }
+
     fn settings_gui(&mut self, ui: &mut Ui) {
         ui.strong("Particle behaviour");
         ui.horizontal(|ui| {
@@ -314,6 +322,10 @@ impl TemplateApp {
                 "Particle life",
             );
         });
+
+        ui.separator();
+        ui.strong("Save data");
+        self.save_menu(ui);
 
         let mut reset = false;
         ui.separator();
