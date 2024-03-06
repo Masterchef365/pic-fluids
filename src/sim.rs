@@ -155,7 +155,6 @@ pub fn random_particle(
 
 impl Sim {
     pub fn new(width: usize, height: usize, n_particles: usize, life: &LifeConfig) -> Self {
-        dbg!("Called sim new");
         // Uniformly placed, random particles
         let mut rng = rand::thread_rng();
         let particles = (0..n_particles)
