@@ -63,7 +63,7 @@ fn run_per_particle_kernel() {
     }
 }
 
-pub struct Buffers {
+struct Buffers {
     bytes: Vec<u8>,
     /// Beginning of output bytes, length of input bytes
     partition: usize,

@@ -177,8 +177,11 @@ impl Sim {
                 particle_life_interactions(&mut self.particles, life, tweak.dt)
             }
             ParticleBehaviourMode::NodeGraph => {
-                per_neighbor_node_interactions(&mut self.particles, per_neighbor_nodes, node_cfg, tweak.dt);
-                per_particle_node_interactions_native(&mut self.particles, per_particle_nodes, node_cfg, tweak.dt);
+                //per_neighbor_node_interactions(&mut self.particles, per_neighbor_nodes, node_cfg, tweak.dt);
+                let payloads = build_per_particle_input_payloads(&self.particles, node_cfg, tweak.dt);
+                let outputs = per_particle_node_interactions_native(&payloads, per_particle_nodes);
+                apply_output_payloads(tweak.dt, &mut self. particles, &outputs);
+                //per_particle_node_interactions_native(&mut self.particles, per_particle_nodes, node_cfg, tweak.dt);
             }
             ParticleBehaviourMode::Off => (),
         }
@@ -726,7 +729,7 @@ fn apply_output_payloads(
     particles: &mut [Particle],
     outputs: &[PerParticleOutputPayload],
 ) {
-    particles.iter_mut().zip(outputs).for_each(|(o, i)| *o += dt * Vec2::from(i.accel));
+    particles.iter_mut().zip(outputs).for_each(|(o, i)| o.vel += dt * Vec2::from(i.accel));
 }
 
 fn per_particle_node_interactions_native(
@@ -797,6 +800,7 @@ pub fn per_neighbor_fn_inputs() -> ParameterList {
     ParameterList(params)
 }
 
+/*
 fn per_neighbor_node_interactions(
     particles: &mut [Particle],
     node: &Rc<Node>,
@@ -863,6 +867,7 @@ fn per_neighbor_node_interactions(
         }
     }
 }
+*/
 
 
 

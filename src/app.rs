@@ -53,7 +53,8 @@ pub struct AppSaveState {
 }
 
 fn init_wasm_rt() -> Option<WasmNodeRuntime> {
-    WasmNodeRuntime::new().inspect_err(|e| eprintln!("Wasm runtime error {:?}", e)).ok()
+    //WasmNodeRuntime::new().inspect_err(|e| eprintln!("Wasm runtime error {:?}", e)).ok()
+    None
 }
 
 impl TemplateApp {
