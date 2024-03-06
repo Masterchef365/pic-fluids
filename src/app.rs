@@ -1,4 +1,5 @@
 use crate::array2d::Array2D;
+use crate::wasm_runtime::WasmNodeRuntime;
 
 use eframe::egui::{DragValue, Grid, Rgba, RichText, ScrollArea, Slider, Ui};
 use egui::os::OperatingSystem;
@@ -14,6 +15,7 @@ pub struct TemplateApp {
     // Sim state
     sim: Sim,
     save: AppSaveState,
+    wasm_rt: Option<WasmNodeRuntime>,
 }
 
 #[derive(serde::Serialize, serde::Deserialize)]
@@ -50,6 +52,10 @@ pub struct AppSaveState {
     mobile_tab: MobileTab,
 }
 
+fn init_wasm_rt() -> Option<WasmNodeRuntime> {
+    WasmNodeRuntime::new().inspect_err(|e| eprintln!("Wasm runtime error {:?}", e)).ok()
+}
+
 impl TemplateApp {
     /// Called once before the first frame.
     pub fn new(cc: &eframe::CreationContext<'_>) -> Self {
@@ -59,6 +65,7 @@ impl TemplateApp {
                 return Self {
                     sim: Sim::new(save.width, save.height, save.n_particles, &save.life),
                     save,
+                    wasm_rt: init_wasm_rt(),
                 };
             }
         }
@@ -123,6 +130,7 @@ impl TemplateApp {
         Self {
             save,
             sim,
+            wasm_rt: init_wasm_rt(),
         }
     }
 }
@@ -153,6 +161,11 @@ impl eframe::App for TemplateApp {
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
         #[cfg(not(target_arch = "wasm32"))]
         puffin::GlobalProfiler::lock().new_frame();
+
+        let mut runtime_working = 0;
+        if let Some(rt) = &mut self.wasm_rt {
+            runtime_working = rt.run().unwrap();
+        }
 
         ctx.set_visuals(egui::Visuals::dark());
 
@@ -186,6 +199,7 @@ impl eframe::App for TemplateApp {
 
             if !self.save.fullscreen_inside {
                 SidePanel::left("Settings").show(ctx, |ui| {
+                    ui.label(format!("RUNTIME: {}", runtime_working));
                     ScrollArea::both().show(ui, |ui| self.settings_gui(ui))
                 });
 
