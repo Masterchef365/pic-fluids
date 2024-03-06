@@ -6,4 +6,4 @@ pub use app::TemplateApp;
 mod array2d;
 mod query_accel;
 mod sim;
-mod wasm_runtime;
+mod wasm_embed;

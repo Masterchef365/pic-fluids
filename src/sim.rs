@@ -9,6 +9,7 @@ use vorpal_widgets::vorpal_core::{native_backend::evaluate_node, Node};
 use vorpal_widgets::vorpal_core::{
     DataType, ExternInputId, ExternParameters, ParameterList, Value,
 };
+use wasm_runtime::{PerParticleInputPayload, PerParticleOutputPayload};
 
 #[derive(serde::Serialize, serde::Deserialize)]
 pub struct SimTweak {
@@ -177,7 +178,7 @@ impl Sim {
             }
             ParticleBehaviourMode::NodeGraph => {
                 per_neighbor_node_interactions(&mut self.particles, per_neighbor_nodes, node_cfg, tweak.dt);
-                per_particle_node_interactions(&mut self.particles, per_particle_nodes, node_cfg, tweak.dt);
+                per_particle_node_interactions_native(&mut self.particles, per_particle_nodes, node_cfg, tweak.dt);
             }
             ParticleBehaviourMode::Off => (),
         }
@@ -705,46 +706,69 @@ pub fn per_particle_fn_inputs() -> ParameterList {
     ParameterList(params)
 }
 
-fn per_particle_node_interactions(
-    particles: &mut [Particle],
-    node: &Rc<Node>,
+fn build_per_particle_input_payloads(
+    particles: &[Particle],
     cfg: &NodeInteractionCfg,
     dt: f32,
+) -> Vec<PerParticleInputPayload> {
+    particles.iter().map(|part| {
+        PerParticleInputPayload {
+            dt,
+            pos: part.pos.to_array(),
+            vel: part.vel.to_array(),
+            our_type: part.color as f32,
+        }
+    }).collect()
+}
+
+fn apply_output_payloads(
+    dt: f32,
+    particles: &mut [Particle],
+    outputs: &[PerParticleOutputPayload],
 ) {
+    particles.iter_mut().zip(outputs).for_each(|(o, i)| *o += dt * Vec2::from(i.accel));
+}
+
+fn per_particle_node_interactions_native(
+    inputs: &[PerParticleInputPayload],
+    node: &Rc<Node>,
+) -> Vec<PerParticleOutputPayload> {
     //evaluate_node(node, ctx)
     puffin::profile_scope!("Per-Particle node interactions");
-    for i in 0..particles.len() {
+    inputs.iter().map(|part| {
         // The vector pointing from a to b
         //let diff = points[neighbor] - points[i];
 
-        let inputs = [
+        let node_inputs = [
             (
                 ExternInputId::new("dt".to_string()),
-                Value::Scalar(dt),
+                Value::Scalar(part.dt),
             ),
             (
                 ExternInputId::new("our-type".into()),
-                Value::Scalar(particles[i].color as f32),
+                Value::Scalar(part.our_type),
             ),
             (
                 ExternInputId::new("position".into()),
-                Value::Vec2(particles[i].pos.to_array()),
+                Value::Vec2(part.pos),
             ),
             (
                 ExternInputId::new("velocity".into()),
-                Value::Vec2(particles[i].vel.to_array()),
+                Value::Vec2(part.vel),
             ),
         ];
         let params = ExternParameters {
-            inputs: inputs.into_iter().collect(),
+            inputs: node_inputs.into_iter().collect(),
         };
 
         let ret = evaluate_node(&node, &params);
         let Value::Vec2([fx, fy]) = ret.as_ref().unwrap() else {
             panic!("{:?}", &ret);
         };
-        particles[i].vel += dt * Vec2::new(*fx, *fy);
-    }
+        PerParticleOutputPayload {
+            accel: [*fx, *fy]
+        }
+    }).collect()
 }
 
 pub fn per_neighbor_fn_inputs() -> ParameterList {

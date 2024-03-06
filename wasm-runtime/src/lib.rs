@@ -23,16 +23,16 @@ fn per_particle_kernel(
 #[repr(C)]
 #[derive(Clone, Copy, Debug)]
 pub struct PerParticleInputPayload {
-    dt: f32,
-    pos: [f32; 2],
-    vel: [f32; 2],
-    our_type: f32,
+    pub dt: f32,
+    pub pos: [f32; 2],
+    pub vel: [f32; 2],
+    pub our_type: f32,
 }
 
 #[repr(C)]
 #[derive(Clone, Copy, Debug)]
 pub struct PerParticleOutputPayload {
-    accel: [f32; 2],
+    pub accel: [f32; 2],
 }
 
 unsafe impl Pod for PerParticleInputPayload {}

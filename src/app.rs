@@ -1,5 +1,5 @@
 use crate::array2d::Array2D;
-use crate::wasm_runtime::WasmNodeRuntime;
+use crate::wasm_embed::WasmNodeRuntime;
 
 use eframe::egui::{DragValue, Grid, Rgba, RichText, ScrollArea, Slider, Ui};
 use egui::os::OperatingSystem;
