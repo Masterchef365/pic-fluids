@@ -10,12 +10,14 @@ use vorpal_widgets::vorpal_core::DataType;
 
 use crate::sim::*;
 
-#[derive(serde::Serialize, serde::Deserialize)]
 pub struct TemplateApp {
     // Sim state
-    #[serde(skip)]
     sim: Sim,
+    save: AppSaveState,
+}
 
+#[derive(serde::Serialize, serde::Deserialize)]
+pub struct AppSaveState {
     life: LifeConfig,
     per_particle_fn: NodeGraphWidget,
     per_neighbor_fn: NodeGraphWidget,
@@ -53,8 +55,11 @@ impl TemplateApp {
     pub fn new(cc: &eframe::CreationContext<'_>) -> Self {
         // Load previous app state (if any).
         if let Some(storage) = cc.storage {
-            if let Some(saved) = eframe::get_value(storage, eframe::APP_KEY) {
-                return saved;
+            if let Some(save) = eframe::get_value::<AppSaveState>(storage, eframe::APP_KEY) {
+                return Self {
+                    sim: Sim::new(save.width, save.height, save.n_particles, &save.life),
+                    save,
+                };
             }
         }
 
@@ -87,7 +92,7 @@ impl TemplateApp {
 
         let node_cfg = NodeInteractionCfg::default();
 
-        Self {
+        let save = AppSaveState {
             n_particles,
             set_hard_collisions_based_on_particle_life: true,
             life,
@@ -99,7 +104,6 @@ impl TemplateApp {
             n_colors,
             source_rate: 0,
             single_step: false,
-            sim,
             width,
             height,
             well: false,
@@ -114,6 +118,11 @@ impl TemplateApp {
             mobile_tab: MobileTab::Main,
             fullscreen_inside: false,
             //mult: 1.0,
+        };
+
+        Self {
+            save,
+            sim,
         }
     }
 }
@@ -138,7 +147,7 @@ fn is_mobile(ctx: &egui::Context) -> bool {
 impl eframe::App for TemplateApp {
     /// Called by the frame work to save state before shutdown.
     fn save(&mut self, storage: &mut dyn eframe::Storage) {
-        eframe::set_value(storage, eframe::APP_KEY, self);
+        eframe::set_value(storage, eframe::APP_KEY, &self.save);
     }
 
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
@@ -152,14 +161,14 @@ impl eframe::App for TemplateApp {
         if is_mobile(ctx) {
             TopBottomPanel::top("mobile_stuff").show(ctx, |ui| {
                 ui.horizontal(|ui| {
-                    ui.selectable_value(&mut self.mobile_tab, MobileTab::Main, "Main");
-                    ui.selectable_value(&mut self.mobile_tab, MobileTab::Settings, "Settings");
-                    ui.selectable_value(&mut self.mobile_tab, MobileTab::NodeGraph, "NodeGraph");
+                    ui.selectable_value(&mut self.save.mobile_tab, MobileTab::Main, "Main");
+                    ui.selectable_value(&mut self.save.mobile_tab, MobileTab::Settings, "Settings");
+                    ui.selectable_value(&mut self.save.mobile_tab, MobileTab::NodeGraph, "NodeGraph");
                     self.save_menu(ui);
                 });
             });
             CentralPanel::default().show(ctx, |ui| {
-                match self.mobile_tab {
+                match self.save.mobile_tab {
                     MobileTab::Settings => {
                         ScrollArea::both().show(ui, |ui| self.settings_gui(ui));
                         self.enforce_particle_count();
@@ -173,16 +182,16 @@ impl eframe::App for TemplateApp {
                 }
             });
         } else {
-            self.fullscreen_inside ^= ctx.input(|r| r.key_released(ENABLE_FULLSCREEN_KEY));
+            self.save.fullscreen_inside ^= ctx.input(|r| r.key_released(ENABLE_FULLSCREEN_KEY));
 
-            if !self.fullscreen_inside {
+            if !self.save.fullscreen_inside {
                 SidePanel::left("Settings").show(ctx, |ui| {
                     ScrollArea::both().show(ui, |ui| self.settings_gui(ui))
                 });
 
                 self.enforce_particle_count();
 
-                if self.tweak.particle_mode == ParticleBehaviourMode::NodeGraph {
+                if self.save.tweak.particle_mode == ParticleBehaviourMode::NodeGraph {
                     SidePanel::right("NodeGraph").show(ctx, |ui| {
                         self.show_node_graph(ui);
                     });
@@ -198,52 +207,52 @@ impl eframe::App for TemplateApp {
 
 impl TemplateApp {
     fn show_node_graph(&mut self, ui: &mut Ui) {
-        match self.node_graph_fn_viewed {
-            NodeGraphFns::PerNeighbor => self.per_neighbor_fn.show(ui),
-            NodeGraphFns::PerParticle => self.per_particle_fn.show(ui),
+        match self.save.node_graph_fn_viewed {
+            NodeGraphFns::PerNeighbor => self.save.per_neighbor_fn.show(ui),
+            NodeGraphFns::PerParticle => self.save.per_particle_fn.show(ui),
         }
     }
 
     fn step_sim(&mut self) {
         // Update
-        if !self.pause || self.single_step {
-            for _ in 0..self.source_rate {
+        if !self.save.pause || self.save.single_step {
+            for _ in 0..self.save.source_rate {
                 let pos = Vec2::new(10., 90.);
                 let vel = Vec2::ZERO;
                 self.sim.particles.push(Particle {
                     pos,
                     vel,
                     deriv: [Vec2::ZERO; 2],
-                    color: self.source_color_idx,
+                    color: self.save.source_color_idx,
                 });
             }
-            self.n_particles = self.sim.particles.len();
+            self.save.n_particles = self.sim.particles.len();
 
-            if self.well {
+            if self.save.well {
                 for part in &mut self.sim.particles {
                     if part.pos.x < 20. {
-                        part.vel += self.tweak.dt * 9.;
+                        part.vel += self.save.tweak.dt * 9.;
                     }
                 }
             }
 
             let per_neighbor_node = vorpal_widgets::vorpal_core::highlevel::convert_node(
-                self.per_neighbor_fn.extract_output_node(),
+                self.save.per_neighbor_fn.extract_output_node(),
             );
 
             let per_particle_node = vorpal_widgets::vorpal_core::highlevel::convert_node(
-                self.per_particle_fn.extract_output_node(),
+                self.save.per_particle_fn.extract_output_node(),
             );
 
             self.sim.step(
-                &self.tweak,
-                &self.life,
-                &self.node_cfg,
+                &self.save.tweak,
+                &self.save.life,
+                &self.save.node_cfg,
                 &per_neighbor_node,
                 &per_particle_node,
             );
 
-            self.single_step = false;
+            self.save.single_step = false;
         }
     }
 
@@ -257,25 +266,25 @@ impl TemplateApp {
             &mut self.sim.particles,
             4.,
             &coords,
-            self.tweak.dt,
+            self.save.tweak.dt,
             response,
         );
 
         // Step particles
-        if !self.pause || self.single_step {
+        if !self.save.pause || self.save.single_step {
             self.step_sim();
-            self.single_step = false;
+            self.save.single_step = false;
         }
 
         // Draw particles
         let painter = ui.painter_at(rect);
         let radius = coords
-            .sim_to_egui_vect(Vec2::splat(self.tweak.particle_radius))
+            .sim_to_egui_vect(Vec2::splat(self.save.tweak.particle_radius))
             .length()
             / 2_f32.sqrt();
 
         for part in &self.sim.particles {
-            let color = self.life.colors[part.color as usize];
+            let color = self.save.life.colors[part.color as usize];
             painter.circle_filled(
                 coords.sim_to_egui(part.pos) + rect.left_top().to_vec2(),
                 radius,
@@ -286,16 +295,16 @@ impl TemplateApp {
 
     /// Fix having not saved the grid, or resizing events
     fn enforce_particle_count(&mut self) {
-        if self.sim.grid.width() != self.width || self.sim.grid.height() != self.height {
-            self.sim = Sim::new(self.width, self.height, self.n_particles, &self.life);
-        } else if self.n_particles != self.sim.particles.len() {
+        if self.sim.grid.width() != self.save.width || self.sim.grid.height() != self.save.height {
+            self.sim = Sim::new(self.save.width, self.save.height, self.save.n_particles, &self.save.life);
+        } else if self.save.n_particles != self.sim.particles.len() {
             let mut rng = rand::thread_rng();
-            self.sim.particles.resize_with(self.n_particles, || {
+            self.sim.particles.resize_with(self.save.n_particles, || {
                 random_particle(
                     &mut rng,
                     self.sim.grid.width(),
                     self.sim.grid.height(),
-                    &self.life,
+                    &self.save.life,
                 )
             });
         }
@@ -303,7 +312,7 @@ impl TemplateApp {
 
     fn save_menu(&mut self, ui: &mut Ui) {
         if ui.button("Copy").clicked() {
-            let txt = serde_json::to_string(self).unwrap();
+            let txt = serde_json::to_string(&self.save).unwrap();
             ui.ctx().copy_text(txt);
         }
         ui.horizontal(|ui| {
@@ -313,7 +322,7 @@ impl TemplateApp {
             if !paste_txt.is_empty() {
                 match serde_json::from_str(&paste_txt) {
                     Ok(val) => {
-                        *self = val;
+                        self.save = val;
                         self.enforce_particle_count();
                     },
                     Err(e) => eprintln!("Error reading pasted text: {:#?}", e),
@@ -323,25 +332,25 @@ impl TemplateApp {
     }
 
     fn settings_gui(&mut self, ui: &mut Ui) {
-        if self.set_hard_collisions_based_on_particle_life {
-            self.tweak.enable_particle_collisions =
-                self.tweak.particle_mode != ParticleBehaviourMode::ParticleLife;
+        if self.save.set_hard_collisions_based_on_particle_life {
+            self.save.tweak.enable_particle_collisions =
+                self.save.tweak.particle_mode != ParticleBehaviourMode::ParticleLife;
         }
 
         ui.strong("Particle behaviour");
         ui.horizontal(|ui| {
             ui.selectable_value(
-                &mut self.tweak.particle_mode,
+                &mut self.save.tweak.particle_mode,
                 ParticleBehaviourMode::Off,
                 "Off",
             );
             ui.selectable_value(
-                &mut self.tweak.particle_mode,
+                &mut self.save.tweak.particle_mode,
                 ParticleBehaviourMode::NodeGraph,
                 "Node graph",
             );
             ui.selectable_value(
-                &mut self.tweak.particle_mode,
+                &mut self.save.tweak.particle_mode,
                 ParticleBehaviourMode::ParticleLife,
                 "Particle life",
             );
@@ -356,7 +365,7 @@ impl TemplateApp {
         ui.strong("Simulation state");
 
         ui.add(
-            DragValue::new(&mut self.n_particles)
+            DragValue::new(&mut self.save.n_particles)
             .prefix("# of particles: ")
             .clamp_range(1..=usize::MAX)
             .speed(4),
@@ -364,46 +373,46 @@ impl TemplateApp {
 
         if ui
             .add(
-                DragValue::new(&mut self.n_colors)
+                DragValue::new(&mut self.save.n_colors)
                 .prefix("# of colors: ")
                 .clamp_range(1..=255),
             )
                 .changed()
         {
-            let old_size = self.life.behaviours.width();
-            let mut new_behav_array = Array2D::new(self.n_colors, self.n_colors);
-            for i in 0..self.n_colors {
-                for j in 0..self.n_colors {
+            let old_size = self.save.life.behaviours.width();
+            let mut new_behav_array = Array2D::new(self.save.n_colors, self.save.n_colors);
+            for i in 0..self.save.n_colors {
+                for j in 0..self.save.n_colors {
                     if i < old_size && j < old_size {
-                        new_behav_array[(i, j)] = self.life.behaviours[(i, j)];
+                        new_behav_array[(i, j)] = self.save.life.behaviours[(i, j)];
                     } else {
-                        new_behav_array[(i, j)] = LifeConfig::random_behaviour(self.random_std_dev);
+                        new_behav_array[(i, j)] = LifeConfig::random_behaviour(self.save.random_std_dev);
                     }
                 }
             }
-            self.life.behaviours = new_behav_array;
+            self.save.life.behaviours = new_behav_array;
 
-            self.life
+            self.save.life
                 .colors
-                .resize_with(self.n_colors, || random_color(&mut rand::thread_rng()));
+                .resize_with(self.save.n_colors, || random_color(&mut rand::thread_rng()));
             reset = true;
         }
         ui.horizontal(|ui| {
-            ui.checkbox(&mut self.pause, "Pause");
-            self.single_step |= ui.button("Step").clicked();
+            ui.checkbox(&mut self.save.pause, "Pause");
+            self.save.single_step |= ui.button("Step").clicked();
         });
         if ui.button("Reset").clicked() {
             reset = true;
         }
-        if self.advanced {
+        if self.save.advanced {
             ui.horizontal(|ui| {
                 ui.add(
-                    DragValue::new(&mut self.width)
+                    DragValue::new(&mut self.save.width)
                     .prefix("Width: ")
                     .clamp_range(1..=usize::MAX),
                 );
                 ui.add(
-                    DragValue::new(&mut self.height)
+                    DragValue::new(&mut self.save.height)
                     .prefix("Height: ")
                     .clamp_range(1..=usize::MAX),
                 );
@@ -413,27 +422,27 @@ impl TemplateApp {
         ui.separator();
         ui.strong("Kinematics");
         ui.add(
-            DragValue::new(&mut self.tweak.dt)
+            DragValue::new(&mut self.save.tweak.dt)
             .prefix("Δt (time step): ")
             .speed(1e-4),
         );
         ui.horizontal(|ui| {
             ui.add(
-                DragValue::new(&mut self.tweak.gravity)
+                DragValue::new(&mut self.save.tweak.gravity)
                 .prefix("Gravity: ")
                 .speed(1e-2),
             );
             if ui.button("Zero-G").clicked() {
-                self.tweak.gravity = 0.;
+                self.save.tweak.gravity = 0.;
             }
         });
-        if self.advanced {
-            ui.add(Slider::new(&mut self.tweak.damping, 0.0..=1.0).text("Damping"));
+        if self.save.advanced {
+            ui.add(Slider::new(&mut self.save.tweak.damping, 0.0..=1.0).text("Damping"));
             ui.checkbox(
-                &mut self.tweak.enable_grid_transfer,
+                &mut self.save.tweak.enable_grid_transfer,
                 "Grid transfer (required for incompressibility solver!)",
             );
-            ui.add(Slider::new(&mut self.tweak.pic_apic_ratio, 0.0..=1.0).text("PIC - APIC"));
+            ui.add(Slider::new(&mut self.save.tweak.pic_apic_ratio, 0.0..=1.0).text("PIC - APIC"));
         }
 
         ui.separator();
@@ -441,28 +450,28 @@ impl TemplateApp {
             ui.strong("Particle collisions");
         });
         ui.add(
-            DragValue::new(&mut self.tweak.particle_radius)
+            DragValue::new(&mut self.save.tweak.particle_radius)
             .prefix("Particle radius: ")
             .speed(1e-2)
             .clamp_range(1e-2..=5.0),
         );
 
-        if self.advanced {
+        if self.save.advanced {
             ui.horizontal(|ui| {
                 ui.checkbox(
-                    &mut self.tweak.enable_particle_collisions,
+                    &mut self.save.tweak.enable_particle_collisions,
                     "Hard collisions",
                 );
 
                 ui.label("(");
                 ui.checkbox(
-                    &mut self.set_hard_collisions_based_on_particle_life,
+                    &mut self.save.set_hard_collisions_based_on_particle_life,
                     "if particle life not actv.",
                 );
                 ui.label(")");
             });
             ui.horizontal(|ui| {
-                let mut rest_density = self.tweak.rest_density();
+                let mut rest_density = self.save.tweak.rest_density();
                 if ui
                     .add(
                         DragValue::new(&mut rest_density)
@@ -471,10 +480,10 @@ impl TemplateApp {
                     )
                         .changed()
                 {
-                    self.tweak.rest_density = Some(rest_density);
+                    self.save.tweak.rest_density = Some(rest_density);
                 }
 
-                let mut calc_rest_density_from_radius = self.tweak.rest_density.is_none();
+                let mut calc_rest_density_from_radius = self.save.tweak.rest_density.is_none();
                 if ui
                     .checkbox(
                         &mut calc_rest_density_from_radius,
@@ -483,42 +492,42 @@ impl TemplateApp {
                         .changed()
                 {
                     if calc_rest_density_from_radius {
-                        self.tweak.rest_density = None;
+                        self.save.tweak.rest_density = None;
                     } else {
-                        self.tweak.rest_density =
-                            Some(calc_rest_density(self.tweak.particle_radius));
+                        self.save.tweak.rest_density =
+                            Some(calc_rest_density(self.save.tweak.particle_radius));
                     }
                 }
             });
         }
 
-        if self.advanced && self.tweak.enable_grid_transfer {
+        if self.save.advanced && self.save.tweak.enable_grid_transfer {
             ui.separator();
             ui.horizontal(|ui| {
                 ui.strong("Incompressibility Solver");
-                ui.checkbox(&mut self.tweak.enable_incompress, "");
+                ui.checkbox(&mut self.save.tweak.enable_incompress, "");
             });
-            ui.add(DragValue::new(&mut self.tweak.solver_iters).prefix("Solver iterations: "));
+            ui.add(DragValue::new(&mut self.save.tweak.solver_iters).prefix("Solver iterations: "));
             ui.add(
-                DragValue::new(&mut self.tweak.over_relax)
+                DragValue::new(&mut self.save.tweak.over_relax)
                 .prefix("Over-relaxation: ")
                 .speed(1e-2)
                 .clamp_range(0.0..=1.95),
             );
             ui.horizontal(|ui| {
                 ui.selectable_value(
-                    &mut self.tweak.solver,
+                    &mut self.save.tweak.solver,
                     IncompressibilitySolver::Jacobi,
                     "Jacobi",
                 );
                 ui.selectable_value(
-                    &mut self.tweak.solver,
+                    &mut self.save.tweak.solver,
                     IncompressibilitySolver::GaussSeidel,
                     "Gauss Seidel",
                 );
             });
             ui.add(
-                DragValue::new(&mut self.tweak.stiffness)
+                DragValue::new(&mut self.save.tweak.stiffness)
                 .prefix("Density compensation stiffness: ")
                 .speed(1e-2),
             );
@@ -527,51 +536,51 @@ impl TemplateApp {
         ui.separator();
         ui.strong("Particle source");
         ui.add(
-            DragValue::new(&mut self.source_rate)
+            DragValue::new(&mut self.save.source_rate)
             .prefix("Particle inflow rate: ")
             .speed(1e-1),
         );
         ui.horizontal(|ui| {
             ui.label("Particle inflow color: ");
-            for (idx, &color) in self.life.colors.iter().enumerate() {
+            for (idx, &color) in self.save.life.colors.iter().enumerate() {
                 let color_marker = RichText::new("#####").color(color_to_egui(color));
-                let button = ui.selectable_label(idx as u8 == self.source_color_idx, color_marker);
+                let button = ui.selectable_label(idx as u8 == self.save.source_color_idx, color_marker);
                 if button.clicked() {
-                    self.source_color_idx = idx as u8;
+                    self.save.source_color_idx = idx as u8;
                 }
             }
-            self.source_color_idx = self.source_color_idx.min(self.life.colors.len() as u8 - 1);
+            self.save.source_color_idx = self.save.source_color_idx.min(self.save.life.colors.len() as u8 - 1);
         });
-        ui.checkbox(&mut self.well, "Particle well");
+        ui.checkbox(&mut self.save.well, "Particle well");
 
         ui.separator();
-        if self.tweak.particle_mode == ParticleBehaviourMode::NodeGraph {
+        if self.save.tweak.particle_mode == ParticleBehaviourMode::NodeGraph {
             ui.strong("Node graph configuration");
             ui.horizontal(|ui| {
                 ui.strong("Viewing: ");
                 ui.selectable_value(
-                    &mut self.node_graph_fn_viewed,
+                    &mut self.save.node_graph_fn_viewed,
                     NodeGraphFns::PerNeighbor,
                     "Per-neighbor",
                 );
                 ui.selectable_value(
-                    &mut self.node_graph_fn_viewed,
+                    &mut self.save.node_graph_fn_viewed,
                     NodeGraphFns::PerParticle,
                     "Per-particle",
                 );
             });
             ui.add(
-                DragValue::new(&mut self.node_cfg.neighbor_radius)
+                DragValue::new(&mut self.save.node_cfg.neighbor_radius)
                 .clamp_range(1e-2..=20.0)
                 .speed(1e-2)
                 .prefix("Neighbor_radius: "),
             );
         }
 
-        if self.tweak.particle_mode == ParticleBehaviourMode::ParticleLife {
+        if self.save.tweak.particle_mode == ParticleBehaviourMode::ParticleLife {
             ui.strong("Particle life configuration");
-            let mut behav_cfg = self.life.behaviours[(0, 0)];
-            if self.advanced {
+            let mut behav_cfg = self.save.life.behaviours[(0, 0)];
+            if self.save.advanced {
                 ui.add(
                     DragValue::new(&mut behav_cfg.max_inter_dist)
                     .clamp_range(0.0..=20.0)
@@ -590,13 +599,13 @@ impl TemplateApp {
                         .speed(1e-2)
                         .prefix("Interaction threshold: "),
                     );
-                    ui.checkbox(&mut self.set_inter_dist_to_radius, "From radius");
+                    ui.checkbox(&mut self.save.set_inter_dist_to_radius, "From radius");
                 });
             }
-            if self.set_inter_dist_to_radius {
-                behav_cfg.inter_threshold = self.tweak.particle_radius * 2.;
+            if self.save.set_inter_dist_to_radius {
+                behav_cfg.inter_threshold = self.save.tweak.particle_radius * 2.;
             }
-            for b in self.life.behaviours.data_mut() {
+            for b in self.save.life.behaviours.data_mut() {
                 b.max_inter_dist = behav_cfg.max_inter_dist;
                 b.inter_threshold = behav_cfg.inter_threshold;
                 b.default_repulse = behav_cfg.default_repulse;
@@ -607,17 +616,17 @@ impl TemplateApp {
                 // Top row
                 //ui.label("Life");
                 ui.label("");
-                for color in &mut self.life.colors {
+                for color in &mut self.save.life.colors {
                     ui.color_edit_button_rgb(color);
                 }
                 ui.end_row();
 
                 // Grid
-                let len = self.life.colors.len();
-                for (row_idx, color) in self.life.colors.iter_mut().enumerate() {
+                let len = self.save.life.colors.len();
+                for (row_idx, color) in self.save.life.colors.iter_mut().enumerate() {
                     ui.color_edit_button_rgb(color);
                     for column in 0..len {
-                        let behav = &mut self.life.behaviours[(column, row_idx)];
+                        let behav = &mut self.save.life.behaviours[(column, row_idx)];
                         ui.add(DragValue::new(&mut behav.inter_strength).speed(1e-2));
                     }
                     ui.end_row();
@@ -626,21 +635,21 @@ impl TemplateApp {
 
             ui.horizontal(|ui| {
                 if ui.button("Randomize behaviours").clicked() {
-                    self.life = LifeConfig::random(self.n_colors, self.random_std_dev);
+                    self.save.life = LifeConfig::random(self.save.n_colors, self.save.random_std_dev);
                     reset = true;
                 }
                 ui.add(
-                    DragValue::new(&mut self.random_std_dev)
+                    DragValue::new(&mut self.save.random_std_dev)
                     .prefix("std. dev: ")
                     .speed(1e-2)
                     .clamp_range(0.0..=f32::MAX),
                 )
             });
             if ui.button("Symmetric forces").clicked() {
-                let n = self.life.colors.len();
+                let n = self.save.life.colors.len();
                 for i in 0..n {
                     for j in 0..i {
-                        self.life.behaviours[(i, j)] = self.life.behaviours[(j, i)]
+                        self.save.life.behaviours[(i, j)] = self.save.life.behaviours[(j, i)]
                     }
                 }
             }
@@ -658,20 +667,20 @@ impl TemplateApp {
            */
 
         /*
-           if self.advanced {
-           ui.add(DragValue::new(&mut self.mult).speed(1e-2));
+           if self.save.advanced {
+           ui.add(DragValue::new(&mut self.save.mult).speed(1e-2));
            }
            */
 
         /*
-           if self.advanced {
+           if self.save.advanced {
            ui.separator();
            ui.strong("Debug");
-           ui.checkbox(&mut self.show_grid, "Show grid");
+           ui.checkbox(&mut self.save.show_grid, "Show grid");
            ui.horizontal(|ui| {
-           ui.checkbox(&mut self.show_arrows, "Show arrows");
+           ui.checkbox(&mut self.save.show_arrows, "Show arrows");
            ui.add(
-           DragValue::new(&mut self.grid_vel_scale)
+           DragValue::new(&mut self.save.grid_vel_scale)
            .prefix("Scale: ")
            .speed(1e-2)
            .clamp_range(0.0..=f32::INFINITY),
@@ -682,15 +691,15 @@ impl TemplateApp {
 
         if reset {
             self.sim = Sim::new(
-                self.width,
-                self.height,
+                self.save.width,
+                self.save.height,
                 self.sim.particles.len(),
-                &self.life,
+                &self.save.life,
             );
         }
 
         ui.separator();
-        ui.checkbox(&mut self.advanced, "Advanced settings");
+        ui.checkbox(&mut self.save.advanced, "Advanced settings");
         if ui.button("Reset everything").clicked() {
             *self = Self::new_from_ctx(ui.ctx());
         }
