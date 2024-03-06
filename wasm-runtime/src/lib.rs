@@ -30,7 +30,7 @@ pub struct PerParticleInputPayload {
 }
 
 #[repr(C)]
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy, Debug, Default)]
 pub struct PerParticleOutputPayload {
     pub accel: [f32; 2],
 }

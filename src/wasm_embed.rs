@@ -27,7 +27,7 @@ impl WasmNodeRuntime {
     pub fn run(&mut self, inputs: &[PerParticleInputPayload]) -> Result<Vec<PerParticleOutputPayload>> {
         // Casting
         let input_buf: &[u8] = bytemuck::cast_slice(inputs);
-        let mut output_buf: Vec<PerParticleOutputPayload> = bytemuck::zeroed_vec(inputs.len());
+        let mut output_buf: Vec<PerParticleOutputPayload> = vec![PerParticleOutputPayload::default(); inputs.len()];
 
         // Reserve some memory in the wasm module
         let func = self.instance.get_typed_func::<(u32, u32), u32>(&mut self.store, "reserve")?;
