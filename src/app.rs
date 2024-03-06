@@ -13,6 +13,7 @@ use crate::sim::*;
 #[derive(serde::Serialize, serde::Deserialize)]
 pub struct TemplateApp {
     // Sim state
+    #[serde(skip)]
     sim: Sim,
 
     life: LifeConfig,
@@ -144,6 +145,8 @@ impl eframe::App for TemplateApp {
         #[cfg(not(target_arch = "wasm32"))]
         puffin::GlobalProfiler::lock().new_frame();
 
+        self.enforce_particle_count();
+
         ctx.set_visuals(egui::Visuals::dark());
 
         // Update continuously
@@ -248,8 +251,6 @@ impl TemplateApp {
 
         let coords = CoordinateMapping::new(&self.sim.grid, rect);
 
-        self.enforce_particle_count();
-
         // Move particles
         move_particles_from_egui(
             &mut self.sim.particles,
@@ -282,8 +283,12 @@ impl TemplateApp {
         }
     }
 
+    /// Fix having not saved the grid, or resizing events
     fn enforce_particle_count(&mut self) {
-        if self.n_particles != self.sim.particles.len() {
+        dbg!(self.width);
+        if self.sim.grid.width() != self.width || self.sim.grid.height() != self.height {
+            self.sim = Sim::new(self.width, self.height, self.n_particles, &self.life);
+        } else if self.n_particles != self.sim.particles.len() {
             let mut rng = rand::thread_rng();
             self.sim.particles.resize_with(self.n_particles, || {
                 random_particle(
@@ -307,7 +312,10 @@ impl TemplateApp {
             ui.text_edit_singleline(&mut paste_txt);
             if !paste_txt.is_empty() {
                 match serde_json::from_str(&paste_txt) {
-                    Ok(val) => *self = val,
+                    Ok(val) => {
+                        *self = val;
+                        self.enforce_particle_count();
+                    },
                     Err(e) => eprintln!("Error reading pasted text: {:#?}", e),
                 }
             }

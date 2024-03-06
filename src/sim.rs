@@ -29,10 +29,8 @@ pub struct SimTweak {
     pub rest_density: Option<f32>,
 }
 
-#[derive(Clone)]
-#[derive(serde::Serialize, serde::Deserialize)]
+#[derive(Clone, Default)]
 pub struct Sim {
-    #[serde(skip)]
     /// Particles
     pub particles: Vec<Particle>,
     /// Cell wall velocity, staggered grid
@@ -40,12 +38,9 @@ pub struct Sim {
 }
 
 #[derive(Copy, Clone, Debug, Default)]
-#[derive(serde::Serialize, serde::Deserialize)]
 pub struct GridCell {
-    #[serde(skip)]
     /// Flow rate through the top and left faces of this cell
     pub vel: Vec2,
-    #[serde(skip)]
     /// Pressure inside this cell
     pub pressure: f32,
 }
@@ -160,6 +155,7 @@ pub fn random_particle(
 
 impl Sim {
     pub fn new(width: usize, height: usize, n_particles: usize, life: &LifeConfig) -> Self {
+        dbg!("Called sim new");
         // Uniformly placed, random particles
         let mut rng = rand::thread_rng();
         let particles = (0..n_particles)
