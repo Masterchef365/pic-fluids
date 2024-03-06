@@ -67,8 +67,8 @@ impl TemplateApp {
         let size_heuristic = 14.0;
 
         let (width, height) = (
-            (size_heuristic * screen.width()) as usize,
-            (size_heuristic * screen.height()) as usize,
+            (screen.width() / size_heuristic) as usize,
+            (screen.height() / size_heuristic) as usize,
         );
         let n_particles = 4_000;
         let random_std_dev = 5.;
