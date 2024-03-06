@@ -285,7 +285,6 @@ impl TemplateApp {
 
     /// Fix having not saved the grid, or resizing events
     fn enforce_particle_count(&mut self) {
-        dbg!(self.width);
         if self.sim.grid.width() != self.width || self.sim.grid.height() != self.height {
             self.sim = Sim::new(self.width, self.height, self.n_particles, &self.life);
         } else if self.n_particles != self.sim.particles.len() {
@@ -323,6 +322,11 @@ impl TemplateApp {
     }
 
     fn settings_gui(&mut self, ui: &mut Ui) {
+        if self.set_hard_collisions_based_on_particle_life {
+            self.tweak.enable_particle_collisions =
+                self.tweak.particle_mode != ParticleBehaviourMode::ParticleLife;
+        }
+
         ui.strong("Particle behaviour");
         ui.horizontal(|ui| {
             ui.selectable_value(
@@ -442,10 +446,6 @@ impl TemplateApp {
             .clamp_range(1e-2..=5.0),
         );
 
-        if self.set_hard_collisions_based_on_particle_life {
-            self.tweak.enable_particle_collisions =
-                self.tweak.particle_mode != ParticleBehaviourMode::ParticleLife;
-        }
         if self.advanced {
             ui.horizontal(|ui| {
                 ui.checkbox(
@@ -547,6 +547,7 @@ impl TemplateApp {
         if self.tweak.particle_mode == ParticleBehaviourMode::NodeGraph {
             ui.strong("Node graph configuration");
             ui.horizontal(|ui| {
+                ui.strong("Viewing: ");
                 ui.selectable_value(
                     &mut self.node_graph_fn_viewed,
                     NodeGraphFns::PerNeighbor,
