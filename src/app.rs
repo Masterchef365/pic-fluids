@@ -145,8 +145,6 @@ impl eframe::App for TemplateApp {
         #[cfg(not(target_arch = "wasm32"))]
         puffin::GlobalProfiler::lock().new_frame();
 
-        self.enforce_particle_count();
-
         ctx.set_visuals(egui::Visuals::dark());
 
         // Update continuously
@@ -164,6 +162,7 @@ impl eframe::App for TemplateApp {
                 match self.mobile_tab {
                     MobileTab::Settings => {
                         ScrollArea::both().show(ui, |ui| self.settings_gui(ui));
+                        self.enforce_particle_count();
                     }
                     MobileTab::Main => {
                         Frame::canvas(ui.style()).show(ui, |ui| self.sim_widget(ui));
@@ -180,6 +179,8 @@ impl eframe::App for TemplateApp {
                 SidePanel::left("Settings").show(ctx, |ui| {
                     ScrollArea::both().show(ui, |ui| self.settings_gui(ui))
                 });
+
+                self.enforce_particle_count();
 
                 if self.tweak.particle_mode == ParticleBehaviourMode::NodeGraph {
                     SidePanel::right("NodeGraph").show(ctx, |ui| {
