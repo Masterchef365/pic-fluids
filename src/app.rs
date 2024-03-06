@@ -551,12 +551,12 @@ impl TemplateApp {
                 ui.selectable_value(
                     &mut self.node_graph_fn_viewed,
                     NodeGraphFns::PerNeighbor,
-                    "Per-neighbor accel",
+                    "Per-neighbor",
                 );
                 ui.selectable_value(
                     &mut self.node_graph_fn_viewed,
                     NodeGraphFns::PerParticle,
-                    "Per-particle accel",
+                    "Per-particle",
                 );
             });
             ui.add(
