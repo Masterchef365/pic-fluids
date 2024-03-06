@@ -27,7 +27,7 @@ impl WasmNodeRuntime {
     pub fn run(&mut self, inputs: &[PerParticleInputPayload]) -> Result<Vec<PerParticleOutputPayload>> {
         // Casting
         let input_buf: &[u8] = bytemuck::cast_slice(inputs);
-        let mut output_buf: Vec<u8> = bytemuck::cast_vec(bytemuck::zeroed_vec::<PerParticleInputPayload>(inputs.len()));
+        let mut output_buf: Vec<PerParticleOutputPayload> = bytemuck::zeroed_vec(inputs.len());
 
         // Reserve some memory in the wasm module
         let func = self.instance.get_typed_func::<(u32, u32), u32>(&mut self.store, "reserve")?;
@@ -35,7 +35,7 @@ impl WasmNodeRuntime {
         let input_ptr = buf_ptr as usize;
         let output_ptr = input_ptr + input_buf.len();
 
-        let mem = self.instance.get_memory(&mut self.store, "mem").unwrap();
+        let mem = self.instance.get_memory(&mut self.store, "memory").unwrap();
 
         // Write input data
         mem.write(&mut self.store, input_ptr, &input_buf)?;
@@ -45,8 +45,8 @@ impl WasmNodeRuntime {
         func.call(&mut self.store, ())?;
 
         // Read results
-        mem.read(&mut self.store, output_ptr, &mut output_buf)?;
+        mem.read(&mut self.store, output_ptr, bytemuck::cast_slice_mut(&mut output_buf))?;
 
-        Ok(bytemuck::cast_vec(output_buf))
+        Ok(output_buf)
     }
 }
