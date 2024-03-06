@@ -53,8 +53,7 @@ pub struct AppSaveState {
 }
 
 fn init_wasm_rt() -> Option<WasmNodeRuntime> {
-    //WasmNodeRuntime::new().inspect_err(|e| eprintln!("Wasm runtime error {:?}", e)).ok()
-    None
+    WasmNodeRuntime::new().inspect_err(|e| eprintln!("Wasm runtime error {:?}", e)).ok()
 }
 
 impl TemplateApp {
@@ -163,11 +162,6 @@ impl eframe::App for TemplateApp {
         #[cfg(not(target_arch = "wasm32"))]
         puffin::GlobalProfiler::lock().new_frame();
 
-        let mut runtime_working = 0;
-        if let Some(rt) = &mut self.wasm_rt {
-            runtime_working = rt.run().unwrap();
-        }
-
         ctx.set_visuals(egui::Visuals::dark());
 
         // Update continuously
@@ -200,7 +194,6 @@ impl eframe::App for TemplateApp {
 
             if !self.save.fullscreen_inside {
                 SidePanel::left("Settings").show(ctx, |ui| {
-                    ui.label(format!("RUNTIME: {}", runtime_working));
                     ScrollArea::both().show(ui, |ui| self.settings_gui(ui))
                 });
 
@@ -264,6 +257,7 @@ impl TemplateApp {
                 &self.save.life,
                 &self.save.node_cfg,
                 &per_neighbor_node,
+                self.wasm_rt.as_mut(),
                 &per_particle_node,
             );
 
