@@ -301,6 +301,17 @@ impl TemplateApp {
             let txt = serde_json::to_string(self).unwrap();
             ui.ctx().copy_text(txt);
         }
+        ui.horizontal(|ui| {
+            ui.label("Paste here: ");
+            let mut paste_txt = String::new();
+            ui.text_edit_singleline(&mut paste_txt);
+            if !paste_txt.is_empty() {
+                match serde_json::from_str(&paste_txt) {
+                    Ok(val) => *self = val,
+                    Err(e) => eprintln!("Error reading pasted text: {:#?}", e),
+                }
+            }
+        });
     }
 
     fn settings_gui(&mut self, ui: &mut Ui) {
@@ -333,18 +344,18 @@ impl TemplateApp {
 
         ui.add(
             DragValue::new(&mut self.n_particles)
-                .prefix("# of particles: ")
-                .clamp_range(1..=usize::MAX)
-                .speed(4),
+            .prefix("# of particles: ")
+            .clamp_range(1..=usize::MAX)
+            .speed(4),
         );
 
         if ui
             .add(
                 DragValue::new(&mut self.n_colors)
-                    .prefix("# of colors: ")
-                    .clamp_range(1..=255),
+                .prefix("# of colors: ")
+                .clamp_range(1..=255),
             )
-            .changed()
+                .changed()
         {
             let old_size = self.life.behaviours.width();
             let mut new_behav_array = Array2D::new(self.n_colors, self.n_colors);
@@ -375,13 +386,13 @@ impl TemplateApp {
             ui.horizontal(|ui| {
                 ui.add(
                     DragValue::new(&mut self.width)
-                        .prefix("Width: ")
-                        .clamp_range(1..=usize::MAX),
+                    .prefix("Width: ")
+                    .clamp_range(1..=usize::MAX),
                 );
                 ui.add(
                     DragValue::new(&mut self.height)
-                        .prefix("Height: ")
-                        .clamp_range(1..=usize::MAX),
+                    .prefix("Height: ")
+                    .clamp_range(1..=usize::MAX),
                 );
             });
         }
@@ -390,14 +401,14 @@ impl TemplateApp {
         ui.strong("Kinematics");
         ui.add(
             DragValue::new(&mut self.tweak.dt)
-                .prefix("Δt (time step): ")
-                .speed(1e-4),
+            .prefix("Δt (time step): ")
+            .speed(1e-4),
         );
         ui.horizontal(|ui| {
             ui.add(
                 DragValue::new(&mut self.tweak.gravity)
-                    .prefix("Gravity: ")
-                    .speed(1e-2),
+                .prefix("Gravity: ")
+                .speed(1e-2),
             );
             if ui.button("Zero-G").clicked() {
                 self.tweak.gravity = 0.;
@@ -418,9 +429,9 @@ impl TemplateApp {
         });
         ui.add(
             DragValue::new(&mut self.tweak.particle_radius)
-                .prefix("Particle radius: ")
-                .speed(1e-2)
-                .clamp_range(1e-2..=5.0),
+            .prefix("Particle radius: ")
+            .speed(1e-2)
+            .clamp_range(1e-2..=5.0),
         );
 
         if self.set_hard_collisions_based_on_particle_life {
@@ -446,10 +457,10 @@ impl TemplateApp {
                 if ui
                     .add(
                         DragValue::new(&mut rest_density)
-                            .prefix("Rest density: ")
-                            .speed(1e-2),
+                        .prefix("Rest density: ")
+                        .speed(1e-2),
                     )
-                    .changed()
+                        .changed()
                 {
                     self.tweak.rest_density = Some(rest_density);
                 }
@@ -460,7 +471,7 @@ impl TemplateApp {
                         &mut calc_rest_density_from_radius,
                         "From radius (assumes optimal packing)",
                     )
-                    .changed()
+                        .changed()
                 {
                     if calc_rest_density_from_radius {
                         self.tweak.rest_density = None;
@@ -481,9 +492,9 @@ impl TemplateApp {
             ui.add(DragValue::new(&mut self.tweak.solver_iters).prefix("Solver iterations: "));
             ui.add(
                 DragValue::new(&mut self.tweak.over_relax)
-                    .prefix("Over-relaxation: ")
-                    .speed(1e-2)
-                    .clamp_range(0.0..=1.95),
+                .prefix("Over-relaxation: ")
+                .speed(1e-2)
+                .clamp_range(0.0..=1.95),
             );
             ui.horizontal(|ui| {
                 ui.selectable_value(
@@ -499,8 +510,8 @@ impl TemplateApp {
             });
             ui.add(
                 DragValue::new(&mut self.tweak.stiffness)
-                    .prefix("Density compensation stiffness: ")
-                    .speed(1e-2),
+                .prefix("Density compensation stiffness: ")
+                .speed(1e-2),
             );
         }
 
@@ -508,8 +519,8 @@ impl TemplateApp {
         ui.strong("Particle source");
         ui.add(
             DragValue::new(&mut self.source_rate)
-                .prefix("Particle inflow rate: ")
-                .speed(1e-1),
+            .prefix("Particle inflow rate: ")
+            .speed(1e-1),
         );
         ui.horizontal(|ui| {
             ui.label("Particle inflow color: ");
@@ -541,9 +552,9 @@ impl TemplateApp {
             });
             ui.add(
                 DragValue::new(&mut self.node_cfg.neighbor_radius)
-                    .clamp_range(1e-2..=20.0)
-                    .speed(1e-2)
-                    .prefix("Neighbor_radius: "),
+                .clamp_range(1e-2..=20.0)
+                .speed(1e-2)
+                .prefix("Neighbor_radius: "),
             );
         }
 
@@ -553,21 +564,21 @@ impl TemplateApp {
             if self.advanced {
                 ui.add(
                     DragValue::new(&mut behav_cfg.max_inter_dist)
-                        .clamp_range(0.0..=20.0)
-                        .speed(1e-2)
-                        .prefix("Max interaction dist: "),
+                    .clamp_range(0.0..=20.0)
+                    .speed(1e-2)
+                    .prefix("Max interaction dist: "),
                 );
                 ui.add(
                     DragValue::new(&mut behav_cfg.default_repulse)
-                        .speed(1e-2)
-                        .prefix("Default repulse: "),
+                    .speed(1e-2)
+                    .prefix("Default repulse: "),
                 );
                 ui.horizontal(|ui| {
                     ui.add(
                         DragValue::new(&mut behav_cfg.inter_threshold)
-                            .clamp_range(0.0..=20.0)
-                            .speed(1e-2)
-                            .prefix("Interaction threshold: "),
+                        .clamp_range(0.0..=20.0)
+                        .speed(1e-2)
+                        .prefix("Interaction threshold: "),
                     );
                     ui.checkbox(&mut self.set_inter_dist_to_radius, "From radius");
                 });
@@ -610,9 +621,9 @@ impl TemplateApp {
                 }
                 ui.add(
                     DragValue::new(&mut self.random_std_dev)
-                        .prefix("std. dev: ")
-                        .speed(1e-2)
-                        .clamp_range(0.0..=f32::MAX),
+                    .prefix("std. dev: ")
+                    .speed(1e-2)
+                    .clamp_range(0.0..=f32::MAX),
                 )
             });
             if ui.button("Symmetric forces").clicked() {
@@ -626,38 +637,38 @@ impl TemplateApp {
         }
 
         /*
-        if ui.button("Lifeless").clicked() {
-            self.sim
-                .life
-                .behaviours
-                .data_mut()
-                .iter_mut()
-                .for_each(|b| b.inter_strength = 0.);
-        }
-        */
+           if ui.button("Lifeless").clicked() {
+           self.sim
+           .life
+           .behaviours
+           .data_mut()
+           .iter_mut()
+           .for_each(|b| b.inter_strength = 0.);
+           }
+           */
 
         /*
-        if self.advanced {
-            ui.add(DragValue::new(&mut self.mult).speed(1e-2));
-        }
-        */
+           if self.advanced {
+           ui.add(DragValue::new(&mut self.mult).speed(1e-2));
+           }
+           */
 
         /*
-        if self.advanced {
-            ui.separator();
-            ui.strong("Debug");
-            ui.checkbox(&mut self.show_grid, "Show grid");
-            ui.horizontal(|ui| {
-                ui.checkbox(&mut self.show_arrows, "Show arrows");
-                ui.add(
-                    DragValue::new(&mut self.grid_vel_scale)
-                        .prefix("Scale: ")
-                        .speed(1e-2)
-                        .clamp_range(0.0..=f32::INFINITY),
-                )
-            });
-        }
-        */
+           if self.advanced {
+           ui.separator();
+           ui.strong("Debug");
+           ui.checkbox(&mut self.show_grid, "Show grid");
+           ui.horizontal(|ui| {
+           ui.checkbox(&mut self.show_arrows, "Show arrows");
+           ui.add(
+           DragValue::new(&mut self.grid_vel_scale)
+           .prefix("Scale: ")
+           .speed(1e-2)
+           .clamp_range(0.0..=f32::INFINITY),
+           )
+           });
+           }
+           */
 
         if reset {
             self.sim = Sim::new(
@@ -684,22 +695,22 @@ impl TemplateApp {
 const ENABLE_FULLSCREEN_KEY: egui::Key = egui::Key::Tab;
 
 /*
-const SIM_TO_MODEL_DOWNSCALE: f32 = 100.;
-fn simspace_to_modelspace(pos: Vec2) -> [f32; 3] {
-    [
-        (pos.x / SIM_TO_MODEL_DOWNSCALE) * 2. - 1.,
-        0.,
-        (pos.y / SIM_TO_MODEL_DOWNSCALE) * 2. - 1.,
-    ]
-}
-*/
+   const SIM_TO_MODEL_DOWNSCALE: f32 = 100.;
+   fn simspace_to_modelspace(pos: Vec2) -> [f32; 3] {
+   [
+   (pos.x / SIM_TO_MODEL_DOWNSCALE) * 2. - 1.,
+   0.,
+   (pos.y / SIM_TO_MODEL_DOWNSCALE) * 2. - 1.,
+   ]
+   }
+   */
 
 /// Maps sim coordinates to/from egui coordinates
 struct CoordinateMapping {
     width: f32,
     height: f32,
     area: Rect,
-}
+   }
 
 impl CoordinateMapping {
     pub fn new(grid: &Array2D<GridCell>, area: Rect) -> Self {
@@ -771,78 +782,78 @@ fn color_to_egui([r, g, b]: [f32; 3]) -> Rgba {
 }
 
 /*
-fn particles_mesh(particles: &[Particle], life: &LifeConfig) -> Shape {
-    Mesh {
-        vertices: particles
-            .iter()
-            .map(|p| Vertex::new(simspace_to_modelspace(p.pos), life.colors[p.color as usize]))
-            .collect(),
-        indices: (0..particles.len() as u32).collect(),
-    }
+   fn particles_mesh(particles: &[Particle], life: &LifeConfig) -> Shape {
+   Mesh {
+   vertices: particles
+   .iter()
+   .map(|p| Vertex::new(simspace_to_modelspace(p.pos), life.colors[p.color as usize]))
+   .collect(),
+   indices: (0..particles.len() as u32).collect(),
+   }
+   }
+
+   fn draw_arrow(mesh: &mut Mesh, pos: Vec2, dir: Vec2, color: [f32; 3], flanges: f32) {
+   let mut vertex = |pt: Vec2| mesh.push_vertex(Vertex::new(simspace_to_modelspace(pt), color));
+
+   let p1 = vertex(pos);
+
+   let end = pos + dir;
+   let p2 = vertex(end);
+
+   let angle = 0.3;
+   let f1 = vertex(end - flanges * dir.rotate(Vec2::from_angle(angle)));
+   let f2 = vertex(end - flanges * dir.rotate(Vec2::from_angle(-angle)));
+
+   mesh.push_indices(&[p1, p2, p2, f1, p2, f2]);
+   }
+
+   fn draw_grid_arrows(mesh: &mut Mesh, grid: &Array2D<GridCell>, vel_scale: f32) {
+   for i in 0..grid.width() {
+   for j in 0..grid.height() {
+   let c = grid[(i, j)];
+
+   if c.pressure == 0.0 {
+   continue;
+   }
+
+   let v = Vec2::new(i as f32, j as f32);
+
+   let flanges = 0.5;
+   draw_arrow(
+   mesh,
+   v + OFFSET_U,
+   Vec2::X * c.vel.x * vel_scale,
+   [1., 0.1, 0.1],
+   flanges,
+   );
+   draw_arrow(
+   mesh,
+   v + OFFSET_V,
+   Vec2::Y * c.vel.y * vel_scale,
+   [0.01, 0.3, 1.],
+   flanges,
+   );
+   }
+   }
+   }
+
+   fn draw_grid(mesh: &mut Mesh, grid: &Array2D<GridCell>) {
+   let color = [0.05; 3];
+
+   for y in 0..=grid.height() {
+   let mut vertex =
+   |pt: Vec2| mesh.push_vertex(Vertex::new(simspace_to_modelspace(pt), color));
+   let a = vertex(Vec2::new(0., y as f32));
+   let b = vertex(Vec2::new(grid.width() as f32, y as f32));
+   mesh.push_indices(&[a, b]);
+   }
+
+   for x in 0..=grid.width() {
+   let mut vertex =
+   |pt: Vec2| mesh.push_vertex(Vertex::new(simspace_to_modelspace(pt), color));
+   let a = vertex(Vec2::new(x as f32, 0.));
+let b = vertex(Vec2::new(x as f32, grid.height() as f32));
+mesh.push_indices(&[a, b]);
 }
-
-fn draw_arrow(mesh: &mut Mesh, pos: Vec2, dir: Vec2, color: [f32; 3], flanges: f32) {
-    let mut vertex = |pt: Vec2| mesh.push_vertex(Vertex::new(simspace_to_modelspace(pt), color));
-
-    let p1 = vertex(pos);
-
-    let end = pos + dir;
-    let p2 = vertex(end);
-
-    let angle = 0.3;
-    let f1 = vertex(end - flanges * dir.rotate(Vec2::from_angle(angle)));
-    let f2 = vertex(end - flanges * dir.rotate(Vec2::from_angle(-angle)));
-
-    mesh.push_indices(&[p1, p2, p2, f1, p2, f2]);
-}
-
-fn draw_grid_arrows(mesh: &mut Mesh, grid: &Array2D<GridCell>, vel_scale: f32) {
-    for i in 0..grid.width() {
-        for j in 0..grid.height() {
-            let c = grid[(i, j)];
-
-            if c.pressure == 0.0 {
-                continue;
-            }
-
-            let v = Vec2::new(i as f32, j as f32);
-
-            let flanges = 0.5;
-            draw_arrow(
-                mesh,
-                v + OFFSET_U,
-                Vec2::X * c.vel.x * vel_scale,
-                [1., 0.1, 0.1],
-                flanges,
-            );
-            draw_arrow(
-                mesh,
-                v + OFFSET_V,
-                Vec2::Y * c.vel.y * vel_scale,
-                [0.01, 0.3, 1.],
-                flanges,
-            );
-        }
-    }
-}
-
-fn draw_grid(mesh: &mut Mesh, grid: &Array2D<GridCell>) {
-    let color = [0.05; 3];
-
-    for y in 0..=grid.height() {
-        let mut vertex =
-            |pt: Vec2| mesh.push_vertex(Vertex::new(simspace_to_modelspace(pt), color));
-        let a = vertex(Vec2::new(0., y as f32));
-        let b = vertex(Vec2::new(grid.width() as f32, y as f32));
-        mesh.push_indices(&[a, b]);
-    }
-
-    for x in 0..=grid.width() {
-        let mut vertex =
-            |pt: Vec2| mesh.push_vertex(Vertex::new(simspace_to_modelspace(pt), color));
-        let a = vertex(Vec2::new(x as f32, 0.));
-        let b = vertex(Vec2::new(x as f32, grid.height() as f32));
-        mesh.push_indices(&[a, b]);
-    }
 }
 */
