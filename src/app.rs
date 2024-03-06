@@ -62,7 +62,14 @@ impl TemplateApp {
 
     pub fn new_from_ctx(ctx: &egui::Context) -> Self {
         // Otherwise create a new random sim state
-        let (width, height) = if is_mobile(ctx) { (70, 150) } else { (120, 80) };
+        let screen = ctx.screen_rect();
+
+        let size_heuristic = 14.0;
+
+        let (width, height) = (
+            (size_heuristic * screen.width()) as usize,
+            (size_heuristic * screen.height()) as usize,
+        );
         let n_particles = 4_000;
         let random_std_dev = 5.;
 
@@ -169,7 +176,8 @@ impl eframe::App for TemplateApp {
                 }
             });
         } else {
-            self.fullscreen_inside ^= ctx.input(|r| r.key_released(egui::Key::Tab));
+            self.fullscreen_inside ^= ctx.input(|r| r.key_released(ENABLE_FULLSCREEN_KEY));
+
             if !self.fullscreen_inside {
                 SidePanel::left("Settings").show(ctx, |ui| {
                     ScrollArea::both().show(ui, |ui| self.settings_gui(ui))
@@ -663,8 +671,11 @@ impl TemplateApp {
             "GitHub repository",
             "https://github.com/Masterchef365/pic-fluids",
         );
+        ui.label(format!("Press {ENABLE_FULLSCREEN_KEY:?} to toggle fullscreen"));
     }
 }
+
+const ENABLE_FULLSCREEN_KEY: egui::Key = egui::Key::Tab;
 
 /*
 const SIM_TO_MODEL_DOWNSCALE: f32 = 100.;
