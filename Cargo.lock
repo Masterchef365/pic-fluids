@@ -2326,6 +2326,7 @@ dependencies = [
  "vorpal-widgets",
  "wasm-bindgen-futures",
  "wasm-bridge",
+ "wasm-runtime",
  "zwohash",
 ]
 
@@ -3254,6 +3255,9 @@ dependencies = [
 [[package]]
 name = "wasm-runtime"
 version = "0.1.0"
+dependencies = [
+ "bytemuck",
+]
 
 [[package]]
 name = "wasmparser"
