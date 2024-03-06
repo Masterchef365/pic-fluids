@@ -62,14 +62,8 @@ impl TemplateApp {
 
     pub fn new_from_ctx(ctx: &egui::Context) -> Self {
         // Otherwise create a new random sim state
-        let screen = ctx.screen_rect();
-
-        let size_heuristic = 14.0;
-
-        let (width, height) = (
-            (screen.width() / size_heuristic) as usize,
-            (screen.height() / size_heuristic) as usize,
-        );
+        let (width, height) = if is_mobile(ctx) { (70, 150) } else { (120, 80) };
+        
         let n_particles = 4_000;
         let random_std_dev = 5.;
 
