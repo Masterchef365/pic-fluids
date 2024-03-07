@@ -15,7 +15,8 @@ pub struct WasmNodeRuntime {
 }
 
 const RUNTIME_WASM_BYTES: &[u8] = include_bytes!("../wasm-runtime/target/wasm32-unknown-unknown/release/wasm_runtime.wasm");
-const PER_PARTICLE_FN_NAME: &str = "run_per_particle_kernel";
+const PER_PARTICLE_RUN_FN_NAME: &str = "run_per_particle_kernel";
+const PER_PARTICLE_KERNEL_FN_NAME: &str = "per_particle_kernel";
 
 impl WasmNodeRuntime {
     pub fn new() -> Result<Self> {
@@ -43,17 +44,18 @@ impl WasmNodeRuntime {
 
         // Compile to wasm binary
         let anal = CodeAnalysis::new(node.clone(), &per_particle_fn_inputs());
-        let nodes_wat_insert = anal.compile_to_wat(PER_PARTICLE_FN_NAME).unwrap();
+        println!("{}", anal.func_name_rust(PER_PARTICLE_KERNEL_FN_NAME).unwrap());
+        let nodes_wat_insert = anal.compile_to_wat(PER_PARTICLE_KERNEL_FN_NAME).unwrap();
 
         // Innovative text-based linking technology
         let wat = wasmprinter::print_bytes(&RUNTIME_WASM_BYTES).unwrap();
         // Rename the existing function to something else
-        let mut wat = wat.replacen(&format!("(func ${PER_PARTICLE_FN_NAME}"), &format!("(func ${PER_PARTICLE_FN_NAME}_old"), 1);
+        let mut wat = wat.replacen(&format!("(func ${PER_PARTICLE_KERNEL_FN_NAME}"), &format!("(func ${PER_PARTICLE_KERNEL_FN_NAME}_old"), 1);
         // Look for the first function declaration and insert the snippet just before that
         let idx = wat.find("(type").unwrap();
         wat.insert_str(idx, "\n");
         wat.insert_str(idx, &nodes_wat_insert);
-        println!("{}", wat);
+        //println!("{}", wat);
 
         let wasm = wat::parse_str(&wat).unwrap();
         self.set_code(&wasm).unwrap();
@@ -82,7 +84,7 @@ impl WasmNodeRuntime {
         mem.write(&mut self.store, input_ptr, &input_buf)?;
 
         // Call kernel run fn
-        let func = self.instance.get_typed_func::<(), ()>(&mut self.store, PER_PARTICLE_FN_NAME)?;
+        let func = self.instance.get_typed_func::<(), ()>(&mut self.store, PER_PARTICLE_RUN_FN_NAME)?;
         func.call(&mut self.store, ())?;
 
         // Read results

@@ -706,10 +706,10 @@ pub fn per_particle_fn_inputs() -> ParameterList {
             ExternInputId::new("dt".to_string()),
             DataType::Scalar,
         ),
-        (
+        /*(
             ExternInputId::new("neigh-radius".to_string()),
             DataType::Scalar,
-        ),
+        ),*/
         (ExternInputId::new("our-type".into()), DataType::Scalar),
         (ExternInputId::new("position".into()), DataType::Vec2),
         (ExternInputId::new("velocity".into()), DataType::Vec2),

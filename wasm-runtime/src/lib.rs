@@ -4,19 +4,17 @@ use std::sync::Mutex;
 static BUFFERS: Mutex<Buffers> = Mutex::new(Buffers::empty());
 
 /// Dummy no-op kernel function
-#[no_mangle]
 fn per_particle_kernel(
-    _dt: f32,
-    _pos_x: f32,
-    _pos_y: f32,
-    _vel_x: f32,
-    _vel_y: f32,
-    _our_type: f32,
-    out_accel_x: *mut f32,
-    out_accel_y: *mut f32,
+    out_ptr: *mut f32,
+    dt: f32,
+    ourtype: f32,
+    position_x: f32,
+    position_y: f32,
+    velocity_x: f32,
+    velocity_y: f32,
 ) {
     unsafe {
-        *out_accel_x += 10.;
+        *out_ptr = 0.0;
     }
 }
 
@@ -51,14 +49,13 @@ fn run_per_particle_kernel() {
 
     for (inp, outp) in inp.iter().zip(outp) {
         per_particle_kernel(
+            outp.accel.as_mut_ptr(),
             inp.dt,
+            inp.our_type,
             inp.pos[0],
             inp.pos[1],
             inp.vel[0],
             inp.vel[1],
-            inp.our_type,
-            &mut outp.accel[0] as _,
-            &mut outp.accel[1] as _,
         )
     }
 }
