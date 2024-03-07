@@ -182,6 +182,7 @@ impl Sim {
                 let payloads = build_per_particle_input_payloads(&self.particles, node_cfg, tweak.dt);
 
                 let outputs = if let Some(rt) = wasm_rt {
+                    rt.update_code(per_particle_nodes);
                     rt.run(&payloads).unwrap()
                 } else {
                     panic!()

@@ -1,13 +1,21 @@
+use std::rc::Rc;
+
+use vorpal_wasm::CodeAnalysis;
+use vorpal_widgets::vorpal_core::Node;
 use wasm_bridge::{Result, Engine, Store, Module, Instance};
 use wasm_runtime::{PerParticleOutputPayload, PerParticleInputPayload};
+
+use crate::sim::per_particle_fn_inputs;
 
 pub struct WasmNodeRuntime {
     engine: Engine,
     store: Store<()>,
     instance: Instance,
+    old_code: Option<Rc<Node>>,
 }
 
 const RUNTIME_WASM_BYTES: &[u8] = include_bytes!("../wasm-runtime/target/wasm32-unknown-unknown/release/wasm_runtime.wasm");
+const PER_PARTICLE_FN_NAME: &str = "run_per_particle_kernel";
 
 impl WasmNodeRuntime {
     pub fn new() -> Result<Self> {
@@ -21,7 +29,24 @@ impl WasmNodeRuntime {
             instance,
             engine,
             store,
+            old_code: None,
         })
+    }
+
+    pub fn update_code(&mut self, node: &Rc<Node>) {
+        // Don't bother resetting if there is no code change.
+        // TODO: Find a way not to compare the entire graph...
+        if self.old_code.as_ref() == Some(node) {
+            return;
+        }
+        self.old_code = Some(node.clone());
+
+        // Compile to wasm binary
+        let anal = CodeAnalysis::new(node.clone(), &per_particle_fn_inputs());
+        let wat = anal.compile_to_wat(PER_PARTICLE_FN_NAME).unwrap();
+        let nodes_wasm = wat::parse_str(&wat);
+
+        dbg!(nodes_wasm.is_ok());
     }
 
     pub fn run(&mut self, inputs: &[PerParticleInputPayload]) -> Result<Vec<PerParticleOutputPayload>> {
@@ -41,7 +66,7 @@ impl WasmNodeRuntime {
         mem.write(&mut self.store, input_ptr, &input_buf)?;
 
         // Call kernel run fn
-        let func = self.instance.get_typed_func::<(), ()>(&mut self.store, "run_per_particle_kernel")?;
+        let func = self.instance.get_typed_func::<(), ()>(&mut self.store, PER_PARTICLE_FN_NAME)?;
         func.call(&mut self.store, ())?;
 
         // Read results
