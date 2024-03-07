@@ -44,7 +44,7 @@ impl WasmNodeRuntime {
 
         // Compile to wasm binary
         let anal = CodeAnalysis::new(node.clone(), &per_particle_fn_inputs());
-        println!("{}", anal.func_name_rust(PER_PARTICLE_KERNEL_FN_NAME).unwrap());
+        //println!("{}", anal.func_name_rust(PER_PARTICLE_KERNEL_FN_NAME).unwrap());
         let nodes_wat_insert = anal.compile_to_wat(PER_PARTICLE_KERNEL_FN_NAME).unwrap();
 
         // Innovative text-based linking technology
@@ -55,7 +55,7 @@ impl WasmNodeRuntime {
         let idx = wat.find("(type").unwrap();
         wat.insert_str(idx, "\n");
         wat.insert_str(idx, &nodes_wat_insert);
-        //println!("{}", wat);
+        println!("{}", wat);
 
         let wasm = wat::parse_str(&wat).unwrap();
         self.set_code(&wasm).unwrap();
@@ -83,9 +83,11 @@ impl WasmNodeRuntime {
         // Write input data
         mem.write(&mut self.store, input_ptr, &input_buf)?;
 
+        /*
         // Call kernel run fn
         let func = self.instance.get_typed_func::<(), ()>(&mut self.store, PER_PARTICLE_RUN_FN_NAME)?;
         func.call(&mut self.store, ())?;
+        */
 
         // Read results
         mem.read(&mut self.store, output_ptr, bytemuck::cast_slice_mut(&mut output_buf))?;

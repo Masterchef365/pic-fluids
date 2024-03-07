@@ -5,7 +5,7 @@ static BUFFERS: Mutex<Buffers> = Mutex::new(Buffers::empty());
 
 /// Dummy no-op kernel function
 #[no_mangle]
-fn per_particle_kernel(
+extern "C" fn per_particle_kernel(
     out_ptr: *mut f32,
     dt: f32,
     ourtype: f32,
@@ -15,7 +15,7 @@ fn per_particle_kernel(
     velocity_y: f32,
 ) {
     unsafe {
-        *out_ptr = 0.0;
+        *out_ptr = -30.0;
     }
 }
 
