@@ -43,10 +43,19 @@ impl WasmNodeRuntime {
 
         // Compile to wasm binary
         let anal = CodeAnalysis::new(node.clone(), &per_particle_fn_inputs());
-        let wat = anal.compile_to_wat(PER_PARTICLE_FN_NAME).unwrap();
-        let nodes_wasm = wat::parse_str(&wat);
+        let nodes_wat_insert = anal.compile_to_wat(PER_PARTICLE_FN_NAME).unwrap();
 
-        dbg!(nodes_wasm.is_ok());
+        // Innovative text-based linking technology
+        let wat = wasmprinter::print_bytes(&RUNTIME_WASM_BYTES).unwrap();
+
+        let wasm = wat::parse_str(&wat).unwrap();
+        self.set_code(&wasm).unwrap();
+    }
+
+    fn set_code(&mut self, code: &[u8]) -> Result<()> {
+        let module = Module::new(&self.engine, code)?;
+        self.instance = Instance::new(&mut self.store, &module, &[])?;
+        Ok(())
     }
 
     pub fn run(&mut self, inputs: &[PerParticleInputPayload]) -> Result<Vec<PerParticleOutputPayload>> {
