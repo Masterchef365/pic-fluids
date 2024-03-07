@@ -46,7 +46,9 @@ impl WasmNodeRuntime {
         let nodes_wat_insert = anal.compile_to_wat(PER_PARTICLE_FN_NAME).unwrap();
 
         // Innovative text-based linking technology
-        let mut wat = wasmprinter::print_bytes(&RUNTIME_WASM_BYTES).unwrap();
+        let wat = wasmprinter::print_bytes(&RUNTIME_WASM_BYTES).unwrap();
+        // Rename the existing function to something else
+        let mut wat = wat.replacen(&format!("(func ${PER_PARTICLE_FN_NAME}"), &format!("(func ${PER_PARTICLE_FN_NAME}_old"), 1);
         // Look for the first function declaration and insert the snippet just before that
         let idx = wat.find("(type").unwrap();
         wat.insert_str(idx, "\n");
