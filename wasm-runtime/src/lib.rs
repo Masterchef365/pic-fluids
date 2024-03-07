@@ -4,6 +4,7 @@ use std::sync::Mutex;
 static BUFFERS: Mutex<Buffers> = Mutex::new(Buffers::empty());
 
 /// Dummy no-op kernel function
+#[no_mangle]
 fn per_particle_kernel(
     out_ptr: *mut f32,
     dt: f32,
