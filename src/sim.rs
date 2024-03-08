@@ -1,7 +1,7 @@
 use std::rc::Rc;
 
 use crate::array2d::{Array2D, GridPos};
-use crate::query_accel::QueryAccelerator;
+use wasm_runtime::query_accel::QueryAccelerator;
 use crate::wasm_embed::WasmNodeRuntime;
 
 use glam::Vec2;

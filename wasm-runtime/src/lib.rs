@@ -3,6 +3,7 @@ use std::sync::Mutex;
 
 // Required; tells the compiler to export definitions which the **node graph** will use
 pub use builtins::*;
+pub mod query_accel;
 mod builtins;
 
 static BUFFERS: Mutex<Buffers> = Mutex::new(Buffers::empty());

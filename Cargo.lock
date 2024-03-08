@@ -2323,7 +2323,6 @@ dependencies = [
  "rand_distr",
  "serde",
  "serde_json",
- "smallvec",
  "vorpal-wasm",
  "vorpal-widgets",
  "wasm-bindgen-futures",
@@ -2331,7 +2330,6 @@ dependencies = [
  "wasm-runtime",
  "wasmprinter",
  "wat",
- "zwohash",
 ]
 
 [[package]]
@@ -3269,6 +3267,9 @@ name = "wasm-runtime"
 version = "0.1.0"
 dependencies = [
  "bytemuck",
+ "glam",
+ "smallvec",
+ "zwohash",
 ]
 
 [[package]]

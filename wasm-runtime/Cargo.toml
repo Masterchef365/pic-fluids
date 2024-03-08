@@ -8,3 +8,6 @@ crate-type = ["cdylib", "rlib"]
 
 [dependencies]
 bytemuck = "1.13.1"
+zwohash = "0.1.2"
+smallvec = "1.11.0"
+glam = "0.24.1"
