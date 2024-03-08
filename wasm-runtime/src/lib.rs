@@ -5,7 +5,7 @@ static BUFFERS: Mutex<Buffers> = Mutex::new(Buffers::empty());
 
 /// Dummy no-op kernel function
 #[no_mangle]
-#[inline(never)]
+#[inline(never)] // inline(never) required here for the function to be explicitly used by the run_* function!
 extern "C" fn per_particle_kernel(
     out_ptr: *mut f32,
     dt: f32,
