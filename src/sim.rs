@@ -183,7 +183,7 @@ impl Sim {
 
                 let outputs = if let Some(rt) = wasm_rt {
                     rt.update_code(per_particle_nodes, per_neighbor_nodes);
-                    rt.run(&payloads, tweak.dt, node_cfg.neighbor_radius).unwrap()
+                    rt.run(self.grid.width(), self.grid.height(), &payloads, tweak.dt, node_cfg.neighbor_radius).unwrap()
                 } else {
                     panic!()
                     /*
@@ -714,6 +714,7 @@ pub fn per_particle_fn_inputs() -> ParameterList {
         (ExternInputId::new("our-type".into()), DataType::Scalar),
         (ExternInputId::new("position".into()), DataType::Vec2),
         (ExternInputId::new("velocity".into()), DataType::Vec2),
+        (ExternInputId::new("screen_size".into()), DataType::Vec2),
     ]
     .into_iter()
     .collect();
@@ -802,6 +803,7 @@ pub fn per_neighbor_fn_inputs() -> ParameterList {
         (ExternInputId::new("pos-diff".to_string()), DataType::Vec2),
         (ExternInputId::new("position".into()), DataType::Vec2),
         (ExternInputId::new("velocity".into()), DataType::Vec2),
+        (ExternInputId::new("screen_size".into()), DataType::Vec2),
     ]
     .into_iter()
     .collect();

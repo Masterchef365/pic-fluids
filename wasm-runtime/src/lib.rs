@@ -20,6 +20,8 @@ extern "C" fn per_particle_kernel(
     position_y: f32,
     velocity_x: f32,
     velocity_y: f32,
+    screen_width: f32,
+    screen_height: f32,
 ) {
     // Black boxes keep the compiler from deciding not to assign the function parameters
     std::hint::black_box(out_ptr);
@@ -29,6 +31,8 @@ extern "C" fn per_particle_kernel(
     std::hint::black_box(position_y);
     std::hint::black_box(velocity_x);
     std::hint::black_box(velocity_y);
+    std::hint::black_box(screen_width);
+    std::hint::black_box(screen_height);
 }
 
 /// Dummy no-op kernel function
@@ -46,6 +50,8 @@ extern "C" fn per_neighbor_kernel(
     position_y: f32,
     velocity_x: f32,
     velocity_y: f32,
+    screen_width: f32,
+    screen_height: f32,
 ) {
     // Black boxes keep the compiler from deciding not to assign the function parameters
     std::hint::black_box(out_ptr);
@@ -59,6 +65,8 @@ extern "C" fn per_neighbor_kernel(
     std::hint::black_box(position_y);
     std::hint::black_box(velocity_x);
     std::hint::black_box(velocity_y);
+    std::hint::black_box(screen_width);
+    std::hint::black_box(screen_height);
 }
 
 #[repr(C)]
@@ -83,7 +91,7 @@ unsafe impl Zeroable for PerParticleOutputPayload {}
 
 /// Execute per_particle_kernel() for each of the populated input payloads
 #[no_mangle]
-fn run_per_particle_kernel(dt: f32, neighbor_radius: f32) {
+fn run_per_particle_kernel(dt: f32, neighbor_radius: f32, screen_width: f32, screen_height: f32) {
     let mut buf = BUFFERS.lock().unwrap();
     let (inp, outp) = buf.io();
     let inp: &[PerParticleInputPayload] = bytemuck::cast_slice(inp);
@@ -99,6 +107,8 @@ fn run_per_particle_kernel(dt: f32, neighbor_radius: f32) {
             inp.pos[1],
             inp.vel[0],
             inp.vel[1],
+            screen_width,
+            screen_height,
         );
         outp.accel[0] += out_accel[0];
         outp.accel[1] += out_accel[1];
@@ -128,6 +138,8 @@ fn run_per_particle_kernel(dt: f32, neighbor_radius: f32) {
                 points[i].y,
                 inp[i].vel[0],
                 inp[i].vel[1],
+                screen_width,
+                screen_height,
             );
             outp.accel[0] += out_accel[0];
             outp.accel[1] += out_accel[1];

@@ -86,6 +86,8 @@ impl WasmNodeRuntime {
 
     pub fn run(
         &mut self,
+        width: usize,
+        height: usize,
         inputs: &[PerParticleInputPayload],
         dt: f32,
         neighbor_radius: f32,
@@ -116,8 +118,8 @@ impl WasmNodeRuntime {
         // Call kernel run fn
         let func = self
             .instance
-            .get_typed_func::<(f32, f32), ()>(&mut self.store, PER_PARTICLE_RUN_FN_NAME)?;
-        func.call(&mut self.store, (dt, neighbor_radius))?;
+            .get_typed_func::<(f32, f32, f32, f32), ()>(&mut self.store, PER_PARTICLE_RUN_FN_NAME)?;
+        func.call(&mut self.store, (dt, neighbor_radius, width as f32, height as f32))?;
 
         // Read results
         mem.read(
