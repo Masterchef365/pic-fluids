@@ -60,7 +60,6 @@ impl WasmNodeRuntime {
         let idx = wat.find("(type").unwrap();
         wat.insert_str(idx, "\n");
         wat.insert_str(idx, &nodes_wat_insert);
-        //println!("{}", wat);
 
         let wasm = wat::parse_str(&wat).unwrap();
         self.set_code(&wasm).unwrap();

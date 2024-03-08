@@ -3125,6 +3125,10 @@ dependencies = [
 ]
 
 [[package]]
+name = "vorpal-wasm-builtins"
+version = "0.1.0"
+
+[[package]]
 name = "vorpal-widgets"
 version = "0.1.0"
 dependencies = [
@@ -3269,6 +3273,7 @@ name = "wasm-runtime"
 version = "0.1.0"
 dependencies = [
  "bytemuck",
+ "vorpal-wasm-builtins",
 ]
 
 [[package]]

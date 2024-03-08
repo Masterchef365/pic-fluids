@@ -8,3 +8,5 @@ crate-type = ["cdylib", "rlib"]
 
 [dependencies]
 bytemuck = "1.13.1"
+# Code from this is actually never used BUT it is used by the node graph code!
+vorpal-wasm-builtins = { path = "../../vorpal/vorpal-wasm-builtins" }

@@ -1,10 +1,13 @@
 use bytemuck::{Pod, Zeroable};
 use std::sync::Mutex;
 
+// Required; tells the compiler to export definitions which the **node graph** will use
+pub use vorpal_wasm_builtins::*;
+
 static BUFFERS: Mutex<Buffers> = Mutex::new(Buffers::empty());
 
 /// Dummy no-op kernel function
-#[no_mangle]
+#[no_mangle] // No mangle so it can be found and replaced easily
 #[inline(never)] // inline(never) required here for the function to be explicitly used by the run_* function!
 extern "C" fn per_particle_kernel(
     out_ptr: *mut f32,
@@ -15,9 +18,14 @@ extern "C" fn per_particle_kernel(
     velocity_x: f32,
     velocity_y: f32,
 ) {
-    unsafe {
-        *out_ptr = 0.0;
-    }
+    // Black boxes keep the compiler from deciding not to assign the function parameters
+    std::hint::black_box(out_ptr);
+    std::hint::black_box(dt);
+    std::hint::black_box(ourtype);
+    std::hint::black_box(position_x);
+    std::hint::black_box(position_y);
+    std::hint::black_box(velocity_x);
+    std::hint::black_box(velocity_y);
 }
 
 #[repr(C)]
