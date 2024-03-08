@@ -71,10 +71,10 @@ struct Buffers {
 /// reserves memory for two (contiguous) buffers and returns a pointer to the beginning of the
 /// first
 #[no_mangle]
-pub fn reserve(input_bytes: usize, output_bytes: usize) -> usize {
+pub fn reserve(input_bytes: u32, output_bytes: u32) -> u32 {
     let mut buf = BUFFERS.lock().unwrap();
-    *buf = Buffers::zeros(input_bytes, output_bytes);
-    buf.ptr() as _
+    *buf = Buffers::zeros(input_bytes as usize, output_bytes as usize);
+    buf.ptr() as u32
 }
 
 impl Buffers {

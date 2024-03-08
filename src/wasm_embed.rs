@@ -2,8 +2,8 @@ use std::rc::Rc;
 
 use vorpal_wasm::CodeAnalysis;
 use vorpal_widgets::vorpal_core::Node;
-use wasm_bridge::{Result, Engine, Store, Module, Instance};
-use wasm_runtime::{PerParticleOutputPayload, PerParticleInputPayload};
+use wasm_bridge::{Engine, Instance, Module, Result, Store};
+use wasm_runtime::{PerParticleInputPayload, PerParticleOutputPayload};
 
 use crate::sim::per_particle_fn_inputs;
 
@@ -14,7 +14,8 @@ pub struct WasmNodeRuntime {
     old_code: Option<Rc<Node>>,
 }
 
-const RUNTIME_WASM_BYTES: &[u8] = include_bytes!("../wasm-runtime/target/wasm32-unknown-unknown/release/wasm_runtime.wasm");
+const RUNTIME_WASM_BYTES: &[u8] =
+    include_bytes!("../wasm-runtime/target/wasm32-unknown-unknown/release/wasm_runtime.wasm");
 const PER_PARTICLE_RUN_FN_NAME: &str = "run_per_particle_kernel";
 const PER_PARTICLE_KERNEL_FN_NAME: &str = "per_particle_kernel";
 
@@ -50,12 +51,16 @@ impl WasmNodeRuntime {
         // Innovative text-based linking technology
         let wat = wasmprinter::print_bytes(&RUNTIME_WASM_BYTES).unwrap();
         // Rename the existing function to something else
-        let mut wat = wat.replacen(&format!("(func ${PER_PARTICLE_KERNEL_FN_NAME}"), &format!("(func ${PER_PARTICLE_KERNEL_FN_NAME}_old"), 1);
+        let mut wat = wat.replacen(
+            &format!("(func ${PER_PARTICLE_KERNEL_FN_NAME}"),
+            &format!("(func ${PER_PARTICLE_KERNEL_FN_NAME}_old"),
+            1,
+        );
         // Look for the first function declaration and insert the snippet just before that
         let idx = wat.find("(type").unwrap();
         wat.insert_str(idx, "\n");
         wat.insert_str(idx, &nodes_wat_insert);
-        println!("{}", wat);
+        //println!("{}", wat);
 
         let wasm = wat::parse_str(&wat).unwrap();
         self.set_code(&wasm).unwrap();
@@ -67,14 +72,28 @@ impl WasmNodeRuntime {
         Ok(())
     }
 
-    pub fn run(&mut self, inputs: &[PerParticleInputPayload]) -> Result<Vec<PerParticleOutputPayload>> {
+    pub fn run(
+        &mut self,
+        inputs: &[PerParticleInputPayload],
+    ) -> Result<Vec<PerParticleOutputPayload>> {
         // Casting
         let input_buf: &[u8] = bytemuck::cast_slice(inputs);
-        let mut output_buf: Vec<PerParticleOutputPayload> = vec![PerParticleOutputPayload::default(); inputs.len()];
+        let mut output_buf: Vec<PerParticleOutputPayload> =
+            vec![PerParticleOutputPayload::default(); inputs.len()];
 
         // Reserve some memory in the wasm module
-        let func = self.instance.get_typed_func::<(u32, u32), u32>(&mut self.store, "reserve")?;
-        let buf_ptr = func.call(&mut self.store, (input_buf.len() as u32, output_buf.len() as u32))?;
+        let func = self
+            .instance
+            .get_typed_func::<(u32, u32), u32>(&mut self.store, "reserve")?;
+        let output_buf_len = bytemuck::cast_slice::<_, u8>(&output_buf).len();
+
+        let buf_ptr = func.call(
+            &mut self.store,
+            (
+                input_buf.len() as u32,
+                output_buf_len as u32,
+            ),
+        )?;
         let input_ptr = buf_ptr as usize;
         let output_ptr = input_ptr + input_buf.len();
 
@@ -90,7 +109,11 @@ impl WasmNodeRuntime {
         */
 
         // Read results
-        mem.read(&mut self.store, output_ptr, bytemuck::cast_slice_mut(&mut output_buf))?;
+        mem.read(
+            &mut self.store,
+            output_ptr,
+            bytemuck::cast_slice_mut(&mut output_buf),
+        )?;
 
         Ok(output_buf)
     }
