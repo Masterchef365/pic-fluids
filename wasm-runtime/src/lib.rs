@@ -15,7 +15,7 @@ extern "C" fn per_particle_kernel(
     velocity_y: f32,
 ) {
     unsafe {
-        *out_ptr = -30.0;
+        *out_ptr = 0.0;
     }
 }
 

@@ -102,11 +102,9 @@ impl WasmNodeRuntime {
         // Write input data
         mem.write(&mut self.store, input_ptr, &input_buf)?;
 
-        /*
         // Call kernel run fn
         let func = self.instance.get_typed_func::<(), ()>(&mut self.store, PER_PARTICLE_RUN_FN_NAME)?;
         func.call(&mut self.store, ())?;
-        */
 
         // Read results
         mem.read(
