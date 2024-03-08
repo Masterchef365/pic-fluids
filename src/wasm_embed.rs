@@ -75,7 +75,7 @@ impl WasmNodeRuntime {
         }
 
         let wasm = wat::parse_str(&wat).unwrap();
-        self.set_code(&wasm).unwrap();
+        self.set_code(&wasm).inspect_err(|_| eprintln!("{}", wat)).unwrap();
     }
 
     fn set_code(&mut self, code: &[u8]) -> Result<()> {
