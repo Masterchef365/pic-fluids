@@ -46,7 +46,7 @@ impl WasmNodeRuntime {
         // Compile to wasm binary
         let anal = CodeAnalysis::new(node.clone(), &per_particle_fn_inputs());
         //println!("{}", anal.func_name_rust(PER_PARTICLE_KERNEL_FN_NAME).unwrap());
-        let nodes_wat_insert = anal.compile_to_wat(PER_PARTICLE_KERNEL_FN_NAME).unwrap();
+        let nodes_wat_insert = anal.compile_function_to_wat(PER_PARTICLE_KERNEL_FN_NAME).unwrap();
 
         // Innovative text-based linking technology
         let wat = wasmprinter::print_bytes(&RUNTIME_WASM_BYTES).unwrap();
