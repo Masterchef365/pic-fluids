@@ -66,15 +66,13 @@ impl WasmNodeRuntime {
         ] {
             let anal = CodeAnalysis::new(node.clone(), &input_types);
             let nodes_wat_insert = anal.compile_function_to_wat(name).unwrap();
-            eprintln!("{}", anal.func_name_rust(name).unwrap());
+            //eprintln!("{}", anal.func_name_rust(name).unwrap());
 
             // Rename the existing function to something else
             wat = wat.replacen(&format!("(func ${name}"), &format!("(func ${name}_old"), 1);
             wat.insert_str(idx, "\n");
             wat.insert_str(idx, &nodes_wat_insert);
         }
-
-        std::fs::write("log.txt", &wat).unwrap();
 
         let wasm = wat::parse_str(&wat).unwrap();
         self.set_code(&wasm).unwrap();
