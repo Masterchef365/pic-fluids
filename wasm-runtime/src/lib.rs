@@ -90,15 +90,18 @@ fn run_per_particle_kernel(dt: f32, neighbor_radius: f32) {
     let outp: &mut [PerParticleOutputPayload] = bytemuck::cast_slice_mut(outp);
 
     for (inp, outp) in inp.iter().zip(outp.iter_mut()) {
+        let mut out_accel = [0.0; 2];
         per_particle_kernel(
-            outp.accel.as_mut_ptr(),
+            out_accel.as_mut_ptr(),
             dt,
             inp.our_type,
             inp.pos[0],
             inp.pos[1],
             inp.vel[0],
             inp.vel[1],
-        )
+        );
+        outp.accel[0] += out_accel[0];
+        outp.accel[1] += out_accel[1];
     }
 
     let points: Vec<Vec2> = inp.iter().map(|part| Vec2::from_array(part.pos)).collect();
@@ -106,14 +109,15 @@ fn run_per_particle_kernel(dt: f32, neighbor_radius: f32) {
 
     //let mut neigh_buf = vec![];
 
-    for (i, out_part) in outp.iter_mut().enumerate() {
+    for (i, outp) in outp.iter_mut().enumerate() {
         //neigh_buf.clear();
         //neigh_buf.extend(;
         for neighbor in accel.query_neighbors_fast(i, points[i]) {
             let diff = points[neighbor] - points[i];
 
+            let mut out_accel = [0.0; 2];
             per_neighbor_kernel(
-                out_part.accel.as_mut_ptr(),
+                out_accel.as_mut_ptr(),
                 dt,
                 neighbor_radius,
                 inp[neighbor].our_type,
@@ -125,6 +129,8 @@ fn run_per_particle_kernel(dt: f32, neighbor_radius: f32) {
                 inp[i].vel[0],
                 inp[i].vel[1],
             );
+            outp.accel[0] += out_accel[0];
+            outp.accel[1] += out_accel[1];
         }
     }
 }
