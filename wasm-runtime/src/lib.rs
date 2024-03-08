@@ -104,12 +104,12 @@ fn run_per_particle_kernel(dt: f32, neighbor_radius: f32) {
     let points: Vec<Vec2> = inp.iter().map(|part| Vec2::from_array(part.pos)).collect();
     let accel = query_accel::QueryAccelerator::new(&points, neighbor_radius);
 
-    let mut neigh_buf = vec![];
+    //let mut neigh_buf = vec![];
 
     for (i, out_part) in outp.iter_mut().enumerate() {
-        neigh_buf.clear();
-        neigh_buf.extend(accel.query_neighbors_fast(i, points[i]));
-        for &neighbor in &neigh_buf {
+        //neigh_buf.clear();
+        //neigh_buf.extend(;
+        for neighbor in accel.query_neighbors_fast(i, points[i]) {
             let diff = points[neighbor] - points[i];
 
             per_neighbor_kernel(
