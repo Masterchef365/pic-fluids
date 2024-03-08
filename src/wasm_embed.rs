@@ -17,6 +17,7 @@ pub struct WasmNodeRuntime {
 const RUNTIME_WASM_BYTES: &[u8] =
     include_bytes!("../wasm-runtime/target/wasm32-unknown-unknown/release/wasm_runtime.wasm");
 const PER_PARTICLE_RUN_FN_NAME: &str = "run_per_particle_kernel";
+
 const PER_PARTICLE_KERNEL_FN_NAME: &str = "per_particle_kernel";
 const PER_NEIGHBOR_KERNEL_FN_NAME: &str = "per_neighbor_kernel";
 
@@ -53,10 +54,10 @@ impl WasmNodeRuntime {
         // Compile to wasm binary
         for (node, name) in [(per_particle_node, PER_PARTICLE_KERNEL_FN_NAME), (per_neighbor_node, PER_NEIGHBOR_KERNEL_FN_NAME)] {
             let anal = CodeAnalysis::new(node.clone(), &per_particle_fn_inputs());
-            let nodes_wat_insert = anal.compile_function_to_wat(PER_PARTICLE_KERNEL_FN_NAME).unwrap();
+            let nodes_wat_insert = anal.compile_function_to_wat(name).unwrap();
 
             // Rename the existing function to something else
-            let mut wat = wat.replacen(
+            wat = wat.replacen(
                 &format!("(func ${name}"),
                 &format!("(func ${name}_old"),
                 1,
