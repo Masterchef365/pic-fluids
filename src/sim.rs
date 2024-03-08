@@ -179,11 +179,11 @@ impl Sim {
             }
             ParticleBehaviourMode::NodeGraph => {
                 //per_neighbor_node_interactions(&mut self.particles, per_neighbor_nodes, node_cfg, tweak.dt);
-                let payloads = build_per_particle_input_payloads(&self.particles, node_cfg, tweak.dt);
+                let payloads = build_per_particle_input_payloads(&self.particles, node_cfg);
 
                 let outputs = if let Some(rt) = wasm_rt {
                     rt.update_code(per_particle_nodes, per_neighbor_nodes);
-                    rt.run(&payloads).unwrap()
+                    rt.run(&payloads, tweak.dt, node_cfg.neighbor_radius).unwrap()
                 } else {
                     panic!()
                     /*
@@ -700,6 +700,7 @@ impl Default for NodeInteractionCfg {
     }
 }
 
+// NOTE: Corresponds to the order of arguments to per_particle_kernel() in runtime
 pub fn per_particle_fn_inputs() -> ParameterList {
     let params = [
         (
@@ -723,11 +724,9 @@ pub fn per_particle_fn_inputs() -> ParameterList {
 fn build_per_particle_input_payloads(
     particles: &[Particle],
     cfg: &NodeInteractionCfg,
-    dt: f32,
 ) -> Vec<PerParticleInputPayload> {
     particles.iter().map(|part| {
         PerParticleInputPayload {
-            dt,
             pos: part.pos.to_array(),
             vel: part.vel.to_array(),
             our_type: part.color as f32,
@@ -743,6 +742,7 @@ fn apply_output_payloads(
     particles.iter_mut().zip(outputs).for_each(|(o, i)| o.vel += dt * Vec2::from(i.accel));
 }
 
+/*
 fn per_particle_node_interactions_native(
     inputs: &[PerParticleInputPayload],
     node: &Rc<Node>,
@@ -784,7 +784,9 @@ fn per_particle_node_interactions_native(
         }
     }).collect()
 }
+*/
 
+// NOTE: Corresponds to the order of arguments to per_neighbor_kernel() in runtime
 pub fn per_neighbor_fn_inputs() -> ParameterList {
     let params = [
         (
@@ -792,16 +794,12 @@ pub fn per_neighbor_fn_inputs() -> ParameterList {
             DataType::Scalar,
         ),
         (
-            ExternInputId::new("num-neighbors".to_string()),
-            DataType::Scalar,
-        ),
-        (
             ExternInputId::new("neigh-radius".to_string()),
             DataType::Scalar,
         ),
-        (ExternInputId::new("pos-diff".to_string()), DataType::Vec2),
-        (ExternInputId::new("neigh-type".into()), DataType::Scalar),
         (ExternInputId::new("our-type".into()), DataType::Scalar),
+        (ExternInputId::new("neigh-type".into()), DataType::Scalar),
+        (ExternInputId::new("pos-diff".to_string()), DataType::Vec2),
         (ExternInputId::new("position".into()), DataType::Vec2),
         (ExternInputId::new("velocity".into()), DataType::Vec2),
     ]

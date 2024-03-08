@@ -78,6 +78,8 @@ impl WasmNodeRuntime {
     pub fn run(
         &mut self,
         inputs: &[PerParticleInputPayload],
+        dt: f32,
+        neighbor_radius: f32,
     ) -> Result<Vec<PerParticleOutputPayload>> {
         // Casting
         let input_buf: &[u8] = bytemuck::cast_slice(inputs);
@@ -106,8 +108,8 @@ impl WasmNodeRuntime {
         mem.write(&mut self.store, input_ptr, &input_buf)?;
 
         // Call kernel run fn
-        let func = self.instance.get_typed_func::<(), ()>(&mut self.store, PER_PARTICLE_RUN_FN_NAME)?;
-        func.call(&mut self.store, ())?;
+        let func = self.instance.get_typed_func::<(f32, f32), ()>(&mut self.store, PER_PARTICLE_RUN_FN_NAME)?;
+        func.call(&mut self.store, (dt, neighbor_radius))?;
 
         // Read results
         mem.read(
