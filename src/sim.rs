@@ -169,7 +169,7 @@ impl Sim {
         }
     }
 
-    pub fn step(&mut self, tweak: &SimTweak, life: &LifeConfig, node_cfg: &NodeInteractionCfg, per_neighbor_nodes: &Rc<Node>, wasm_rt: Option<&mut WasmNodeRuntime>, per_particle_nodes: &Rc<Node>) {
+    pub fn step(&mut self, tweak: &SimTweak, life: &LifeConfig, node_cfg: &NodeInteractionCfg, per_neighbor_nodes: &Rc<Node>, per_particle_nodes: &Rc<Node>, wasm_rt: Option<&mut WasmNodeRuntime>) {
         //puffin::profile_scope!("Complete Step");
         // Step particles
         apply_global_force(&mut self.particles, Vec2::new(0., -tweak.gravity), tweak.dt);
@@ -182,7 +182,7 @@ impl Sim {
                 let payloads = build_per_particle_input_payloads(&self.particles, node_cfg, tweak.dt);
 
                 let outputs = if let Some(rt) = wasm_rt {
-                    rt.update_code(per_particle_nodes);
+                    rt.update_code(per_particle_nodes, per_neighbor_nodes);
                     rt.run(&payloads).unwrap()
                 } else {
                     panic!()

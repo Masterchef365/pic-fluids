@@ -257,8 +257,8 @@ impl TemplateApp {
                 &self.save.life,
                 &self.save.node_cfg,
                 &per_neighbor_node,
-                self.wasm_rt.as_mut(),
                 &per_particle_node,
+                self.wasm_rt.as_mut(),
             );
 
             self.save.single_step = false;

@@ -11,13 +11,14 @@ pub struct WasmNodeRuntime {
     engine: Engine,
     store: Store<()>,
     instance: Instance,
-    old_code: Option<Rc<Node>>,
+    old_code: Option<(Rc<Node>, Rc<Node>)>,
 }
 
 const RUNTIME_WASM_BYTES: &[u8] =
     include_bytes!("../wasm-runtime/target/wasm32-unknown-unknown/release/wasm_runtime.wasm");
 const PER_PARTICLE_RUN_FN_NAME: &str = "run_per_particle_kernel";
 const PER_PARTICLE_KERNEL_FN_NAME: &str = "per_particle_kernel";
+const PER_NEIGHBOR_KERNEL_FN_NAME: &str = "per_neighbor_kernel";
 
 impl WasmNodeRuntime {
     pub fn new() -> Result<Self> {
@@ -35,31 +36,34 @@ impl WasmNodeRuntime {
         })
     }
 
-    pub fn update_code(&mut self, node: &Rc<Node>) {
+    pub fn update_code(&mut self, per_particle_node: &Rc<Node>, per_neighbor_node: &Rc<Node>) {
         // Don't bother resetting if there is no code change.
         // TODO: Find a way not to compare the entire graph...
-        if self.old_code.as_ref() == Some(node) {
+        if self.old_code.as_ref() == Some(&(per_particle_node.clone(), per_neighbor_node.clone())) {
             return;
         }
-        self.old_code = Some(node.clone());
-
-        // Compile to wasm binary
-        let anal = CodeAnalysis::new(node.clone(), &per_particle_fn_inputs());
-        //println!("{}", anal.func_name_rust(PER_PARTICLE_KERNEL_FN_NAME).unwrap());
-        let nodes_wat_insert = anal.compile_function_to_wat(PER_PARTICLE_KERNEL_FN_NAME).unwrap();
+        self.old_code = Some((per_particle_node.clone(), per_neighbor_node.clone()));
 
         // Innovative text-based linking technology
-        let wat = wasmprinter::print_bytes(&RUNTIME_WASM_BYTES).unwrap();
-        // Rename the existing function to something else
-        let mut wat = wat.replacen(
-            &format!("(func ${PER_PARTICLE_KERNEL_FN_NAME}"),
-            &format!("(func ${PER_PARTICLE_KERNEL_FN_NAME}_old"),
-            1,
-        );
+        let mut wat = wasmprinter::print_bytes(&RUNTIME_WASM_BYTES).unwrap();
+
         // Look for the first function declaration and insert the snippet just before that
         let idx = wat.find("(type").unwrap();
-        wat.insert_str(idx, "\n");
-        wat.insert_str(idx, &nodes_wat_insert);
+
+        // Compile to wasm binary
+        for (node, name) in [(per_particle_node, PER_PARTICLE_KERNEL_FN_NAME), (per_neighbor_node, PER_NEIGHBOR_KERNEL_FN_NAME)] {
+            let anal = CodeAnalysis::new(node.clone(), &per_particle_fn_inputs());
+            let nodes_wat_insert = anal.compile_function_to_wat(PER_PARTICLE_KERNEL_FN_NAME).unwrap();
+
+            // Rename the existing function to something else
+            let mut wat = wat.replacen(
+                &format!("(func ${name}"),
+                &format!("(func ${name}_old"),
+                1,
+            );
+            wat.insert_str(idx, "\n");
+            wat.insert_str(idx, &nodes_wat_insert);
+        }
 
         let wasm = wat::parse_str(&wat).unwrap();
         self.set_code(&wasm).unwrap();
