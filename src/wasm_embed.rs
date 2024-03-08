@@ -5,7 +5,7 @@ use vorpal_widgets::vorpal_core::Node;
 use wasm_bridge::{Engine, Instance, Module, Result, Store};
 use wasm_runtime::{PerParticleInputPayload, PerParticleOutputPayload};
 
-use crate::sim::per_particle_fn_inputs;
+use crate::sim::{per_neighbor_fn_inputs, per_particle_fn_inputs};
 
 pub struct WasmNodeRuntime {
     engine: Engine,
@@ -52,19 +52,29 @@ impl WasmNodeRuntime {
         let idx = wat.find("(type").unwrap();
 
         // Compile to wasm binary
-        for (node, name) in [(per_particle_node, PER_PARTICLE_KERNEL_FN_NAME), (per_neighbor_node, PER_NEIGHBOR_KERNEL_FN_NAME)] {
-            let anal = CodeAnalysis::new(node.clone(), &per_particle_fn_inputs());
+        for (node, name, input_types) in [
+            (
+                per_particle_node,
+                PER_PARTICLE_KERNEL_FN_NAME,
+                per_particle_fn_inputs(),
+            ),
+            (
+                per_neighbor_node,
+                PER_NEIGHBOR_KERNEL_FN_NAME,
+                per_neighbor_fn_inputs(),
+            ),
+        ] {
+            let anal = CodeAnalysis::new(node.clone(), &input_types);
             let nodes_wat_insert = anal.compile_function_to_wat(name).unwrap();
+            eprintln!("{}", anal.func_name_rust(name).unwrap());
 
             // Rename the existing function to something else
-            wat = wat.replacen(
-                &format!("(func ${name}"),
-                &format!("(func ${name}_old"),
-                1,
-            );
+            wat = wat.replacen(&format!("(func ${name}"), &format!("(func ${name}_old"), 1);
             wat.insert_str(idx, "\n");
             wat.insert_str(idx, &nodes_wat_insert);
         }
+
+        std::fs::write("log.txt", &wat).unwrap();
 
         let wasm = wat::parse_str(&wat).unwrap();
         self.set_code(&wasm).unwrap();
@@ -95,10 +105,7 @@ impl WasmNodeRuntime {
 
         let buf_ptr = func.call(
             &mut self.store,
-            (
-                input_buf.len() as u32,
-                output_buf_len as u32,
-            ),
+            (input_buf.len() as u32, output_buf_len as u32),
         )?;
         let input_ptr = buf_ptr as usize;
         let output_ptr = input_ptr + input_buf.len();
@@ -109,7 +116,9 @@ impl WasmNodeRuntime {
         mem.write(&mut self.store, input_ptr, &input_buf)?;
 
         // Call kernel run fn
-        let func = self.instance.get_typed_func::<(f32, f32), ()>(&mut self.store, PER_PARTICLE_RUN_FN_NAME)?;
+        let func = self
+            .instance
+            .get_typed_func::<(f32, f32), ()>(&mut self.store, PER_PARTICLE_RUN_FN_NAME)?;
         func.call(&mut self.store, (dt, neighbor_radius))?;
 
         // Read results
