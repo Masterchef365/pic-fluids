@@ -9,13 +9,8 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "a2ef034f05691a48569bd920a96c81b9d91bbad1ab5ac7c4616c1f6ef36cb79f"
 
 [[package]]
-name = "vorpal-wasm-builtins"
-version = "0.1.0"
-
-[[package]]
 name = "wasm-runtime"
 version = "0.1.0"
 dependencies = [
  "bytemuck",
- "vorpal-wasm-builtins",
 ]
