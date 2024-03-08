@@ -43,3 +43,8 @@ pub extern "C" fn builtin_less_than(lhs: f32, rhs: f32) -> f32 {
     f32::from(lhs < rhs)
 }
 
+#[no_mangle]
+pub extern "C" fn builtin_equal_to(lhs: f32, rhs: f32) -> f32 {
+    f32::from(lhs == rhs)
+}
+
