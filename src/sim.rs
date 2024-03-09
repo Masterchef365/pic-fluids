@@ -900,7 +900,7 @@ impl Default for SimTweak {
             stiffness: 1.0,
             gravity: 9.8,
             solver: IncompressibilitySolver::GaussSeidel,
-            particle_mode: ParticleBehaviourMode::ParticleLife,
+            particle_mode: ParticleBehaviourMode::NodeGraph,
             particle_radius: 0.28,
             over_relax: 1.5,
             damping: 0.,
