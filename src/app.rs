@@ -137,7 +137,7 @@ impl TemplateApp {
             //grid_vel_scale: 0.05,
             //show_grid: false,
             set_inter_dist_to_radius: true,
-            node_graph_fn_viewed: NodeGraphFns::PerParticle,
+            node_graph_fn_viewed: NodeGraphFns::PerNeighbor,
             mobile_tab: MobileTab::Main,
             fullscreen_inside: false,
             //mult: 1.0,
