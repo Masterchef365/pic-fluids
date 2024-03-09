@@ -436,6 +436,8 @@ impl TemplateApp {
     }
 
     fn settings_gui(&mut self, ui: &mut Ui) {
+        let mut do_reset = false;
+
         if self.save.working.set_hard_collisions_based_on_particle_life {
             self.save.working.tweak.enable_particle_collisions =
                 self.save.working.tweak.particle_mode != ParticleBehaviourMode::ParticleLife;
@@ -461,10 +463,118 @@ impl TemplateApp {
         });
 
         ui.separator();
+        if self.save.working.tweak.particle_mode == ParticleBehaviourMode::NodeGraph {
+            ui.strong("Node graph configuration");
+            ui.horizontal(|ui| {
+                ui.strong("Viewing: ");
+                ui.selectable_value(
+                    &mut self.save.working.node_graph_fn_viewed,
+                    NodeGraphFns::PerNeighbor,
+                    "Per-neighbor",
+                );
+                ui.selectable_value(
+                    &mut self.save.working.node_graph_fn_viewed,
+                    NodeGraphFns::PerParticle,
+                    "Per-particle",
+                );
+            });
+            ui.add(
+                DragValue::new(&mut self.save.working.node_cfg.neighbor_radius)
+                    .clamp_range(1e-2..=20.0)
+                    .speed(1e-2)
+                    .prefix("Neighbor_radius: "),
+            );
+        }
+
+        if self.save.working.tweak.particle_mode == ParticleBehaviourMode::ParticleLife {
+            ui.strong("Particle life configuration");
+            let mut behav_cfg = self.save.working.life.behaviours[(0, 0)];
+            if self.save.working.advanced {
+                ui.add(
+                    DragValue::new(&mut behav_cfg.max_inter_dist)
+                        .clamp_range(0.0..=20.0)
+                        .speed(1e-2)
+                        .prefix("Max interaction dist: "),
+                );
+                ui.add(
+                    DragValue::new(&mut behav_cfg.default_repulse)
+                        .speed(1e-2)
+                        .prefix("Default repulse: "),
+                );
+                ui.horizontal(|ui| {
+                    ui.add(
+                        DragValue::new(&mut behav_cfg.inter_threshold)
+                            .clamp_range(0.0..=20.0)
+                            .speed(1e-2)
+                            .prefix("Interaction threshold: "),
+                    );
+                    ui.checkbox(
+                        &mut self.save.working.set_inter_dist_to_radius,
+                        "From radius",
+                    );
+                });
+            }
+            if self.save.working.set_inter_dist_to_radius {
+                behav_cfg.inter_threshold = self.save.working.tweak.particle_radius * 2.;
+            }
+            for b in self.save.working.life.behaviours.data_mut() {
+                b.max_inter_dist = behav_cfg.max_inter_dist;
+                b.inter_threshold = behav_cfg.inter_threshold;
+                b.default_repulse = behav_cfg.default_repulse;
+            }
+
+            ui.label("Interactions:");
+            Grid::new("Particle Life Grid").show(ui, |ui| {
+                // Top row
+                //ui.label("Life");
+                ui.label("");
+                for color in &mut self.save.working.life.colors {
+                    ui.color_edit_button_rgb(color);
+                }
+                ui.end_row();
+
+                // Grid
+                let len = self.save.working.life.colors.len();
+                for (row_idx, color) in self.save.working.life.colors.iter_mut().enumerate() {
+                    ui.color_edit_button_rgb(color);
+                    for column in 0..len {
+                        let behav = &mut self.save.working.life.behaviours[(column, row_idx)];
+                        ui.add(DragValue::new(&mut behav.inter_strength).speed(1e-2));
+                    }
+                    ui.end_row();
+                }
+            });
+
+            ui.horizontal(|ui| {
+                if ui.button("Randomize behaviours").clicked() {
+                    self.save.working.life = LifeConfig::random(
+                        self.save.working.n_colors,
+                        self.save.working.random_std_dev,
+                    );
+                    do_reset = true;
+                }
+                ui.add(
+                    DragValue::new(&mut self.save.working.random_std_dev)
+                        .prefix("std. dev: ")
+                        .speed(1e-2)
+                        .clamp_range(0.0..=f32::MAX),
+                )
+            });
+            if ui.button("Symmetric forces").clicked() {
+                let n = self.save.working.life.colors.len();
+                for i in 0..n {
+                    for j in 0..i {
+                        self.save.working.life.behaviours[(i, j)] =
+                            self.save.working.life.behaviours[(j, i)]
+                    }
+                }
+            }
+        }
+
+        ui.separator();
         ui.strong("Save data");
         self.save_menu(ui);
 
-        let mut reset = false;
         ui.separator();
         ui.strong("Simulation state");
 
@@ -505,14 +615,14 @@ impl TemplateApp {
                 .resize_with(self.save.working.n_colors, || {
                     random_color(&mut rand::thread_rng())
                 });
-            reset = true;
+            do_reset = true;
         }
         ui.horizontal(|ui| {
             ui.checkbox(&mut self.save.working.pause, "Pause");
             self.save.working.single_step |= ui.button("Step").clicked();
         });
         if ui.button("Reset").clicked() {
-            reset = true;
+            do_reset = true;
         }
         ui.horizontal(|ui| {
             ui.add(
@@ -675,114 +785,6 @@ impl TemplateApp {
         });
         ui.checkbox(&mut self.save.working.well, "Particle well");
 
-        ui.separator();
-        if self.save.working.tweak.particle_mode == ParticleBehaviourMode::NodeGraph {
-            ui.strong("Node graph configuration");
-            ui.horizontal(|ui| {
-                ui.strong("Viewing: ");
-                ui.selectable_value(
-                    &mut self.save.working.node_graph_fn_viewed,
-                    NodeGraphFns::PerNeighbor,
-                    "Per-neighbor",
-                );
-                ui.selectable_value(
-                    &mut self.save.working.node_graph_fn_viewed,
-                    NodeGraphFns::PerParticle,
-                    "Per-particle",
-                );
-            });
-            ui.add(
-                DragValue::new(&mut self.save.working.node_cfg.neighbor_radius)
-                    .clamp_range(1e-2..=20.0)
-                    .speed(1e-2)
-                    .prefix("Neighbor_radius: "),
-            );
-        }
-
-        if self.save.working.tweak.particle_mode == ParticleBehaviourMode::ParticleLife {
-            ui.strong("Particle life configuration");
-            let mut behav_cfg = self.save.working.life.behaviours[(0, 0)];
-            if self.save.working.advanced {
-                ui.add(
-                    DragValue::new(&mut behav_cfg.max_inter_dist)
-                        .clamp_range(0.0..=20.0)
-                        .speed(1e-2)
-                        .prefix("Max interaction dist: "),
-                );
-                ui.add(
-                    DragValue::new(&mut behav_cfg.default_repulse)
-                        .speed(1e-2)
-                        .prefix("Default repulse: "),
-                );
-                ui.horizontal(|ui| {
-                    ui.add(
-                        DragValue::new(&mut behav_cfg.inter_threshold)
-                            .clamp_range(0.0..=20.0)
-                            .speed(1e-2)
-                            .prefix("Interaction threshold: "),
-                    );
-                    ui.checkbox(
-                        &mut self.save.working.set_inter_dist_to_radius,
-                        "From radius",
-                    );
-                });
-            }
-            if self.save.working.set_inter_dist_to_radius {
-                behav_cfg.inter_threshold = self.save.working.tweak.particle_radius * 2.;
-            }
-            for b in self.save.working.life.behaviours.data_mut() {
-                b.max_inter_dist = behav_cfg.max_inter_dist;
-                b.inter_threshold = behav_cfg.inter_threshold;
-                b.default_repulse = behav_cfg.default_repulse;
-            }
-
-            ui.label("Interactions:");
-            Grid::new("Particle Life Grid").show(ui, |ui| {
-                // Top row
-                //ui.label("Life");
-                ui.label("");
-                for color in &mut self.save.working.life.colors {
-                    ui.color_edit_button_rgb(color);
-                }
-                ui.end_row();
-
-                // Grid
-                let len = self.save.working.life.colors.len();
-                for (row_idx, color) in self.save.working.life.colors.iter_mut().enumerate() {
-                    ui.color_edit_button_rgb(color);
-                    for column in 0..len {
-                        let behav = &mut self.save.working.life.behaviours[(column, row_idx)];
-                        ui.add(DragValue::new(&mut behav.inter_strength).speed(1e-2));
-                    }
-                    ui.end_row();
-                }
-            });
-
-            ui.horizontal(|ui| {
-                if ui.button("Randomize behaviours").clicked() {
-                    self.save.working.life = LifeConfig::random(
-                        self.save.working.n_colors,
-                        self.save.working.random_std_dev,
-                    );
-                    reset = true;
-                }
-                ui.add(
-                    DragValue::new(&mut self.save.working.random_std_dev)
-                        .prefix("std. dev: ")
-                        .speed(1e-2)
-                        .clamp_range(0.0..=f32::MAX),
-                )
-            });
-            if ui.button("Symmetric forces").clicked() {
-                let n = self.save.working.life.colors.len();
-                for i in 0..n {
-                    for j in 0..i {
-                        self.save.working.life.behaviours[(i, j)] =
-                            self.save.working.life.behaviours[(j, i)]
-                    }
-                }
-            }
-        }
 
         /*
         if ui.button("Lifeless").clicked() {
@@ -818,7 +820,7 @@ impl TemplateApp {
         }
         */
 
-        if reset {
+        if do_reset {
             self.reset_sim_state();
         }
 
