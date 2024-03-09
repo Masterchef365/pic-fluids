@@ -151,7 +151,11 @@ impl TemplateApp {
 
         let save = FullSaveState {
             working: save,
-            saved_states: Default::default(),
+            saved_states: vec![
+                ("Attract".into(), serde_json::from_slice(include_bytes!("builtin_configs/attract.json")).unwrap()),
+                ("CentralForce".into(), serde_json::from_slice(include_bytes!("builtin_configs/central-force.json")).unwrap()),
+                ("LifeOnly".into(), serde_json::from_slice(include_bytes!("builtin_configs/particle-life-only.json")).unwrap()),
+            ],
         };
 
         Self {
@@ -389,13 +393,13 @@ impl TemplateApp {
                 for (idx, (name, state)) in self.save.saved_states.iter_mut().enumerate() {
                     ui.horizontal(|ui| {
                         ui.add(TextEdit::singleline(name).desired_width(100.));
-                        if ui.button("Delete").clicked() {
-                            delete_index = Some(idx);
-                        }
                         if ui.button("Load").clicked() {
                             //new_state = Some(("Autosave".into(), self.save.working.clone()));
                             self.save.working = state.clone();
                             did_load = true;
+                        }
+                        if ui.button("Delete").clicked() {
+                            delete_index = Some(idx);
                         }
                         if ui.button("Overwrite").clicked() {
                             //new_state = Some(("Autosave".into(), state.clone()));
@@ -486,6 +490,13 @@ impl TemplateApp {
                     .speed(1e-2)
                     .prefix("Neighbor_radius: "),
             );
+            ui.horizontal(|ui| {
+                ui.label("Colors: ");
+                for color in &mut self.save.working.life.colors {
+                    ui.color_edit_button_rgb(color);
+                }
+            });
+
             if let Some(rt) = &self.wasm_rt {
                 if let Some((pp_src, pn_src)) = rt.last_src() {
                     ui.collapsing("WASM Source code (!)", |ui| {
