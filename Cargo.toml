@@ -17,7 +17,6 @@ eframe = { version = "0.26.2", default-features = false, features = [
 ] }
 log = "0.4"
 glam = "0.24.1"
-vorpal-widgets = { path = "../vorpal/vorpal-widgets" }
 
 rand = { version = "0.8" }
 getrandom = { version = "*", features = ["js"] }
@@ -34,7 +33,12 @@ wasm-runtime = { path = "./wasm-runtime" }
 bytemuck = "1.13.1"
 
 wat = "1.201.0"
-vorpal-wasm = { path = "../vorpal/vorpal-wasm" }
+#vorpal-wasm = { path = "../vorpal/vorpal-wasm" }
+#vorpal-widgets = { path = "../vorpal/vorpal-widgets" }
+
+vorpal-wasm = { git = "https://github.com/Masterchef365/vorpal.git", branch = "main" }
+vorpal-widgets = { git = "https://github.com/Masterchef365/vorpal.git", branch = "main" }
+
 wasmprinter = "0.201.0"
 
 # native:
