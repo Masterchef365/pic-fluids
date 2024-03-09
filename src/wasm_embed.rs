@@ -11,6 +11,8 @@ pub struct WasmNodeRuntime {
     engine: Engine,
     store: Store<()>,
     instance: Instance,
+    /// (per-particle, per-neighbor)
+    last_src: Option<(String, String)>,
     old_code: Option<(Rc<Node>, Rc<Node>)>,
 }
 
@@ -33,6 +35,7 @@ impl WasmNodeRuntime {
             instance,
             engine,
             store,
+            last_src: None,
             old_code: None,
         })
     }
@@ -51,17 +54,23 @@ impl WasmNodeRuntime {
         // Look for the first function declaration and insert the snippet just before that
         let idx = wat.find("(type").unwrap();
 
+        // Take a picture to show off later
+        let mut pp_src = String::new();
+        let mut pn_src = String::new();
+
         // Compile to wasm binary
-        for (node, name, input_types) in [
+        for (node, name, input_types, src_out) in [
             (
                 per_particle_node,
                 PER_PARTICLE_KERNEL_FN_NAME,
                 per_particle_fn_inputs(),
+                &mut pp_src,
             ),
             (
                 per_neighbor_node,
                 PER_NEIGHBOR_KERNEL_FN_NAME,
                 per_neighbor_fn_inputs(),
+                &mut pn_src,
             ),
         ] {
             let anal = CodeAnalysis::new(node.clone(), &input_types);
@@ -72,12 +81,20 @@ impl WasmNodeRuntime {
             wat = wat.replacen(&format!("(func ${name}"), &format!("(func ${name}_old"), 1);
             wat.insert_str(idx, "\n");
             wat.insert_str(idx, &nodes_wat_insert);
+
+            *src_out = nodes_wat_insert;
         }
+
+        self.last_src = Some((pp_src, pn_src));
 
         let wasm = wat::parse_str(&wat).unwrap();
         self.set_code(&wasm)
             .inspect_err(|_| eprintln!("{}", wat))
             .unwrap();
+    }
+
+    pub fn last_src(&self) -> Option<&(String, String)> {
+        self.last_src.as_ref()
     }
 
     fn set_code(&mut self, code: &[u8]) -> Result<()> {

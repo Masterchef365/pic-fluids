@@ -1,3 +1,5 @@
+use std::borrow::Cow;
+
 use crate::array2d::Array2D;
 use crate::wasm_embed::WasmNodeRuntime;
 
@@ -484,6 +486,17 @@ impl TemplateApp {
                     .speed(1e-2)
                     .prefix("Neighbor_radius: "),
             );
+            if let Some(rt) = &self.wasm_rt {
+                if let Some((pp_src, pn_src)) = rt.last_src() {
+                    egui::ComboBox::from_label("WASM Source code (!)").show_ui(ui, |ui| {
+                        if self.save.working.node_graph_fn_viewed == NodeGraphFns::PerNeighbor {
+                            ui.text_edit_multiline(&mut Cow::from(pn_src));
+                        } else {
+                            ui.text_edit_multiline(&mut Cow::from(pp_src));
+                        }
+                    });
+                }
+            }
         }
 
         if self.save.working.tweak.particle_mode == ParticleBehaviourMode::ParticleLife {
