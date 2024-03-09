@@ -2,7 +2,7 @@ use crate::array2d::Array2D;
 use crate::wasm_embed::WasmNodeRuntime;
 
 use eframe::egui::{DragValue, Grid, Rgba, RichText, ScrollArea, Slider, Ui};
-use egui::ahash::HashMap;
+
 use egui::os::OperatingSystem;
 use egui::{CentralPanel, Frame, Rect, Sense, TextEdit};
 use egui::{SidePanel, TopBottomPanel};
@@ -379,6 +379,7 @@ impl TemplateApp {
 
         egui::Frame::group(ui.style()).show(ui, |ui| {
             egui::ScrollArea::vertical().show(ui, |ui| {
+                let mut did_load = false;
                 let mut delete_index = None;
                 //let mut new_state = None;
 
@@ -391,6 +392,7 @@ impl TemplateApp {
                         if ui.button("Load").clicked() {
                             //new_state = Some(("Autosave".into(), self.save.working.clone()));
                             self.save.working = state.clone();
+                            did_load = true;
                         }
                     });
                 }
@@ -399,6 +401,9 @@ impl TemplateApp {
                     self.save.saved_states.push(state);
                 }
                 */
+                if did_load {
+                    self.enforce_particle_count();
+                }
 
                 if let Some(del) = delete_index {
                     self.save.saved_states.remove(del);

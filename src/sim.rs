@@ -1,14 +1,14 @@
 use std::rc::Rc;
 
 use crate::array2d::{Array2D, GridPos};
-use wasm_runtime::query_accel::QueryAccelerator;
 use crate::wasm_embed::WasmNodeRuntime;
+use wasm_runtime::query_accel::QueryAccelerator;
 
 use glam::Vec2;
 use rand::prelude::*;
-use vorpal_widgets::vorpal_core::{native_backend::evaluate_node, Node};
+use vorpal_widgets::vorpal_core::{Node};
 use vorpal_widgets::vorpal_core::{
-    DataType, ExternInputId, ExternParameters, ParameterList, Value,
+    DataType, ExternInputId, ParameterList,
 };
 use wasm_runtime::{PerParticleInputPayload, PerParticleOutputPayload};
 
@@ -59,16 +59,14 @@ pub struct Particle {
     pub deriv: [Vec2; 2],
 }
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-#[derive(serde::Serialize, serde::Deserialize)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub enum IncompressibilitySolver {
     Jacobi,
     GaussSeidel,
 }
 
 /// Display colors and physical behaviour coefficients
-#[derive(Clone, Debug)]
-#[derive(serde::Serialize, serde::Deserialize)]
+#[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
 pub struct LifeConfig {
     /// Colors of each type
     pub colors: Vec<[f32; 3]>,
@@ -78,8 +76,7 @@ pub struct LifeConfig {
 
 pub type ParticleType = u8;
 
-#[derive(Clone, Copy, Debug)]
-#[derive(serde::Serialize, serde::Deserialize)]
+#[derive(Clone, Copy, Debug, serde::Serialize, serde::Deserialize)]
 pub struct Behaviour {
     /// Magnitude of the default repulsion force
     pub default_repulse: f32,
@@ -92,8 +89,7 @@ pub struct Behaviour {
 }
 
 /// External particle behaviours
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-#[derive(serde::Serialize, serde::Deserialize)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub enum ParticleBehaviourMode {
     ParticleLife,
     NodeGraph,
@@ -101,8 +97,7 @@ pub enum ParticleBehaviourMode {
 }
 
 /// Configuration for node interactions
-#[derive(Clone, Copy, Debug)]
-#[derive(serde::Serialize, serde::Deserialize)]
+#[derive(Clone, Copy, Debug, serde::Serialize, serde::Deserialize)]
 pub struct NodeInteractionCfg {
     pub neighbor_radius: f32,
 }
@@ -169,7 +164,15 @@ impl Sim {
         }
     }
 
-    pub fn step(&mut self, tweak: &SimTweak, life: &LifeConfig, node_cfg: &NodeInteractionCfg, per_neighbor_nodes: &Rc<Node>, per_particle_nodes: &Rc<Node>, wasm_rt: Option<&mut WasmNodeRuntime>) {
+    pub fn step(
+        &mut self,
+        tweak: &SimTweak,
+        life: &LifeConfig,
+        node_cfg: &NodeInteractionCfg,
+        per_neighbor_nodes: &Rc<Node>,
+        per_particle_nodes: &Rc<Node>,
+        wasm_rt: Option<&mut WasmNodeRuntime>,
+    ) {
         //puffin::profile_scope!("Complete Step");
         // Step particles
         apply_global_force(&mut self.particles, Vec2::new(0., -tweak.gravity), tweak.dt);
@@ -183,7 +186,14 @@ impl Sim {
 
                 let outputs = if let Some(rt) = wasm_rt {
                     rt.update_code(per_particle_nodes, per_neighbor_nodes);
-                    rt.run(self.grid.width(), self.grid.height(), &payloads, tweak.dt, node_cfg.neighbor_radius).unwrap()
+                    rt.run(
+                        self.grid.width(),
+                        self.grid.height(),
+                        &payloads,
+                        tweak.dt,
+                        node_cfg.neighbor_radius,
+                    )
+                    .unwrap()
                 } else {
                     panic!()
                     /*
@@ -191,7 +201,7 @@ impl Sim {
                     */
                 };
 
-                apply_output_payloads(tweak.dt, &mut self. particles, &outputs);
+                apply_output_payloads(tweak.dt, &mut self.particles, &outputs);
                 //per_particle_node_interactions_native(&mut self.particles, per_particle_nodes, node_cfg, tweak.dt);
             }
             ParticleBehaviourMode::Off => (),
@@ -703,10 +713,7 @@ impl Default for NodeInteractionCfg {
 // NOTE: Corresponds to the order of arguments to per_particle_kernel() in runtime
 pub fn per_particle_fn_inputs() -> ParameterList {
     let params = [
-        (
-            ExternInputId::new("dt".to_string()),
-            DataType::Scalar,
-        ),
+        (ExternInputId::new("dt".to_string()), DataType::Scalar),
         /*(
             ExternInputId::new("neigh-radius".to_string()),
             DataType::Scalar,
@@ -724,15 +731,16 @@ pub fn per_particle_fn_inputs() -> ParameterList {
 
 fn build_per_particle_input_payloads(
     particles: &[Particle],
-    cfg: &NodeInteractionCfg,
+    _cfg: &NodeInteractionCfg,
 ) -> Vec<PerParticleInputPayload> {
-    particles.iter().map(|part| {
-        PerParticleInputPayload {
+    particles
+        .iter()
+        .map(|part| PerParticleInputPayload {
             pos: part.pos.to_array(),
             vel: part.vel.to_array(),
             our_type: part.color as f32,
-        }
-    }).collect()
+        })
+        .collect()
 }
 
 fn apply_output_payloads(
@@ -740,7 +748,10 @@ fn apply_output_payloads(
     particles: &mut [Particle],
     outputs: &[PerParticleOutputPayload],
 ) {
-    particles.iter_mut().zip(outputs).for_each(|(o, i)| o.vel += dt * Vec2::from(i.accel));
+    particles
+        .iter_mut()
+        .zip(outputs)
+        .for_each(|(o, i)| o.vel += dt * Vec2::from(i.accel));
 }
 
 /*
@@ -790,10 +801,7 @@ fn per_particle_node_interactions_native(
 // NOTE: Corresponds to the order of arguments to per_neighbor_kernel() in runtime
 pub fn per_neighbor_fn_inputs() -> ParameterList {
     let params = [
-        (
-            ExternInputId::new("dt".to_string()),
-            DataType::Scalar,
-        ),
+        (ExternInputId::new("dt".to_string()), DataType::Scalar),
         (
             ExternInputId::new("neigh-radius".to_string()),
             DataType::Scalar,
@@ -879,8 +887,6 @@ fn per_neighbor_node_interactions(
     }
 }
 */
-
-
 
 impl Default for SimTweak {
     fn default() -> Self {

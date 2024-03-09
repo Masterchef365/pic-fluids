@@ -75,7 +75,9 @@ impl WasmNodeRuntime {
         }
 
         let wasm = wat::parse_str(&wat).unwrap();
-        self.set_code(&wasm).inspect_err(|_| eprintln!("{}", wat)).unwrap();
+        self.set_code(&wasm)
+            .inspect_err(|_| eprintln!("{}", wat))
+            .unwrap();
     }
 
     fn set_code(&mut self, code: &[u8]) -> Result<()> {
@@ -116,10 +118,14 @@ impl WasmNodeRuntime {
         mem.write(&mut self.store, input_ptr, &input_buf)?;
 
         // Call kernel run fn
-        let func = self
-            .instance
-            .get_typed_func::<(f32, f32, f32, f32), ()>(&mut self.store, PER_PARTICLE_RUN_FN_NAME)?;
-        func.call(&mut self.store, (dt, neighbor_radius, width as f32, height as f32))?;
+        let func = self.instance.get_typed_func::<(f32, f32, f32, f32), ()>(
+            &mut self.store,
+            PER_PARTICLE_RUN_FN_NAME,
+        )?;
+        func.call(
+            &mut self.store,
+            (dt, neighbor_radius, width as f32, height as f32),
+        )?;
 
         // Read results
         mem.read(

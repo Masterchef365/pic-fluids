@@ -8,7 +8,6 @@ fn main() -> eframe::Result<()> {
 
     let native_options = eframe::NativeOptions::default();
 
-
     // Set up debugging server
     /*
     puffin::set_scopes_on(true); // tell puffin to collect data
