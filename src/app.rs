@@ -489,6 +489,7 @@ impl TemplateApp {
             if let Some(rt) = &self.wasm_rt {
                 if let Some((pp_src, pn_src)) = rt.last_src() {
                     ui.collapsing("WASM Source code (!)", |ui| {
+                        ui.label("The node graph is dynamically compiled to webassembly; below is the WAST-formatted assembly text used to accelerate particles");
                         if self.save.working.node_graph_fn_viewed == NodeGraphFns::PerNeighbor {
                             ui.text_edit_multiline(&mut Cow::from(pn_src));
                         } else {
