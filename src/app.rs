@@ -152,9 +152,11 @@ impl TemplateApp {
         let save = FullSaveState {
             working: save,
             saved_states: vec![
+                /*
                 ("Attract".into(), serde_json::from_slice(include_bytes!("builtin_configs/attract.json")).unwrap()),
                 ("CentralForce".into(), serde_json::from_slice(include_bytes!("builtin_configs/central-force.json")).unwrap()),
                 ("LifeOnly".into(), serde_json::from_slice(include_bytes!("builtin_configs/particle-life-only.json")).unwrap()),
+                */
             ],
         };
 
