@@ -369,6 +369,7 @@ impl TemplateApp {
 
             if ui.button("Reset working state").clicked() {
                 self.save.working = Self::new_save_from_ctx(ui.ctx());
+                self.reset_sim_state();
             }
 
             if ui.button("Copy to clipboard").clicked() {
@@ -394,6 +395,10 @@ impl TemplateApp {
                             self.save.working = state.clone();
                             did_load = true;
                         }
+                        if ui.button("Overwrite").clicked() {
+                            //new_state = Some(("Autosave".into(), state.clone()));
+                            *state = self.save.working.clone();
+                        }
                     });
                 }
                 /*
@@ -402,7 +407,8 @@ impl TemplateApp {
                 }
                 */
                 if did_load {
-                    self.enforce_particle_count();
+                    //self.enforce_particle_count();
+                    self.reset_sim_state();
                 }
 
                 if let Some(del) = delete_index {
@@ -813,12 +819,7 @@ impl TemplateApp {
         */
 
         if reset {
-            self.sim = Sim::new(
-                self.save.working.width,
-                self.save.working.height,
-                self.sim.particles.len(),
-                &self.save.working.life,
-            );
+            self.reset_sim_state();
         }
 
         ui.separator();
@@ -835,6 +836,15 @@ impl TemplateApp {
         ui.label(format!(
             "Press {ENABLE_FULLSCREEN_KEY:?} to toggle fullscreen"
         ));
+    }
+
+    fn reset_sim_state(&mut self) {
+        self.sim = Sim::new(
+            self.save.working.width,
+            self.save.working.height,
+            self.sim.particles.len(),
+            &self.save.working.life,
+        )
     }
 }
 
