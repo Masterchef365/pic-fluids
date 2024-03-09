@@ -12,7 +12,7 @@ use vorpal_widgets::vorpal_core::{
 };
 use wasm_runtime::{PerParticleInputPayload, PerParticleOutputPayload};
 
-#[derive(serde::Serialize, serde::Deserialize)]
+#[derive(serde::Serialize, serde::Deserialize, Clone)]
 pub struct SimTweak {
     pub dt: f32,
     pub solver_iters: usize,

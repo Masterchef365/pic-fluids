@@ -22,10 +22,10 @@ pub struct TemplateApp {
 #[derive(serde::Serialize, serde::Deserialize)]
 struct FullSaveState {
     working: AppSaveState,
-    saved_states: HashMap<String, AppSaveState>,
+    saved_states: Vec<(String, AppSaveState)>,
 }
 
-#[derive(serde::Serialize, serde::Deserialize)]
+#[derive(serde::Serialize, serde::Deserialize, Clone)]
 pub struct AppSaveState {
     life: LifeConfig,
     per_particle_fn: NodeGraphWidget,
@@ -88,7 +88,7 @@ impl TemplateApp {
     }
 
     /// Completely fresh start
-    pub fn new_from_ctx(ctx: &egui::Context) -> Self {
+    pub fn new_save_from_ctx(ctx: &egui::Context) -> AppSaveState {
         // Otherwise create a new random sim state
         let (width, height) = if is_mobile(ctx) { (70, 150) } else { (120, 80) };
 
@@ -99,7 +99,6 @@ impl TemplateApp {
         let tweak = SimTweak::default();
 
         let life = LifeConfig::random(n_colors, random_std_dev);
-        let sim = Sim::new(width, height, n_particles, &life);
 
         let per_neighbor_fn = NodeGraphWidget::new(
             per_neighbor_fn_inputs(),
@@ -114,7 +113,7 @@ impl TemplateApp {
 
         let node_cfg = NodeInteractionCfg::default();
 
-        let save = AppSaveState {
+        AppSaveState {
             n_particles,
             set_hard_collisions_based_on_particle_life: true,
             life,
@@ -140,7 +139,13 @@ impl TemplateApp {
             mobile_tab: MobileTab::Main,
             fullscreen_inside: false,
             //mult: 1.0,
-        };
+        }
+    }
+
+    pub fn new_from_ctx(ctx: &egui::Context) -> Self {
+        let save = Self::new_save_from_ctx(ctx);
+
+        let sim = Sim::new(save.width, save.height, save.n_particles, &save.life);
 
         let save = FullSaveState {
             working: save,
@@ -196,7 +201,6 @@ impl eframe::App for TemplateApp {
                         MobileTab::NodeGraph,
                         "NodeGraph",
                     );
-                    self.save_menu(ui);
                 });
             });
             CentralPanel::default().show(ctx, |ui| match self.save.working.mobile_tab {
@@ -347,10 +351,46 @@ impl TemplateApp {
     }
 
     fn save_menu(&mut self, ui: &mut Ui) {
-        if ui.button("Copy").clicked() {
+        if ui.button("Copy to clipboard").clicked() {
             let txt = serde_json::to_string(&self.save.working).unwrap();
             ui.ctx().copy_text(txt);
         }
+
+        if ui.button("Save current state").clicked() {
+            self.save.saved_states.push(("Untitled".into(), self.save.working.clone()))
+        }
+
+        if ui.button("Reset working state").clicked() {
+            self.save.working = Self::new_save_from_ctx(ui.ctx());
+        }
+
+        egui::Frame::menu(ui.style()).show(ui, |ui| {
+            egui::ScrollArea::vertical().show(ui, |ui| {
+                let mut delete_index = None;
+                let mut new_state = None;
+
+                for (idx, (name, state)) in self.save.saved_states.iter_mut().enumerate() {
+                    ui.horizontal(|ui| {
+                        ui.text_edit_singleline(name);
+                        if ui.button("Delete").clicked() {
+                            delete_index = Some(idx);
+                        }
+                        if ui.button("Load").clicked() {
+                            new_state = Some(("Autosave".into(), self.save.working.clone()));
+                            self.save.working = state.clone();
+                        }
+                    });
+                }
+                if let Some(state) = new_state {
+                    self.save.saved_states.push(state);
+                }
+
+                if let Some(del) = delete_index {
+                    self.save.saved_states.remove(del);
+                }
+            })
+        });
+
         ui.horizontal(|ui| {
             ui.label("Paste here: ");
             let mut paste_txt = String::new();
@@ -363,6 +403,8 @@ impl TemplateApp {
                     }
                     Err(e) => eprintln!("Error reading pasted text: {:#?}", e),
                 }
+            } else {
+                println!("Paste read successfully");
             }
         });
     }
@@ -744,8 +786,10 @@ impl TemplateApp {
 
         ui.separator();
         ui.checkbox(&mut self.save.working.advanced, "Advanced settings");
-        if ui.button("Reset everything").clicked() {
-            *self = Self::new_from_ctx(ui.ctx());
+        if self.save.working.advanced {
+            if ui.button("Reset everything (DELETES ALL SAVES)").clicked() {
+                *self = Self::new_from_ctx(ui.ctx());
+            }
         }
         ui.hyperlink_to(
             "GitHub repository",
@@ -922,3 +966,7 @@ mesh.push_indices(&[a, b]);
 }
 }
 */
+
+impl FullSaveState {
+
+}
