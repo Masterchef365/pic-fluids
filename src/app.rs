@@ -4,7 +4,7 @@ use crate::wasm_embed::WasmNodeRuntime;
 use eframe::egui::{DragValue, Grid, Rgba, RichText, ScrollArea, Slider, Ui};
 use egui::ahash::HashMap;
 use egui::os::OperatingSystem;
-use egui::{CentralPanel, Frame, Rect, Sense};
+use egui::{CentralPanel, Frame, Rect, Sense, TextEdit};
 use egui::{SidePanel, TopBottomPanel};
 use glam::Vec2;
 use vorpal_widgets::node_editor::NodeGraphWidget;
@@ -351,11 +351,7 @@ impl TemplateApp {
     }
 
     fn save_menu(&mut self, ui: &mut Ui) {
-        if ui.button("Copy to clipboard").clicked() {
-            let txt = serde_json::to_string(&self.save.working).unwrap();
-            ui.ctx().copy_text(txt);
-        }
-
+        ui.horizontal(|ui| {
         if ui.button("Save current state").clicked() {
             self.save.saved_states.push(("Untitled".into(), self.save.working.clone()))
         }
@@ -364,26 +360,34 @@ impl TemplateApp {
             self.save.working = Self::new_save_from_ctx(ui.ctx());
         }
 
-        egui::Frame::menu(ui.style()).show(ui, |ui| {
+        if ui.button("Copy to clipboard").clicked() {
+            let txt = serde_json::to_string(&self.save.working).unwrap();
+            ui.ctx().copy_text(txt);
+        }
+        });
+
+        egui::Frame::group(ui.style()).show(ui, |ui| {
             egui::ScrollArea::vertical().show(ui, |ui| {
                 let mut delete_index = None;
-                let mut new_state = None;
+                //let mut new_state = None;
 
                 for (idx, (name, state)) in self.save.saved_states.iter_mut().enumerate() {
                     ui.horizontal(|ui| {
-                        ui.text_edit_singleline(name);
+                        ui.add(TextEdit::singleline(name));
                         if ui.button("Delete").clicked() {
                             delete_index = Some(idx);
                         }
                         if ui.button("Load").clicked() {
-                            new_state = Some(("Autosave".into(), self.save.working.clone()));
+                            //new_state = Some(("Autosave".into(), self.save.working.clone()));
                             self.save.working = state.clone();
                         }
                     });
                 }
+                /*
                 if let Some(state) = new_state {
                     self.save.saved_states.push(state);
                 }
+                */
 
                 if let Some(del) = delete_index {
                     self.save.saved_states.remove(del);
@@ -391,22 +395,18 @@ impl TemplateApp {
             })
         });
 
-        ui.horizontal(|ui| {
-            ui.label("Paste here: ");
-            let mut paste_txt = String::new();
-            ui.text_edit_singleline(&mut paste_txt);
-            if !paste_txt.is_empty() {
-                match serde_json::from_str(&paste_txt) {
-                    Ok(val) => {
-                        self.save.working = val;
-                        self.enforce_particle_count();
-                    }
-                    Err(e) => eprintln!("Error reading pasted text: {:#?}", e),
+        let mut paste_txt = String::new();
+        ui.add(TextEdit::singleline(&mut paste_txt).hint_text("Paste here"));
+        if !paste_txt.is_empty() {
+            match serde_json::from_str(&paste_txt) {
+                Ok(val) => {
+                    self.save.working = val;
+                    self.enforce_particle_count();
+                    println!("Paste read successfully");
                 }
-            } else {
-                println!("Paste read successfully");
+                Err(e) => eprintln!("Error reading pasted text: {:#?}", e),
             }
-        });
+        }
     }
 
     fn settings_gui(&mut self, ui: &mut Ui) {
