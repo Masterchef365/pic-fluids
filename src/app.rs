@@ -195,7 +195,11 @@ impl eframe::App for TemplateApp {
             TopBottomPanel::top("mobile_stuff").show(ctx, |ui| {
                 ui.horizontal(|ui| {
                     ui.selectable_value(&mut self.save.working.mobile_tab, MobileTab::Main, "Main");
-                    ui.selectable_value(&mut self.save.working.mobile_tab, MobileTab::Settings, "Settings");
+                    ui.selectable_value(
+                        &mut self.save.working.mobile_tab,
+                        MobileTab::Settings,
+                        "Settings",
+                    );
                     ui.selectable_value(
                         &mut self.save.working.mobile_tab,
                         MobileTab::NodeGraph,
@@ -216,7 +220,8 @@ impl eframe::App for TemplateApp {
                 }
             });
         } else {
-            self.save.working.fullscreen_inside ^= ctx.input(|r| r.key_released(ENABLE_FULLSCREEN_KEY));
+            self.save.working.fullscreen_inside ^=
+                ctx.input(|r| r.key_released(ENABLE_FULLSCREEN_KEY));
 
             if !self.save.working.fullscreen_inside {
                 SidePanel::left("Settings").show(ctx, |ui| {
@@ -330,7 +335,9 @@ impl TemplateApp {
 
     /// Fix having not saved the grid, or resizing events
     fn enforce_particle_count(&mut self) {
-        if self.sim.grid.width() != self.save.working.width || self.sim.grid.height() != self.save.working.height {
+        if self.sim.grid.width() != self.save.working.width
+            || self.sim.grid.height() != self.save.working.height
+        {
             self.sim = Sim::new(
                 self.save.working.width,
                 self.save.working.height,
@@ -339,31 +346,35 @@ impl TemplateApp {
             );
         } else if self.save.working.n_particles != self.sim.particles.len() {
             let mut rng = rand::thread_rng();
-            self.sim.particles.resize_with(self.save.working.n_particles, || {
-                random_particle(
-                    &mut rng,
-                    self.sim.grid.width(),
-                    self.sim.grid.height(),
-                    &self.save.working.life,
-                )
-            });
+            self.sim
+                .particles
+                .resize_with(self.save.working.n_particles, || {
+                    random_particle(
+                        &mut rng,
+                        self.sim.grid.width(),
+                        self.sim.grid.height(),
+                        &self.save.working.life,
+                    )
+                });
         }
     }
 
     fn save_menu(&mut self, ui: &mut Ui) {
         ui.horizontal(|ui| {
-        if ui.button("Save current state").clicked() {
-            self.save.saved_states.push(("Untitled".into(), self.save.working.clone()))
-        }
+            if ui.button("Save current state").clicked() {
+                self.save
+                    .saved_states
+                    .push(("Untitled".into(), self.save.working.clone()))
+            }
 
-        if ui.button("Reset working state").clicked() {
-            self.save.working = Self::new_save_from_ctx(ui.ctx());
-        }
+            if ui.button("Reset working state").clicked() {
+                self.save.working = Self::new_save_from_ctx(ui.ctx());
+            }
 
-        if ui.button("Copy to clipboard").clicked() {
-            let txt = serde_json::to_string(&self.save.working).unwrap();
-            ui.ctx().copy_text(txt);
-        }
+            if ui.button("Copy to clipboard").clicked() {
+                let txt = serde_json::to_string(&self.save.working).unwrap();
+                ui.ctx().copy_text(txt);
+            }
         });
 
         egui::Frame::group(ui.style()).show(ui, |ui| {
@@ -373,7 +384,7 @@ impl TemplateApp {
 
                 for (idx, (name, state)) in self.save.saved_states.iter_mut().enumerate() {
                     ui.horizontal(|ui| {
-                        ui.add(TextEdit::singleline(name));
+                        ui.add(TextEdit::singleline(name).desired_width(100.));
                         if ui.button("Delete").clicked() {
                             delete_index = Some(idx);
                         }
@@ -396,7 +407,11 @@ impl TemplateApp {
         });
 
         let mut paste_txt = String::new();
-        ui.add(TextEdit::singleline(&mut paste_txt).hint_text("Paste here"));
+        ui.add(
+            TextEdit::singleline(&mut paste_txt)
+                .hint_text("Paste save data here")
+                .desired_width(150.),
+        );
         if !paste_txt.is_empty() {
             match serde_json::from_str(&paste_txt) {
                 Ok(val) => {
@@ -458,7 +473,8 @@ impl TemplateApp {
             .changed()
         {
             let old_size = self.save.working.life.behaviours.width();
-            let mut new_behav_array = Array2D::new(self.save.working.n_colors, self.save.working.n_colors);
+            let mut new_behav_array =
+                Array2D::new(self.save.working.n_colors, self.save.working.n_colors);
             for i in 0..self.save.working.n_colors {
                 for j in 0..self.save.working.n_colors {
                     if i < old_size && j < old_size {
@@ -471,10 +487,13 @@ impl TemplateApp {
             }
             self.save.working.life.behaviours = new_behav_array;
 
-            self.save.working
+            self.save
+                .working
                 .life
                 .colors
-                .resize_with(self.save.working.n_colors, || random_color(&mut rand::thread_rng()));
+                .resize_with(self.save.working.n_colors, || {
+                    random_color(&mut rand::thread_rng())
+                });
             reset = true;
         }
         ui.horizontal(|ui| {
@@ -484,20 +503,18 @@ impl TemplateApp {
         if ui.button("Reset").clicked() {
             reset = true;
         }
-        if self.save.working.advanced {
-            ui.horizontal(|ui| {
-                ui.add(
-                    DragValue::new(&mut self.save.working.width)
-                        .prefix("Width: ")
-                        .clamp_range(1..=usize::MAX),
-                );
-                ui.add(
-                    DragValue::new(&mut self.save.working.height)
-                        .prefix("Height: ")
-                        .clamp_range(1..=usize::MAX),
-                );
-            });
-        }
+        ui.horizontal(|ui| {
+            ui.add(
+                DragValue::new(&mut self.save.working.width)
+                    .prefix("Width: ")
+                    .clamp_range(5..=usize::MAX),
+            );
+            ui.add(
+                DragValue::new(&mut self.save.working.height)
+                    .prefix("Height: ")
+                    .clamp_range(5..=usize::MAX),
+            );
+        });
 
         ui.separator();
         ui.strong("Kinematics");
@@ -522,7 +539,10 @@ impl TemplateApp {
                 &mut self.save.working.tweak.enable_grid_transfer,
                 "Grid transfer (required for incompressibility solver!)",
             );
-            ui.add(Slider::new(&mut self.save.working.tweak.pic_apic_ratio, 0.0..=1.0).text("PIC - APIC"));
+            ui.add(
+                Slider::new(&mut self.save.working.tweak.pic_apic_ratio, 0.0..=1.0)
+                    .text("PIC - APIC"),
+            );
         }
 
         ui.separator();
@@ -563,7 +583,8 @@ impl TemplateApp {
                     self.save.working.tweak.rest_density = Some(rest_density);
                 }
 
-                let mut calc_rest_density_from_radius = self.save.working.tweak.rest_density.is_none();
+                let mut calc_rest_density_from_radius =
+                    self.save.working.tweak.rest_density.is_none();
                 if ui
                     .checkbox(
                         &mut calc_rest_density_from_radius,
@@ -587,7 +608,10 @@ impl TemplateApp {
                 ui.strong("Incompressibility Solver");
                 ui.checkbox(&mut self.save.working.tweak.enable_incompress, "");
             });
-            ui.add(DragValue::new(&mut self.save.working.tweak.solver_iters).prefix("Solver iterations: "));
+            ui.add(
+                DragValue::new(&mut self.save.working.tweak.solver_iters)
+                    .prefix("Solver iterations: "),
+            );
             ui.add(
                 DragValue::new(&mut self.save.working.tweak.over_relax)
                     .prefix("Over-relaxation: ")
@@ -624,8 +648,10 @@ impl TemplateApp {
             ui.label("Particle inflow color: ");
             for (idx, &color) in self.save.working.life.colors.iter().enumerate() {
                 let color_marker = RichText::new("#####").color(color_to_egui(color));
-                let button =
-                    ui.selectable_label(idx as u8 == self.save.working.source_color_idx, color_marker);
+                let button = ui.selectable_label(
+                    idx as u8 == self.save.working.source_color_idx,
+                    color_marker,
+                );
                 if button.clicked() {
                     self.save.working.source_color_idx = idx as u8;
                 }
@@ -684,7 +710,10 @@ impl TemplateApp {
                             .speed(1e-2)
                             .prefix("Interaction threshold: "),
                     );
-                    ui.checkbox(&mut self.save.working.set_inter_dist_to_radius, "From radius");
+                    ui.checkbox(
+                        &mut self.save.working.set_inter_dist_to_radius,
+                        "From radius",
+                    );
                 });
             }
             if self.save.working.set_inter_dist_to_radius {
@@ -720,8 +749,10 @@ impl TemplateApp {
 
             ui.horizontal(|ui| {
                 if ui.button("Randomize behaviours").clicked() {
-                    self.save.working.life =
-                        LifeConfig::random(self.save.working.n_colors, self.save.working.random_std_dev);
+                    self.save.working.life = LifeConfig::random(
+                        self.save.working.n_colors,
+                        self.save.working.random_std_dev,
+                    );
                     reset = true;
                 }
                 ui.add(
@@ -735,7 +766,8 @@ impl TemplateApp {
                 let n = self.save.working.life.colors.len();
                 for i in 0..n {
                     for j in 0..i {
-                        self.save.working.life.behaviours[(i, j)] = self.save.working.life.behaviours[(j, i)]
+                        self.save.working.life.behaviours[(i, j)] =
+                            self.save.working.life.behaviours[(j, i)]
                     }
                 }
             }
@@ -967,6 +999,4 @@ mesh.push_indices(&[a, b]);
 }
 */
 
-impl FullSaveState {
-
-}
+impl FullSaveState {}
