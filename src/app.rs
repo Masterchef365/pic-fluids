@@ -488,7 +488,7 @@ impl TemplateApp {
             );
             if let Some(rt) = &self.wasm_rt {
                 if let Some((pp_src, pn_src)) = rt.last_src() {
-                    egui::ComboBox::from_label("WASM Source code (!)").show_ui(ui, |ui| {
+                    ui.collapsing("WASM Source code (!)", |ui| {
                         if self.save.working.node_graph_fn_viewed == NodeGraphFns::PerNeighbor {
                             ui.text_edit_multiline(&mut Cow::from(pn_src));
                         } else {
