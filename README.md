@@ -1,8 +1,11 @@
-# Particle life And FLIP Fluid simulation
+# Particle life And FLIP Fluid simulation, with node graph
 This is a combination of a [FLIP fluid solver](https://youtu.be/XmzBREkK8kY), and a [Particle Life](https://youtu.be/p4YirERTVF0) simulation. On each page refresh, fresh rules are chosen for the particle life simulation. **This simulation is interactive, drag the particles around!**
 
 ### Try the online version!
 https://masterchef365.github.io/pic-fluids/
+
+### Node graph
+The node graph portion can be considered to be a type of self-modifying code; changes to the node graph re-compile a portion of the webassembly code and use it to accelerate the simulation.
 
 ### Test locally
 Make sure you are using the latest version of stable rust by running `rustup update`.
@@ -28,3 +31,5 @@ Just run `trunk build --release`.
  - [x] Add another set of nodes for per-particle alongside the existing per-neighbor. Include a dt!
  - [ ] Specify output node type!
  - [ ] Subroutines? !
+ - [ ] "Maximum" and "Minimum" functions
+ - [ ] Vector reduction functions
