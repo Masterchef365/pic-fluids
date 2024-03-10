@@ -237,7 +237,7 @@ impl eframe::App for TemplateApp {
 
                 self.enforce_particle_count();
 
-                if self.save.working.tweak.particle_mode == ParticleBehaviourMode::NodeGraph {
+                if self.save.working.tweak.particle_mode.uses_nodes() {
                     SidePanel::right("NodeGraph").show(ctx, |ui| {
                         self.show_node_graph(ui);
                     });
@@ -467,10 +467,16 @@ impl TemplateApp {
                 ParticleBehaviourMode::ParticleLife,
                 "Particle life",
             );
+            ui.selectable_value(
+                &mut self.save.working.tweak.particle_mode,
+                ParticleBehaviourMode::Both,
+                "Both",
+            );
+
         });
 
-        ui.separator();
-        if self.save.working.tweak.particle_mode == ParticleBehaviourMode::NodeGraph {
+        if self.save.working.tweak.particle_mode.uses_nodes() {
+            ui.separator();
             ui.strong("Node graph configuration");
             ui.horizontal(|ui| {
                 ui.strong("Viewing: ");
@@ -512,7 +518,8 @@ impl TemplateApp {
             }
         }
 
-        if self.save.working.tweak.particle_mode == ParticleBehaviourMode::ParticleLife {
+        if self.save.working.tweak.particle_mode.uses_life() {
+            ui.separator();
             ui.strong("Particle life configuration");
             let mut behav_cfg = self.save.working.life.behaviours[(0, 0)];
             if self.save.working.advanced {

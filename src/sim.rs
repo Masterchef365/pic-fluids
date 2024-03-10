@@ -91,6 +91,7 @@ pub struct Behaviour {
 /// External particle behaviours
 #[derive(Clone, Copy, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub enum ParticleBehaviourMode {
+    Both,
     ParticleLife,
     NodeGraph,
     Off,
@@ -176,35 +177,32 @@ impl Sim {
         //puffin::profile_scope!("Complete Step");
         // Step particles
         apply_global_force(&mut self.particles, Vec2::new(0., -tweak.gravity), tweak.dt);
-        match tweak.particle_mode {
-            ParticleBehaviourMode::ParticleLife => {
-                particle_life_interactions(&mut self.particles, life, tweak.dt)
-            }
-            ParticleBehaviourMode::NodeGraph => {
-                //per_neighbor_node_interactions(&mut self.particles, per_neighbor_nodes, node_cfg, tweak.dt);
-                let payloads = build_per_particle_input_payloads(&self.particles, node_cfg);
+        if tweak.particle_mode.uses_life() {
+            particle_life_interactions(&mut self.particles, life, tweak.dt)
+        }
+        if tweak.particle_mode.uses_nodes() {
+            //per_neighbor_node_interactions(&mut self.particles, per_neighbor_nodes, node_cfg, tweak.dt);
+            let payloads = build_per_particle_input_payloads(&self.particles, node_cfg);
 
-                let outputs = if let Some(rt) = wasm_rt {
-                    rt.update_code(per_particle_nodes, per_neighbor_nodes);
-                    rt.run(
-                        self.grid.width(),
-                        self.grid.height(),
-                        &payloads,
-                        tweak.dt,
-                        node_cfg.neighbor_radius,
-                    )
+            let outputs = if let Some(rt) = wasm_rt {
+                rt.update_code(per_particle_nodes, per_neighbor_nodes);
+                rt.run(
+                    self.grid.width(),
+                    self.grid.height(),
+                    &payloads,
+                    tweak.dt,
+                    node_cfg.neighbor_radius,
+                )
                     .unwrap()
-                } else {
-                    panic!()
+            } else {
+                panic!()
                     /*
-                    let outputs = per_particle_node_interactions_native(&payloads, per_particle_nodes);
-                    */
-                };
+                       let outputs = per_particle_node_interactions_native(&payloads, per_particle_nodes);
+                       */
+            };
 
-                apply_output_payloads(tweak.dt, &mut self.particles, &outputs);
-                //per_particle_node_interactions_native(&mut self.particles, per_particle_nodes, node_cfg, tweak.dt);
-            }
-            ParticleBehaviourMode::Off => (),
+            apply_output_payloads(tweak.dt, &mut self.particles, &outputs);
+            //per_particle_node_interactions_native(&mut self.particles, per_particle_nodes, node_cfg, tweak.dt);
         }
 
         step_particles(&mut self.particles, tweak.dt, tweak.damping);
@@ -913,5 +911,15 @@ impl SimTweak {
     pub fn rest_density(&self) -> f32 {
         self.rest_density
             .unwrap_or_else(|| calc_rest_density(self.particle_radius))
+    }
+}
+
+impl ParticleBehaviourMode {
+    pub fn uses_life(&self) -> bool {
+        self == &Self::ParticleLife || self == &Self::Both
+    }
+
+    pub fn uses_nodes(&self) -> bool {
+        self == &Self::NodeGraph || self == &Self::Both
     }
 }
