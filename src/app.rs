@@ -156,6 +156,7 @@ impl TemplateApp {
                 ("CentralForce".into(), serde_json::from_slice(include_bytes!("builtin_configs/central-force.json")).unwrap()),
                 ("LifeOnly".into(), serde_json::from_slice(include_bytes!("builtin_configs/particle-life-only.json")).unwrap()),
                 ("RingPotential".into(), serde_json::from_slice(include_bytes!("builtin_configs/ring-potential.json")).unwrap()),
+                ("EarthRing".into(), serde_json::from_slice(include_bytes!("builtin_configs/earth-ring.json")).unwrap()),
             ],
         };
 
