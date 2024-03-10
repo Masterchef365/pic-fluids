@@ -3110,7 +3110,7 @@ checksum = "49874b5167b65d7193b8aba1567f5c7d93d001cafc34600cee003eda787e483f"
 [[package]]
 name = "vorpal-core"
 version = "0.1.0"
-source = "git+https://github.com/Masterchef365/vorpal.git?branch=main#a26bbbf18a662c21a70d96921d6becd03e15bc6b"
+source = "git+https://github.com/Masterchef365/vorpal.git?rev=85331a6#85331a65ea990be2225e79492440237900f20e67"
 dependencies = [
  "serde",
 ]
@@ -3118,7 +3118,7 @@ dependencies = [
 [[package]]
 name = "vorpal-wasm"
 version = "0.1.0"
-source = "git+https://github.com/Masterchef365/vorpal.git?branch=main#a26bbbf18a662c21a70d96921d6becd03e15bc6b"
+source = "git+https://github.com/Masterchef365/vorpal.git?rev=85331a6#85331a65ea990be2225e79492440237900f20e67"
 dependencies = [
  "anyhow",
  "vorpal-core",
@@ -3127,7 +3127,7 @@ dependencies = [
 [[package]]
 name = "vorpal-widgets"
 version = "0.1.0"
-source = "git+https://github.com/Masterchef365/vorpal.git?branch=main#a26bbbf18a662c21a70d96921d6becd03e15bc6b"
+source = "git+https://github.com/Masterchef365/vorpal.git?rev=85331a6#85331a65ea990be2225e79492440237900f20e67"
 dependencies = [
  "anyhow",
  "egui",

@@ -36,8 +36,8 @@ wat = "1.201.0"
 #vorpal-wasm = { path = "../vorpal/vorpal-wasm" }
 #vorpal-widgets = { path = "../vorpal/vorpal-widgets" }
 
-vorpal-wasm = { git = "https://github.com/Masterchef365/vorpal.git", branch = "main" }
-vorpal-widgets = { git = "https://github.com/Masterchef365/vorpal.git", branch = "main" }
+vorpal-wasm = { git = "https://github.com/Masterchef365/vorpal.git", rev = "85331a6" }
+vorpal-widgets = { git = "https://github.com/Masterchef365/vorpal.git", rev = "85331a6" }
 
 wasmprinter = "0.201.0"
 
