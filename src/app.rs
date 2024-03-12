@@ -6,7 +6,7 @@ use crate::wasm_embed::WasmNodeRuntime;
 use eframe::egui::{DragValue, Grid, Rgba, RichText, ScrollArea, Slider, Ui};
 
 use egui::os::OperatingSystem;
-use egui::{CentralPanel, Frame, Rect, Sense, TextEdit};
+use egui::{CentralPanel, Frame, Rect, Sense, TextEdit, Widget, WidgetText};
 use egui::{SidePanel, TopBottomPanel};
 use glam::Vec2;
 use vorpal_widgets::node_editor::NodeGraphWidget;
@@ -152,11 +152,32 @@ impl TemplateApp {
         let save = FullSaveState {
             working: save,
             saved_states: vec![
-                ("Attract".into(), serde_json::from_slice(include_bytes!("builtin_configs/attract.json")).unwrap()),
-                ("CentralForce".into(), serde_json::from_slice(include_bytes!("builtin_configs/central-force.json")).unwrap()),
-                ("LifeOnly".into(), serde_json::from_slice(include_bytes!("builtin_configs/particle-life-only.json")).unwrap()),
-                ("RingPotential".into(), serde_json::from_slice(include_bytes!("builtin_configs/ring-potential.json")).unwrap()),
-                ("EarthRing".into(), serde_json::from_slice(include_bytes!("builtin_configs/earth-ring.json")).unwrap()),
+                (
+                    "Attract".into(),
+                    serde_json::from_slice(include_bytes!("builtin_configs/attract.json")).unwrap(),
+                ),
+                (
+                    "CentralForce".into(),
+                    serde_json::from_slice(include_bytes!("builtin_configs/central-force.json"))
+                        .unwrap(),
+                ),
+                (
+                    "LifeOnly".into(),
+                    serde_json::from_slice(include_bytes!(
+                        "builtin_configs/particle-life-only.json"
+                    ))
+                    .unwrap(),
+                ),
+                (
+                    "RingPotential".into(),
+                    serde_json::from_slice(include_bytes!("builtin_configs/ring-potential.json"))
+                        .unwrap(),
+                ),
+                (
+                    "EarthRing".into(),
+                    serde_json::from_slice(include_bytes!("builtin_configs/earth-ring.json"))
+                        .unwrap(),
+                ),
             ],
         };
 
@@ -473,7 +494,6 @@ impl TemplateApp {
                 ParticleBehaviourMode::Both,
                 "Both",
             );
-
         });
 
         if self.save.working.tweak.particle_mode.uses_nodes() {
@@ -492,12 +512,12 @@ impl TemplateApp {
                     "Per-particle",
                 );
             });
-            ui.add(
+            ui.add(labelled_dragvalue(
+                "Neighbor_radius: ",
                 DragValue::new(&mut self.save.working.node_cfg.neighbor_radius)
                     .clamp_range(1e-2..=20.0)
-                    .speed(1e-2)
-                    .prefix("Neighbor_radius: "),
-            );
+                    .speed(1e-2),
+            ));
             ui.horizontal(|ui| {
                 ui.label("Colors: ");
                 for color in &mut self.save.working.life.colors {
@@ -524,24 +544,23 @@ impl TemplateApp {
             ui.strong("Particle life configuration");
             let mut behav_cfg = self.save.working.life.behaviours[(0, 0)];
             if self.save.working.advanced {
-                ui.add(
+                ui.add(labelled_dragvalue(
+                    "Max interaction dist: ",
                     DragValue::new(&mut behav_cfg.max_inter_dist)
                         .clamp_range(0.0..=20.0)
-                        .speed(1e-2)
-                        .prefix("Max interaction dist: "),
-                );
-                ui.add(
-                    DragValue::new(&mut behav_cfg.default_repulse)
-                        .speed(1e-2)
-                        .prefix("Default repulse: "),
-                );
+                        .speed(1e-2),
+                ));
+                ui.add(labelled_dragvalue(
+                    "Default repulse: ",
+                    DragValue::new(&mut behav_cfg.default_repulse).speed(1e-2),
+                ));
                 ui.horizontal(|ui| {
-                    ui.add(
+                    ui.add(labelled_dragvalue(
+                        "Interaction threshold: ",
                         DragValue::new(&mut behav_cfg.inter_threshold)
                             .clamp_range(0.0..=20.0)
-                            .speed(1e-2)
-                            .prefix("Interaction threshold: "),
-                    );
+                            .speed(1e-2),
+                    ));
                     ui.checkbox(
                         &mut self.save.working.set_inter_dist_to_radius,
                         "From radius",
@@ -587,12 +606,12 @@ impl TemplateApp {
                     );
                     do_reset = true;
                 }
-                ui.add(
+                ui.add(labelled_dragvalue(
+                    "std. dev: ",
                     DragValue::new(&mut self.save.working.random_std_dev)
-                        .prefix("std. dev: ")
                         .speed(1e-2)
                         .clamp_range(0.0..=f32::MAX),
-                )
+                ))
             });
             if ui.button("Symmetric forces").clicked() {
                 let n = self.save.working.life.colors.len();
@@ -612,19 +631,18 @@ impl TemplateApp {
         ui.separator();
         ui.strong("Simulation state");
 
-        ui.add(
+        ui.add(labelled_dragvalue(
+            "# of particles: ",
             DragValue::new(&mut self.save.working.n_particles)
-                .prefix("# of particles: ")
                 .clamp_range(1..=usize::MAX)
                 .speed(4),
-        );
+        ));
 
         if ui
-            .add(
-                DragValue::new(&mut self.save.working.n_colors)
-                    .prefix("# of colors: ")
-                    .clamp_range(1..=255),
-            )
+            .add(labelled_dragvalue(
+                "# of colors: ",
+                DragValue::new(&mut self.save.working.n_colors).clamp_range(1..=255),
+            ))
             .changed()
         {
             let old_size = self.save.working.life.behaviours.width();
@@ -659,31 +677,27 @@ impl TemplateApp {
             do_reset = true;
         }
         ui.horizontal(|ui| {
-            ui.add(
-                DragValue::new(&mut self.save.working.width)
-                    .prefix("Width: ")
-                    .clamp_range(5..=usize::MAX),
-            );
-            ui.add(
-                DragValue::new(&mut self.save.working.height)
-                    .prefix("Height: ")
-                    .clamp_range(5..=usize::MAX),
-            );
+            ui.add(labelled_dragvalue(
+                "Width: ",
+                DragValue::new(&mut self.save.working.width).clamp_range(5..=usize::MAX),
+            ));
+            ui.add(labelled_dragvalue(
+                "Height: ",
+                DragValue::new(&mut self.save.working.height).clamp_range(5..=usize::MAX),
+            ));
         });
 
         ui.separator();
         ui.strong("Kinematics");
-        ui.add(
-            DragValue::new(&mut self.save.working.tweak.dt)
-                .prefix("Δt (time step): ")
-                .speed(1e-4),
-        );
+        ui.add(labelled_dragvalue(
+            "Δt (time step): ",
+            DragValue::new(&mut self.save.working.tweak.dt).speed(1e-4),
+        ));
         ui.horizontal(|ui| {
-            ui.add(
-                DragValue::new(&mut self.save.working.tweak.gravity)
-                    .prefix("Gravity: ")
-                    .speed(1e-2),
-            );
+            ui.add(labelled_dragvalue(
+                "Gravity: ",
+                DragValue::new(&mut self.save.working.tweak.gravity).speed(1e-2),
+            ));
             if ui.button("Zero-G").clicked() {
                 self.save.working.tweak.gravity = 0.;
             }
@@ -704,12 +718,12 @@ impl TemplateApp {
         ui.horizontal(|ui| {
             ui.strong("Particle collisions");
         });
-        ui.add(
+        ui.add(labelled_dragvalue(
+            "Particle radius: ",
             DragValue::new(&mut self.save.working.tweak.particle_radius)
-                .prefix("Particle radius: ")
                 .speed(1e-2)
                 .clamp_range(1e-2..=5.0),
-        );
+        ));
 
         if self.save.working.advanced {
             ui.horizontal(|ui| {
@@ -728,11 +742,10 @@ impl TemplateApp {
             ui.horizontal(|ui| {
                 let mut rest_density = self.save.working.tweak.rest_density();
                 if ui
-                    .add(
-                        DragValue::new(&mut rest_density)
-                            .prefix("Rest density: ")
-                            .speed(1e-2),
-                    )
+                    .add(labelled_dragvalue(
+                        "Rest density: ",
+                        DragValue::new(&mut rest_density).speed(1e-2),
+                    ))
                     .changed()
                 {
                     self.save.working.tweak.rest_density = Some(rest_density);
@@ -763,16 +776,16 @@ impl TemplateApp {
                 ui.strong("Incompressibility Solver");
                 ui.checkbox(&mut self.save.working.tweak.enable_incompress, "");
             });
-            ui.add(
-                DragValue::new(&mut self.save.working.tweak.solver_iters)
-                    .prefix("Solver iterations: "),
-            );
-            ui.add(
+            ui.add(labelled_dragvalue(
+                "Solver iterations: ",
+                DragValue::new(&mut self.save.working.tweak.solver_iters),
+            ));
+            ui.add(labelled_dragvalue(
+                "Over-relaxation: ",
                 DragValue::new(&mut self.save.working.tweak.over_relax)
-                    .prefix("Over-relaxation: ")
                     .speed(1e-2)
                     .clamp_range(0.0..=1.95),
-            );
+            ));
             ui.horizontal(|ui| {
                 ui.selectable_value(
                     &mut self.save.working.tweak.solver,
@@ -785,20 +798,18 @@ impl TemplateApp {
                     "Gauss Seidel",
                 );
             });
-            ui.add(
-                DragValue::new(&mut self.save.working.tweak.stiffness)
-                    .prefix("Density compensation stiffness: ")
-                    .speed(1e-2),
-            );
+            ui.add(labelled_dragvalue(
+                "Density compensation stiffness: ",
+                DragValue::new(&mut self.save.working.tweak.stiffness).speed(1e-2),
+            ));
         }
 
         ui.separator();
         ui.strong("Particle source");
-        ui.add(
-            DragValue::new(&mut self.save.working.source_rate)
-                .prefix("Particle inflow rate: ")
-                .speed(1e-1),
-        );
+        ui.add(labelled_dragvalue(
+            "Particle inflow rate: ",
+            DragValue::new(&mut self.save.working.source_rate).speed(1e-1),
+        ));
         ui.horizontal(|ui| {
             ui.label("Particle inflow color: ");
             for (idx, &color) in self.save.working.life.colors.iter().enumerate() {
@@ -818,7 +829,6 @@ impl TemplateApp {
                 .min(self.save.working.life.colors.len() as u8 - 1);
         });
         ui.checkbox(&mut self.save.working.well, "Particle well");
-
 
         /*
         if ui.button("Lifeless").clicked() {
@@ -1050,4 +1060,13 @@ mesh.push_indices(&[a, b]);
 }
 */
 
-impl FullSaveState {}
+fn labelled_dragvalue(label: impl Into<WidgetText>, drag: DragValue<'_>) -> impl Widget + '_ {
+    let label = label.into();
+    |ui: &mut Ui| {
+        ui.horizontal(|ui| {
+            ui.label(label);
+            ui.add(drag)
+        })
+        .inner
+    }
+}
