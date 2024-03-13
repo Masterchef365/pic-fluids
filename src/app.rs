@@ -547,37 +547,46 @@ impl TemplateApp {
         if self.save.working.tweak.particle_mode.uses_life() {
             ui.separator();
             ui.strong("Particle life configuration");
-            let mut behav_cfg = self.save.working.life.behaviours[(0, 0)];
-            ui.add(labelled_dragvalue(
-                "Max interaction dist: ",
-                DragValue::new(&mut behav_cfg.max_inter_dist)
-                    .clamp_range(0.0..=20.0)
-                    .speed(1e-2),
-            ));
-            ui.add(labelled_dragvalue(
-                "Default repulse: ",
-                DragValue::new(&mut behav_cfg.default_repulse).speed(1e-2),
-            ));
-            ui.horizontal(|ui| {
-                ui.add(labelled_dragvalue(
-                    "Interaction threshold: ",
-                    DragValue::new(&mut behav_cfg.inter_threshold)
-                        .clamp_range(0.0..=20.0)
-                        .speed(1e-2),
-                ));
-                ui.checkbox(
-                    &mut self.save.working.set_inter_dist_to_radius,
-                    "From radius",
-                );
-            });
-            if self.save.working.set_inter_dist_to_radius {
-                behav_cfg.inter_threshold = self.save.working.tweak.particle_radius * 2.;
-            }
-            for b in self.save.working.life.behaviours.data_mut() {
-                b.max_inter_dist = behav_cfg.max_inter_dist;
-                b.inter_threshold = behav_cfg.inter_threshold;
-                b.default_repulse = behav_cfg.default_repulse;
-            }
+            Grid::new("Particle life configuration")
+                .striped(true)
+                .show(ui, |ui| {
+                    let mut behav_cfg = self.save.working.life.behaviours[(0, 0)];
+                    ui.label("Max interaction dist: ");
+                    ui.add(
+                        DragValue::new(&mut behav_cfg.max_inter_dist)
+                            .clamp_range(0.0..=20.0)
+                            .speed(1e-2),
+                    );
+                    ui.end_row();
+
+                    ui.label("Default repulse: ");
+                    ui.add(DragValue::new(&mut behav_cfg.default_repulse).speed(1e-2));
+                    ui.end_row();
+
+                    ui.label("Interaction threshold: ");
+                    ui.add(
+                        DragValue::new(&mut behav_cfg.inter_threshold)
+                            .clamp_range(0.0..=20.0)
+                            .speed(1e-2),
+                    );
+                    ui.end_row();
+
+                    ui.label("Calculate interaction threshold");
+                    ui.checkbox(
+                        &mut self.save.working.set_inter_dist_to_radius,
+                        "From radius",
+                    );
+                    ui.end_row();
+
+                    if self.save.working.set_inter_dist_to_radius {
+                        behav_cfg.inter_threshold = self.save.working.tweak.particle_radius * 2.;
+                    }
+                    for b in self.save.working.life.behaviours.data_mut() {
+                        b.max_inter_dist = behav_cfg.max_inter_dist;
+                        b.inter_threshold = behav_cfg.inter_threshold;
+                        b.default_repulse = behav_cfg.default_repulse;
+                    }
+                });
 
             ui.label("Interactions:");
             Grid::new("Particle Life Grid").show(ui, |ui| {
@@ -602,7 +611,7 @@ impl TemplateApp {
             });
 
             ui.horizontal(|ui| {
-                if ui.button("Randomize behaviours").clicked() {
+                if ui.button("Randomize").clicked() {
                     self.save.working.life = LifeConfig::random(
                         self.save.working.n_colors,
                         self.save.working.random_std_dev,
@@ -610,13 +619,13 @@ impl TemplateApp {
                     do_reset = true;
                 }
                 ui.add(labelled_dragvalue(
-                    "std. dev: ",
+                    "random std. dev: ",
                     DragValue::new(&mut self.save.working.random_std_dev)
                         .speed(1e-2)
                         .clamp_range(0.0..=f32::MAX),
                 ))
             });
-            if ui.button("Symmetric forces").clicked() {
+            if ui.button("Make forces symmetric").clicked() {
                 let n = self.save.working.life.colors.len();
                 for i in 0..n {
                     for j in 0..i {
@@ -733,19 +742,19 @@ impl TemplateApp {
                 &mut self.save.working.tweak.enable_grid_transfer,
                 "Enable",
             ).on_hover_ui(|ui| {
-                 ui.label("Required for incompressibility solver!");
+                ui.label("Required for incompressibility solver!");
             });
             ui.end_row();
 
-            ui.label("PIC - APIC").on_hover_ui(|ui| {
+            ui.label("PIC - APIC");
+            ui.add(
+                Slider::new(&mut self.save.working.tweak.pic_apic_ratio, 0.0..=1.0),
+            ).on_hover_ui(|ui| {
                 ui.label("In the same way that FLIP has a variable one can tweak
                     to stablize the simulation, so does APIC. 0 means the simulation 
                     is governed only by PIC rules only (translational) and 1 means APIC rules
                     (a superset of PIC accounting for rotation)");
             });
-            ui.add(
-                Slider::new(&mut self.save.working.tweak.pic_apic_ratio, 0.0..=1.0),
-            );
             ui.end_row();
         });
 
@@ -837,8 +846,11 @@ impl TemplateApp {
                     });
                     ui.end_row();
 
-                    ui.label("Density compensation stiffness: ");
-                    ui.add(DragValue::new(&mut self.save.working.tweak.stiffness).speed(1e-2));
+                    ui.label("Density compensation: ");
+                    ui.add(DragValue::new(&mut self.save.working.tweak.stiffness).prefix("Stiffness: ").speed(1e-2)).on_hover_ui(|ui| {
+                        ui.label("Density compensation stiffness; controls how 
+                            much the rest density parameter is enforced");
+                    });
                 });
         }
 
