@@ -530,12 +530,7 @@ impl TemplateApp {
             ui.separator();
             ui.strong("Node graph configuration");
             ui.add(self.node_graph_view_buttons());
-            ui.horizontal(|ui| {
-                ui.label("Colors: ");
-                for color in &mut self.save.working.life.colors {
-                    ui.color_edit_button_rgb(color);
-                }
-            });
+            
             ui.add(labelled_dragvalue(
                 "Neighbor_radius: ",
                 DragValue::new(&mut self.save.working.node_cfg.neighbor_radius)
@@ -661,6 +656,7 @@ impl TemplateApp {
             ))
             .changed()
         {
+            // Resize colors in an intelligent way
             let old_size = self.save.working.life.behaviours.width();
             let mut new_behav_array =
                 Array2D::new(self.save.working.n_colors, self.save.working.n_colors);
@@ -685,6 +681,14 @@ impl TemplateApp {
                 });
             do_reset = true;
         }
+
+        ui.horizontal(|ui| {
+                ui.label("Colors: ");
+                for color in &mut self.save.working.life.colors {
+                    ui.color_edit_button_rgb(color);
+                }
+            });
+
         ui.horizontal(|ui| {
             ui.checkbox(&mut self.save.working.pause, "Pause");
             self.save.working.single_step |= ui.button("Step").clicked();
