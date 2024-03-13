@@ -779,15 +779,13 @@ impl TemplateApp {
                 }
                 ui.end_row();
 
-                ui.label("Calculate reset density");
+                ui.label("Calculate rest density");
                 let mut calc_rest_density_from_radius =
                     self.save.working.tweak.rest_density.is_none();
                 if ui
-                    .checkbox(
-                        &mut calc_rest_density_from_radius,
-                        "From radius",
-                    ).on_hover_ui(|ui| {
-                         ui.label("Assumes optimal hexagonal packing of particles");
+                    .checkbox(&mut calc_rest_density_from_radius, "From radius")
+                    .on_hover_ui(|ui| {
+                        ui.label("Assumes optimal hexagonal packing of particles");
                     })
                     .changed()
                 {
@@ -803,46 +801,54 @@ impl TemplateApp {
 
         if self.save.working.tweak.enable_grid_transfer {
             ui.separator();
-            ui.horizontal(|ui| {
-                ui.strong("Incompressibility Solver");
-                ui.checkbox(&mut self.save.working.tweak.enable_incompress, "");
-            });
-            ui.add(labelled_dragvalue(
-                "Solver iterations: ",
-                DragValue::new(&mut self.save.working.tweak.solver_iters),
-            ));
-            ui.add(labelled_dragvalue(
-                "Over-relaxation: ",
-                DragValue::new(&mut self.save.working.tweak.over_relax)
-                    .speed(1e-2)
-                    .clamp_range(0.0..=1.95),
-            ));
-            ui.horizontal(|ui| {
-                ui.label("Algorithm: ");
-                ui.radio_value(
-                    &mut self.save.working.tweak.solver,
-                    IncompressibilitySolver::Jacobi,
-                    "Jacobi",
-                );
-                ui.radio_value(
-                    &mut self.save.working.tweak.solver,
-                    IncompressibilitySolver::GaussSeidel,
-                    "Gauss Seidel",
-                );
-            });
-            ui.add(labelled_dragvalue(
-                "Density compensation stiffness: ",
-                DragValue::new(&mut self.save.working.tweak.stiffness).speed(1e-2),
-            ));
+            ui.strong("Incompressibility Solver");
+
+            Grid::new("Incompressibility Solver")
+                .striped(true)
+                .show(ui, |ui| {
+                    ui.label("Solver");
+                    ui.checkbox(&mut self.save.working.tweak.enable_incompress, "Enable");
+                    ui.end_row();
+
+                    ui.label("Solver iterations: ");
+                    ui.add(DragValue::new(&mut self.save.working.tweak.solver_iters));
+                    ui.end_row();
+
+                    ui.label("Over-relaxation: ");
+                    ui.add(
+                        DragValue::new(&mut self.save.working.tweak.over_relax)
+                            .speed(1e-2)
+                            .clamp_range(0.0..=1.95),
+                    );
+                    ui.end_row();
+
+                    ui.label("Algorithm: ");
+                    ui.horizontal(|ui| {
+                        ui.radio_value(
+                            &mut self.save.working.tweak.solver,
+                            IncompressibilitySolver::Jacobi,
+                            "Jacobi",
+                        );
+                        ui.radio_value(
+                            &mut self.save.working.tweak.solver,
+                            IncompressibilitySolver::GaussSeidel,
+                            "Gauss Seidel",
+                        );
+                    });
+                    ui.end_row();
+
+                    ui.label("Density compensation stiffness: ");
+                    ui.add(DragValue::new(&mut self.save.working.tweak.stiffness).speed(1e-2));
+                });
         }
 
         ui.separator();
         ui.strong("Particle source");
-        ui.add(labelled_dragvalue(
-            "Particle inflow rate: ",
-            DragValue::new(&mut self.save.working.source_rate).speed(1e-1),
-        ));
-        ui.horizontal(|ui| {
+        Grid::new("Particle source").striped(true).show(ui, |ui| {
+            ui.label("Particle inflow rate: ");
+            ui.add(DragValue::new(&mut self.save.working.source_rate).speed(1e-1));
+            ui.end_row();
+
             ui.label("Particle inflow color: ");
             for (idx, &color) in self.save.working.life.colors.iter().enumerate() {
                 let color_marker = RichText::new("#####").color(color_to_egui(color));
@@ -859,8 +865,12 @@ impl TemplateApp {
                 .working
                 .source_color_idx
                 .min(self.save.working.life.colors.len() as u8 - 1);
+
+            ui.end_row();
+
+            ui.label("Particle well");
+            ui.checkbox(&mut self.save.working.well, "Enable");
         });
-        ui.checkbox(&mut self.save.working.well, "Particle well");
 
         /*
         if ui.button("Lifeless").clicked() {
