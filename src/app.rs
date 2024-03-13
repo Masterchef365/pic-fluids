@@ -503,17 +503,18 @@ impl TemplateApp {
         }
 
         ui.strong("Particle behaviour");
-        ui.horizontal(|ui| {
+        Grid::new("particle mode settings").show(ui, |ui| {
             ui.radio_value(
                 &mut self.save.working.tweak.particle_mode,
                 ParticleBehaviourMode::Off,
-                "Off",
+                "Off (kinematics only)",
             );
             ui.radio_value(
                 &mut self.save.working.tweak.particle_mode,
                 ParticleBehaviourMode::NodeGraph,
                 "Node graph",
             );
+            ui.end_row();
             ui.radio_value(
                 &mut self.save.working.tweak.particle_mode,
                 ParticleBehaviourMode::ParticleLife,
@@ -522,7 +523,7 @@ impl TemplateApp {
             ui.radio_value(
                 &mut self.save.working.tweak.particle_mode,
                 ParticleBehaviourMode::Both,
-                "Both",
+                "Both (graph + life)",
             );
         });
 
@@ -634,10 +635,6 @@ impl TemplateApp {
                 }
             }
         }
-
-        ui.separator();
-        ui.strong("Save data");
-        self.save_menu(ui);
 
         ui.separator();
         ui.strong("Simulation state");
@@ -879,6 +876,11 @@ impl TemplateApp {
         });
         }
         */
+
+        ui.separator();
+        ui.strong("Save data");
+        self.save_menu(ui);
+
 
         if do_reset {
             self.reset_sim_state();
