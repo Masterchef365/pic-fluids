@@ -518,6 +518,10 @@ impl TemplateApp {
             );
         });
 
+        ui.separator();
+        ui.strong("Save data");
+        self.save_menu(ui);
+
         if self.save.working.tweak.particle_mode.uses_nodes() {
             ui.separator();
             ui.strong("Node graph configuration");
@@ -805,6 +809,39 @@ impl TemplateApp {
                 ui.end_row();
             });
 
+        ui.separator();
+        ui.strong("Particle source");
+        Grid::new("Particle source").striped(true).show(ui, |ui| {
+            ui.label("Particle inflow rate: ");
+            ui.add(DragValue::new(&mut self.save.working.source_rate).speed(1e-1));
+            ui.end_row();
+
+            ui.label("Particle inflow color: ");
+            ui.horizontal(|ui| {
+                for (idx, &color) in self.save.working.life.colors.iter().enumerate() {
+                    let color_marker = RichText::new("#####").color(color_to_egui(color));
+                    let button = ui.selectable_label(
+                        idx as u8 == self.save.working.source_color_idx,
+                        color_marker,
+                    );
+                    if button.clicked() {
+                        self.save.working.source_color_idx = idx as u8;
+                    }
+                }
+            });
+            self.save.working.source_color_idx = self
+                .save
+                .working
+                .source_color_idx
+                .min(self.save.working.life.colors.len() as u8 - 1);
+
+            ui.end_row();
+
+            ui.label("Particle well");
+            ui.checkbox(&mut self.save.working.well, "Enable");
+        });
+
+
         if self.save.working.tweak.enable_grid_transfer {
             ui.separator();
             ui.strong("Incompressibility Solver");
@@ -850,38 +887,6 @@ impl TemplateApp {
                 });
         }
 
-        ui.separator();
-        ui.strong("Particle source");
-        Grid::new("Particle source").striped(true).show(ui, |ui| {
-            ui.label("Particle inflow rate: ");
-            ui.add(DragValue::new(&mut self.save.working.source_rate).speed(1e-1));
-            ui.end_row();
-
-            ui.label("Particle inflow color: ");
-            ui.horizontal(|ui| {
-                for (idx, &color) in self.save.working.life.colors.iter().enumerate() {
-                    let color_marker = RichText::new("#####").color(color_to_egui(color));
-                    let button = ui.selectable_label(
-                        idx as u8 == self.save.working.source_color_idx,
-                        color_marker,
-                    );
-                    if button.clicked() {
-                        self.save.working.source_color_idx = idx as u8;
-                    }
-                }
-            });
-            self.save.working.source_color_idx = self
-                .save
-                .working
-                .source_color_idx
-                .min(self.save.working.life.colors.len() as u8 - 1);
-
-            ui.end_row();
-
-            ui.label("Particle well");
-            ui.checkbox(&mut self.save.working.well, "Enable");
-        });
-
         /*
         if ui.button("Lifeless").clicked() {
         self.sim
@@ -915,10 +920,6 @@ impl TemplateApp {
         });
         }
         */
-
-        ui.separator();
-        ui.strong("Save data");
-        self.save_menu(ui);
 
         if do_reset {
             self.reset_sim_state();
