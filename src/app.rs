@@ -415,23 +415,10 @@ impl TemplateApp {
     }
 
     fn save_menu(&mut self, ui: &mut Ui) {
-        Grid::new("Save menu").show(ui, |ui| {
-            if ui.button("Save current state").clicked() {
-                self.save
-                    .saved_states
-                    .push(("Untitled".into(), self.save.working.clone()))
-            }
-
-            if ui.button("Reset working state").clicked() {
-                self.save.working = Self::new_save_from_ctx(ui.ctx());
-                self.reset_sim_state();
-            }
-
-            if ui.button("Copy to clipboard").clicked() {
-                let txt = serde_json::to_string(&self.save.working).unwrap();
-                ui.ctx().copy_text(txt);
-            }
-        });
+        if ui.button("Load default state").clicked() {
+            self.save.working = Self::new_save_from_ctx(ui.ctx());
+            self.reset_sim_state();
+        }
 
         egui::Frame::group(ui.style()).show(ui, |ui| {
             egui::ScrollArea::vertical().show(ui, |ui| {
@@ -472,22 +459,35 @@ impl TemplateApp {
             })
         });
 
-        let mut paste_txt = String::new();
-        ui.add(
-            TextEdit::singleline(&mut paste_txt)
-                .hint_text("Paste save data here")
-                .desired_width(150.),
-        );
-        if !paste_txt.is_empty() {
-            match serde_json::from_str(&paste_txt) {
-                Ok(val) => {
-                    self.save.working = val;
-                    self.enforce_particle_count();
-                    println!("Paste read successfully");
-                }
-                Err(e) => eprintln!("Error reading pasted text: {:#?}", e),
-            }
+        if ui.button("Save current state").clicked() {
+            self.save
+                .saved_states
+                .push(("Untitled".into(), self.save.working.clone()))
         }
+
+        ui.horizontal(|ui| {
+            if ui.button("Copy current state to clipboard").clicked() {
+                let txt = serde_json::to_string(&self.save.working).unwrap();
+                ui.ctx().copy_text(txt);
+            }
+
+            let mut paste_txt = String::new();
+            ui.add(
+                TextEdit::singleline(&mut paste_txt)
+                    .hint_text("Paste save data here")
+                    .desired_width(150.),
+            );
+            if !paste_txt.is_empty() {
+                match serde_json::from_str(&paste_txt) {
+                    Ok(val) => {
+                        self.save.working = val;
+                        self.enforce_particle_count();
+                        println!("Paste read successfully");
+                    }
+                    Err(e) => eprintln!("Error reading pasted text: {:#?}", e),
+                }
+            }
+        });
     }
 
     fn settings_gui(&mut self, ui: &mut Ui) {
@@ -750,10 +750,7 @@ impl TemplateApp {
             ui.add(
                 Slider::new(&mut self.save.working.tweak.pic_apic_ratio, 0.0..=1.0),
             ).on_hover_ui(|ui| {
-                ui.label("In the same way that FLIP has a variable one can tweak
-                    to stablize the simulation, so does APIC. 0 means the simulation 
-                    is governed only by PIC rules only (translational) and 1 means APIC rules
-                    (a superset of PIC accounting for rotation)");
+                ui.label("In the same way that FLIP has a variable one can tweak to stablize the simulation, so does APIC. 0 means the simulation is governed only by PIC rules only (translational) and 1 means APIC rules (a superset of PIC accounting for rotation)");
             });
             ui.end_row();
         });
@@ -848,8 +845,7 @@ impl TemplateApp {
 
                     ui.label("Density compensation: ");
                     ui.add(DragValue::new(&mut self.save.working.tweak.stiffness).prefix("Stiffness: ").speed(1e-2)).on_hover_ui(|ui| {
-                        ui.label("Density compensation stiffness; controls how 
-                            much the rest density parameter is enforced");
+                        ui.label("Density compensation stiffness; controls how much the rest density parameter is enforced");
                     });
                 });
         }
@@ -862,16 +858,18 @@ impl TemplateApp {
             ui.end_row();
 
             ui.label("Particle inflow color: ");
-            for (idx, &color) in self.save.working.life.colors.iter().enumerate() {
-                let color_marker = RichText::new("#####").color(color_to_egui(color));
-                let button = ui.selectable_label(
-                    idx as u8 == self.save.working.source_color_idx,
-                    color_marker,
-                );
-                if button.clicked() {
-                    self.save.working.source_color_idx = idx as u8;
+            ui.horizontal(|ui| {
+                for (idx, &color) in self.save.working.life.colors.iter().enumerate() {
+                    let color_marker = RichText::new("#####").color(color_to_egui(color));
+                    let button = ui.selectable_label(
+                        idx as u8 == self.save.working.source_color_idx,
+                        color_marker,
+                    );
+                    if button.clicked() {
+                        self.save.working.source_color_idx = idx as u8;
+                    }
                 }
-            }
+            });
             self.save.working.source_color_idx = self
                 .save
                 .working
