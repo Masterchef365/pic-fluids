@@ -301,8 +301,8 @@ impl TemplateApp {
                 ui.selectable_value(
                     &mut self.save.working.node_graph_fn_viewed,
                     NodeGraphFns::PerParticle,
-                    "Per-particle",
-                ).on_hover_ui(|ui| { 
+                    "Per-particle"
+                ).on_hover_ui(|ui| {
                     ui.strong("This function is executed for each particle, and the acceleration is applied (multiplied by dt and added) to the velocity vector.");
                 })
             }).inner
@@ -636,106 +636,145 @@ impl TemplateApp {
 
         ui.separator();
         ui.strong("Simulation state");
-        ui.horizontal(|ui| {
-            ui.checkbox(&mut self.save.working.pause, "Pause");
-            self.save.working.single_step |= ui.button("Step").clicked();
-        });
+        let grid = Grid::new("Simulation state").striped(true).num_columns(2);
+        grid.show(ui, |ui| {
 
-        ui.add(labelled_dragvalue(
-            "# of particles: ",
-            DragValue::new(&mut self.save.working.n_particles)
-                .clamp_range(1..=usize::MAX)
-                .speed(4),
-        ));
+            ui.label("Controls");
+            ui.horizontal(|ui| {
+                ui.checkbox(&mut self.save.working.pause, "Pause");
+                self.save.working.single_step |= ui.button("Step").clicked();
+                if ui.button("Reset").clicked() {
+                    do_reset = true;
+                }
+            });
+            ui.end_row();
 
-        if ui
-            .add(labelled_dragvalue(
-                "# of colors: ",
-                DragValue::new(&mut self.save.working.n_colors).clamp_range(1..=255),
-            ))
-            .changed()
-        {
-            // Resize colors in an intelligent way
-            let old_size = self.save.working.life.behaviours.width();
-            let mut new_behav_array =
-                Array2D::new(self.save.working.n_colors, self.save.working.n_colors);
-            for i in 0..self.save.working.n_colors {
-                for j in 0..self.save.working.n_colors {
-                    if i < old_size && j < old_size {
-                        new_behav_array[(i, j)] = self.save.working.life.behaviours[(i, j)];
-                    } else {
-                        new_behav_array[(i, j)] =
-                            LifeConfig::random_behaviour(self.save.working.random_std_dev);
+            ui.label("# of particles: ");
+            ui.add(
+                DragValue::new(&mut self.save.working.n_particles)
+                    .clamp_range(1..=usize::MAX)
+                    .speed(4),
+            );
+            ui.end_row();
+
+            ui.label("# of colors: ");
+            if ui
+                .add(DragValue::new(&mut self.save.working.n_colors).clamp_range(1..=255))
+                .changed()
+            {
+                // Resize colors in an intelligent way
+                let old_size = self.save.working.life.behaviours.width();
+                let mut new_behav_array =
+                    Array2D::new(self.save.working.n_colors, self.save.working.n_colors);
+                for i in 0..self.save.working.n_colors {
+                    for j in 0..self.save.working.n_colors {
+                        if i < old_size && j < old_size {
+                            new_behav_array[(i, j)] = self.save.working.life.behaviours[(i, j)];
+                        } else {
+                            new_behav_array[(i, j)] =
+                                LifeConfig::random_behaviour(self.save.working.random_std_dev);
+                        }
                     }
                 }
+                self.save.working.life.behaviours = new_behav_array;
+
+                self.save
+                    .working
+                    .life
+                    .colors
+                    .resize_with(self.save.working.n_colors, || {
+                        random_color(&mut rand::thread_rng())
+                    });
+                do_reset = true;
             }
-            self.save.working.life.behaviours = new_behav_array;
+            ui.end_row();
 
-            self.save
-                .working
-                .life
-                .colors
-                .resize_with(self.save.working.n_colors, || {
-                    random_color(&mut rand::thread_rng())
-                });
-            do_reset = true;
-        }
-
-        ui.horizontal(|ui| {
             ui.label("Colors: ");
             for color in &mut self.save.working.life.colors {
                 ui.color_edit_button_rgb(color);
             }
-        });
+            ui.end_row();
 
-        if ui.button("Reset").clicked() {
-            do_reset = true;
-        }
-        ui.horizontal(|ui| {
-            ui.add(labelled_dragvalue(
-                "Width: ",
+            ui.label(
+                "Grid width: ",
+            );
+            ui.add(
                 DragValue::new(&mut self.save.working.width).clamp_range(5..=usize::MAX),
-            ));
-            ui.add(labelled_dragvalue(
-                "Height: ",
+            );
+            ui.end_row();
+
+            ui.label(
+                "Grid Height: ",
+            );
+            ui.add(
                 DragValue::new(&mut self.save.working.height).clamp_range(5..=usize::MAX),
-            ));
+            );
+            ui.end_row();
         });
 
         ui.separator();
         ui.strong("Kinematics");
-        ui.add(labelled_dragvalue(
-            "Δt (time step): ",
-            DragValue::new(&mut self.save.working.tweak.dt).speed(1e-4),
-        ));
-        ui.horizontal(|ui| {
-            ui.add(labelled_dragvalue(
+        Grid::new("Kinematics").striped(true).show(ui, |ui| {
+            ui.label(
+                "Δt (time step): ",
+            );
+            ui.add(
+                DragValue::new(&mut self.save.working.tweak.dt).speed(1e-4),
+            );
+            ui.end_row();
+
+            ui.label(
                 "Gravity: ",
-                DragValue::new(&mut self.save.working.tweak.gravity).speed(1e-2),
-            ));
-            if ui.button("Zero-G").clicked() {
-                self.save.working.tweak.gravity = 0.;
-            }
+            );
+            ui.horizontal(|ui| {
+                ui.add(
+                    DragValue::new(&mut self.save.working.tweak.gravity).speed(1e-2),
+                );
+                if ui.button("Zero-G").clicked() {
+                    self.save.working.tweak.gravity = 0.;
+                }
+            });
+            ui.end_row();
+
+            ui.label("Damping");
+            ui.add(Slider::new(&mut self.save.working.tweak.damping, 0.0..=1.0));
+            ui.end_row();
+
+            ui.label("Grid transfer").on_hover_ui(|ui| {
+                ui.label("Averages particle trajectories based on neighboring grid points. Finer grids mean higher resolution.");
+            });
+            ui.checkbox(
+                &mut self.save.working.tweak.enable_grid_transfer,
+                "Enable",
+            ).on_hover_ui(|ui| {
+                 ui.label("Required for incompressibility solver!");
+            });
+            ui.end_row();
+
+            ui.label("PIC - APIC").on_hover_ui(|ui| {
+                ui.label("In the same way that FLIP has a variable one can tweak
+                    to stablize the simulation, so does APIC. 0 means the simulation 
+                    is governed only by PIC rules only (translational) and 1 means APIC rules
+                    (a superset of PIC accounting for rotation)");
+            });
+            ui.add(
+                Slider::new(&mut self.save.working.tweak.pic_apic_ratio, 0.0..=1.0),
+            );
+            ui.end_row();
         });
-        ui.add(Slider::new(&mut self.save.working.tweak.damping, 0.0..=1.0).text("Damping"));
-        ui.checkbox(
-            &mut self.save.working.tweak.enable_grid_transfer,
-            "Grid transfer (required for incompressibility solver!)",
-        );
-        ui.add(
-            Slider::new(&mut self.save.working.tweak.pic_apic_ratio, 0.0..=1.0).text("PIC - APIC"),
-        );
 
         ui.separator();
         ui.horizontal(|ui| {
             ui.strong("Particle collisions");
         });
-        ui.add(labelled_dragvalue(
+        ui.label(
             "Particle radius: ",
+        );
+        ui.add(
             DragValue::new(&mut self.save.working.tweak.particle_radius)
-                .speed(1e-2)
-                .clamp_range(1e-2..=5.0),
-        ));
+            .speed(1e-2)
+            .clamp_range(1e-2..=5.0),
+        );
 
         ui.horizontal(|ui| {
             ui.checkbox(
@@ -754,10 +793,10 @@ impl TemplateApp {
             let mut rest_density = self.save.working.tweak.rest_density();
             if ui
                 .add(labelled_dragvalue(
-                    "Rest density: ",
-                    DragValue::new(&mut rest_density).speed(1e-2),
+                        "Rest density: ",
+                        DragValue::new(&mut rest_density).speed(1e-2),
                 ))
-                .changed()
+                    .changed()
             {
                 self.save.working.tweak.rest_density = Some(rest_density);
             }
@@ -768,7 +807,7 @@ impl TemplateApp {
                     &mut calc_rest_density_from_radius,
                     "From radius (assumes optimal packing)",
                 )
-                .changed()
+                    .changed()
             {
                 if calc_rest_density_from_radius {
                     self.save.working.tweak.rest_density = None;
@@ -786,12 +825,12 @@ impl TemplateApp {
                 ui.checkbox(&mut self.save.working.tweak.enable_incompress, "");
             });
             ui.add(labelled_dragvalue(
-                "Solver iterations: ",
-                DragValue::new(&mut self.save.working.tweak.solver_iters),
+                    "Solver iterations: ",
+                    DragValue::new(&mut self.save.working.tweak.solver_iters),
             ));
             ui.add(labelled_dragvalue(
-                "Over-relaxation: ",
-                DragValue::new(&mut self.save.working.tweak.over_relax)
+                    "Over-relaxation: ",
+                    DragValue::new(&mut self.save.working.tweak.over_relax)
                     .speed(1e-2)
                     .clamp_range(0.0..=1.95),
             ));
@@ -809,16 +848,16 @@ impl TemplateApp {
                 );
             });
             ui.add(labelled_dragvalue(
-                "Density compensation stiffness: ",
-                DragValue::new(&mut self.save.working.tweak.stiffness).speed(1e-2),
+                    "Density compensation stiffness: ",
+                    DragValue::new(&mut self.save.working.tweak.stiffness).speed(1e-2),
             ));
         }
 
         ui.separator();
         ui.strong("Particle source");
         ui.add(labelled_dragvalue(
-            "Particle inflow rate: ",
-            DragValue::new(&mut self.save.working.source_rate).speed(1e-1),
+                "Particle inflow rate: ",
+                DragValue::new(&mut self.save.working.source_rate).speed(1e-1),
         ));
         ui.horizontal(|ui| {
             ui.label("Particle inflow color: ");
@@ -837,42 +876,42 @@ impl TemplateApp {
                 .working
                 .source_color_idx
                 .min(self.save.working.life.colors.len() as u8 - 1);
-        });
+            });
         ui.checkbox(&mut self.save.working.well, "Particle well");
 
         /*
-        if ui.button("Lifeless").clicked() {
-        self.sim
-        .life
-        .behaviours
-        .data_mut()
-        .iter_mut()
-        .for_each(|b| b.inter_strength = 0.);
-        }
-        */
+           if ui.button("Lifeless").clicked() {
+           self.sim
+           .life
+           .behaviours
+           .data_mut()
+           .iter_mut()
+           .for_each(|b| b.inter_strength = 0.);
+           }
+           */
 
         /*
-        if self.save.working.advanced {
-        ui.add(DragValue::new(&mut self.save.working.mult).speed(1e-2));
-        }
-        */
+           if self.save.working.advanced {
+           ui.add(DragValue::new(&mut self.save.working.mult).speed(1e-2));
+           }
+           */
 
         /*
-        if self.save.working.advanced {
-        ui.separator();
-        ui.strong("Debug");
-        ui.checkbox(&mut self.save.working.show_grid, "Show grid");
-        ui.horizontal(|ui| {
-        ui.checkbox(&mut self.save.working.show_arrows, "Show arrows");
-        ui.add(
-        DragValue::new(&mut self.save.working.grid_vel_scale)
-        .prefix("Scale: ")
-        .speed(1e-2)
-        .clamp_range(0.0..=f32::INFINITY),
-        )
-        });
-        }
-        */
+           if self.save.working.advanced {
+           ui.separator();
+           ui.strong("Debug");
+           ui.checkbox(&mut self.save.working.show_grid, "Show grid");
+           ui.horizontal(|ui| {
+           ui.checkbox(&mut self.save.working.show_arrows, "Show arrows");
+           ui.add(
+           DragValue::new(&mut self.save.working.grid_vel_scale)
+           .prefix("Scale: ")
+           .speed(1e-2)
+           .clamp_range(0.0..=f32::INFINITY),
+           )
+           });
+           }
+           */
 
         ui.separator();
         ui.strong("Save data");
@@ -891,7 +930,7 @@ impl TemplateApp {
             "https://github.com/Masterchef365/pic-fluids",
         );
         ui.label(format!(
-            "Press {ENABLE_FULLSCREEN_KEY:?} to toggle fullscreen"
+                "Press {ENABLE_FULLSCREEN_KEY:?} to toggle fullscreen"
         ));
     }
 
@@ -908,22 +947,22 @@ impl TemplateApp {
 const ENABLE_FULLSCREEN_KEY: egui::Key = egui::Key::Tab;
 
 /*
-const SIM_TO_MODEL_DOWNSCALE: f32 = 100.;
-fn simspace_to_modelspace(pos: Vec2) -> [f32; 3] {
-[
-(pos.x / SIM_TO_MODEL_DOWNSCALE) * 2. - 1.,
-0.,
-(pos.y / SIM_TO_MODEL_DOWNSCALE) * 2. - 1.,
-]
-}
-*/
+   const SIM_TO_MODEL_DOWNSCALE: f32 = 100.;
+   fn simspace_to_modelspace(pos: Vec2) -> [f32; 3] {
+   [
+   (pos.x / SIM_TO_MODEL_DOWNSCALE) * 2. - 1.,
+   0.,
+   (pos.y / SIM_TO_MODEL_DOWNSCALE) * 2. - 1.,
+   ]
+   }
+   */
 
 /// Maps sim coordinates to/from egui coordinates
 struct CoordinateMapping {
     width: f32,
     height: f32,
     area: Rect,
-}
+   }
 
 impl CoordinateMapping {
     pub fn new(grid: &Array2D<GridCell>, area: Rect) -> Self {
