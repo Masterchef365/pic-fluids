@@ -690,9 +690,11 @@ impl TemplateApp {
             ui.end_row();
 
             ui.label("Colors: ");
-            for color in &mut self.save.working.life.colors {
-                ui.color_edit_button_rgb(color);
-            }
+            ui.horizontal(|ui| {
+                for color in &mut self.save.working.life.colors {
+                    ui.color_edit_button_rgb(color);
+                }
+            });
             ui.end_row();
 
             ui.label(
