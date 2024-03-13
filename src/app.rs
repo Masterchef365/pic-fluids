@@ -284,9 +284,7 @@ impl TemplateApp {
         // Draw the buttons for choosing which graph to view overtop the current node graph
         let mut button_rect = button_rect;
         button_rect.set_height(0.); // Move to the top
-        ui.put(button_rect, 
-            self.node_graph_view_buttons()
-        );
+        ui.put(button_rect, self.node_graph_view_buttons());
     }
 
     fn node_graph_view_buttons(&mut self) -> impl egui::Widget + '_ {
@@ -419,7 +417,7 @@ impl TemplateApp {
     }
 
     fn save_menu(&mut self, ui: &mut Ui) {
-        ui.horizontal(|ui| {
+        Grid::new("Save menu").show(ui, |ui| {
             if ui.button("Save current state").clicked() {
                 self.save
                     .saved_states
@@ -531,7 +529,7 @@ impl TemplateApp {
             ui.separator();
             ui.strong("Node graph configuration");
             ui.add(self.node_graph_view_buttons());
-            
+
             ui.add(labelled_dragvalue(
                 "Neighbor_radius: ",
                 DragValue::new(&mut self.save.working.node_cfg.neighbor_radius)
@@ -557,28 +555,28 @@ impl TemplateApp {
             ui.separator();
             ui.strong("Particle life configuration");
             let mut behav_cfg = self.save.working.life.behaviours[(0, 0)];
+            ui.add(labelled_dragvalue(
+                "Max interaction dist: ",
+                DragValue::new(&mut behav_cfg.max_inter_dist)
+                    .clamp_range(0.0..=20.0)
+                    .speed(1e-2),
+            ));
+            ui.add(labelled_dragvalue(
+                "Default repulse: ",
+                DragValue::new(&mut behav_cfg.default_repulse).speed(1e-2),
+            ));
+            ui.horizontal(|ui| {
                 ui.add(labelled_dragvalue(
-                    "Max interaction dist: ",
-                    DragValue::new(&mut behav_cfg.max_inter_dist)
+                    "Interaction threshold: ",
+                    DragValue::new(&mut behav_cfg.inter_threshold)
                         .clamp_range(0.0..=20.0)
                         .speed(1e-2),
                 ));
-                ui.add(labelled_dragvalue(
-                    "Default repulse: ",
-                    DragValue::new(&mut behav_cfg.default_repulse).speed(1e-2),
-                ));
-                ui.horizontal(|ui| {
-                    ui.add(labelled_dragvalue(
-                        "Interaction threshold: ",
-                        DragValue::new(&mut behav_cfg.inter_threshold)
-                            .clamp_range(0.0..=20.0)
-                            .speed(1e-2),
-                    ));
-                    ui.checkbox(
-                        &mut self.save.working.set_inter_dist_to_radius,
-                        "From radius",
-                    );
-                });
+                ui.checkbox(
+                    &mut self.save.working.set_inter_dist_to_radius,
+                    "From radius",
+                );
+            });
             if self.save.working.set_inter_dist_to_radius {
                 behav_cfg.inter_threshold = self.save.working.tweak.particle_radius * 2.;
             }
@@ -638,6 +636,10 @@ impl TemplateApp {
 
         ui.separator();
         ui.strong("Simulation state");
+        ui.horizontal(|ui| {
+            ui.checkbox(&mut self.save.working.pause, "Pause");
+            self.save.working.single_step |= ui.button("Step").clicked();
+        });
 
         ui.add(labelled_dragvalue(
             "# of particles: ",
@@ -680,16 +682,12 @@ impl TemplateApp {
         }
 
         ui.horizontal(|ui| {
-                ui.label("Colors: ");
-                for color in &mut self.save.working.life.colors {
-                    ui.color_edit_button_rgb(color);
-                }
-            });
-
-        ui.horizontal(|ui| {
-            ui.checkbox(&mut self.save.working.pause, "Pause");
-            self.save.working.single_step |= ui.button("Step").clicked();
+            ui.label("Colors: ");
+            for color in &mut self.save.working.life.colors {
+                ui.color_edit_button_rgb(color);
+            }
         });
+
         if ui.button("Reset").clicked() {
             do_reset = true;
         }
@@ -719,15 +717,14 @@ impl TemplateApp {
                 self.save.working.tweak.gravity = 0.;
             }
         });
-            ui.add(Slider::new(&mut self.save.working.tweak.damping, 0.0..=1.0).text("Damping"));
-            ui.checkbox(
-                &mut self.save.working.tweak.enable_grid_transfer,
-                "Grid transfer (required for incompressibility solver!)",
-            );
-            ui.add(
-                Slider::new(&mut self.save.working.tweak.pic_apic_ratio, 0.0..=1.0)
-                    .text("PIC - APIC"),
-            );
+        ui.add(Slider::new(&mut self.save.working.tweak.damping, 0.0..=1.0).text("Damping"));
+        ui.checkbox(
+            &mut self.save.working.tweak.enable_grid_transfer,
+            "Grid transfer (required for incompressibility solver!)",
+        );
+        ui.add(
+            Slider::new(&mut self.save.working.tweak.pic_apic_ratio, 0.0..=1.0).text("PIC - APIC"),
+        );
 
         ui.separator();
         ui.horizontal(|ui| {
@@ -740,48 +737,47 @@ impl TemplateApp {
                 .clamp_range(1e-2..=5.0),
         ));
 
-            ui.horizontal(|ui| {
-                ui.checkbox(
-                    &mut self.save.working.tweak.enable_particle_collisions,
-                    "Hard collisions",
-                );
+        ui.horizontal(|ui| {
+            ui.checkbox(
+                &mut self.save.working.tweak.enable_particle_collisions,
+                "Hard collisions",
+            );
 
-                ui.label("(");
-                ui.checkbox(
-                    &mut self.save.working.set_hard_collisions_based_on_particle_life,
-                    "if particle life not actv.",
-                );
-                ui.label(")");
-            });
-            ui.horizontal(|ui| {
-                let mut rest_density = self.save.working.tweak.rest_density();
-                if ui
-                    .add(labelled_dragvalue(
-                        "Rest density: ",
-                        DragValue::new(&mut rest_density).speed(1e-2),
-                    ))
-                    .changed()
-                {
-                    self.save.working.tweak.rest_density = Some(rest_density);
-                }
+            ui.label("(");
+            ui.checkbox(
+                &mut self.save.working.set_hard_collisions_based_on_particle_life,
+                "if particle life not actv.",
+            );
+            ui.label(")");
+        });
+        ui.horizontal(|ui| {
+            let mut rest_density = self.save.working.tweak.rest_density();
+            if ui
+                .add(labelled_dragvalue(
+                    "Rest density: ",
+                    DragValue::new(&mut rest_density).speed(1e-2),
+                ))
+                .changed()
+            {
+                self.save.working.tweak.rest_density = Some(rest_density);
+            }
 
-                let mut calc_rest_density_from_radius =
-                    self.save.working.tweak.rest_density.is_none();
-                if ui
-                    .checkbox(
-                        &mut calc_rest_density_from_radius,
-                        "From radius (assumes optimal packing)",
-                    )
-                    .changed()
-                {
-                    if calc_rest_density_from_radius {
-                        self.save.working.tweak.rest_density = None;
-                    } else {
-                        self.save.working.tweak.rest_density =
-                            Some(calc_rest_density(self.save.working.tweak.particle_radius));
-                    }
+            let mut calc_rest_density_from_radius = self.save.working.tweak.rest_density.is_none();
+            if ui
+                .checkbox(
+                    &mut calc_rest_density_from_radius,
+                    "From radius (assumes optimal packing)",
+                )
+                .changed()
+            {
+                if calc_rest_density_from_radius {
+                    self.save.working.tweak.rest_density = None;
+                } else {
+                    self.save.working.tweak.rest_density =
+                        Some(calc_rest_density(self.save.working.tweak.particle_radius));
                 }
-            });
+            }
+        });
 
         if self.save.working.tweak.enable_grid_transfer {
             ui.separator();
@@ -880,7 +876,6 @@ impl TemplateApp {
         ui.separator();
         ui.strong("Save data");
         self.save_menu(ui);
-
 
         if do_reset {
             self.reset_sim_state();

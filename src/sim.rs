@@ -6,10 +6,8 @@ use wasm_runtime::query_accel::QueryAccelerator;
 
 use glam::Vec2;
 use rand::prelude::*;
-use vorpal_widgets::vorpal_core::{Node};
-use vorpal_widgets::vorpal_core::{
-    DataType, ExternInputId, ParameterList,
-};
+use vorpal_widgets::vorpal_core::Node;
+use vorpal_widgets::vorpal_core::{DataType, ExternInputId, ParameterList};
 use wasm_runtime::{PerParticleInputPayload, PerParticleOutputPayload};
 
 #[derive(serde::Serialize, serde::Deserialize, Clone)]
@@ -193,12 +191,12 @@ impl Sim {
                     tweak.dt,
                     node_cfg.neighbor_radius,
                 )
-                    .unwrap()
+                .unwrap()
             } else {
                 panic!()
-                    /*
-                       let outputs = per_particle_node_interactions_native(&payloads, per_particle_nodes);
-                       */
+                /*
+                let outputs = per_particle_node_interactions_native(&payloads, per_particle_nodes);
+                */
             };
 
             apply_output_payloads(tweak.dt, &mut self.particles, &outputs);

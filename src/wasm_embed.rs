@@ -16,8 +16,7 @@ pub struct WasmNodeRuntime {
     old_code: Option<(Rc<Node>, Rc<Node>)>,
 }
 
-const RUNTIME_WASM_BYTES: &[u8] =
-    include_bytes!("../bin/wasm_runtime.wasm");
+const RUNTIME_WASM_BYTES: &[u8] = include_bytes!("../bin/wasm_runtime.wasm");
 const PER_PARTICLE_RUN_FN_NAME: &str = "run_per_particle_kernel";
 
 const PER_PARTICLE_KERNEL_FN_NAME: &str = "per_particle_kernel";
