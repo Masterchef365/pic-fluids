@@ -887,7 +887,7 @@ fn per_neighbor_node_interactions(
 impl Default for SimTweak {
     fn default() -> Self {
         Self {
-            enable_particle_collisions: false,
+            enable_particle_collisions: true,
             enable_incompress: true,
             enable_grid_transfer: true,
             pic_apic_ratio: 1.,

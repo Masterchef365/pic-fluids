@@ -494,29 +494,44 @@ impl TemplateApp {
         let mut do_reset = false;
 
         ui.strong("Particle behaviour");
+        let mut changed = false;
         Grid::new("particle mode settings").show(ui, |ui| {
-            ui.radio_value(
-                &mut self.save.working.tweak.particle_mode,
-                ParticleBehaviourMode::Off,
-                "Off (kinematics only)",
-            );
-            ui.radio_value(
-                &mut self.save.working.tweak.particle_mode,
-                ParticleBehaviourMode::NodeGraph,
-                "Node graph",
-            );
+            changed |= ui
+                .radio_value(
+                    &mut self.save.working.tweak.particle_mode,
+                    ParticleBehaviourMode::Off,
+                    "Off (kinematics only)",
+                )
+                .changed();
+            changed |= ui
+                .radio_value(
+                    &mut self.save.working.tweak.particle_mode,
+                    ParticleBehaviourMode::NodeGraph,
+                    "Node graph",
+                )
+                .changed();
             ui.end_row();
-            ui.radio_value(
-                &mut self.save.working.tweak.particle_mode,
-                ParticleBehaviourMode::ParticleLife,
-                "Particle life",
-            );
-            ui.radio_value(
-                &mut self.save.working.tweak.particle_mode,
-                ParticleBehaviourMode::Both,
-                "Both (graph + life)",
-            );
+
+            changed |= ui
+                .radio_value(
+                    &mut self.save.working.tweak.particle_mode,
+                    ParticleBehaviourMode::ParticleLife,
+                    "Particle life",
+                )
+                .changed();
+
+            changed |= ui
+                .radio_value(
+                    &mut self.save.working.tweak.particle_mode,
+                    ParticleBehaviourMode::Both,
+                    "Both (graph + life)",
+                )
+                .changed();
         });
+        if changed {
+            self.save.working.tweak.enable_particle_collisions =
+                !self.save.working.tweak.particle_mode.uses_life();
+        }
 
         ui.separator();
         ui.strong("Save data");
@@ -840,7 +855,6 @@ impl TemplateApp {
             ui.label("Particle well");
             ui.checkbox(&mut self.save.working.well, "Enable");
         });
-
 
         if self.save.working.tweak.enable_grid_transfer {
             ui.separator();
