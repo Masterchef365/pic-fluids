@@ -54,7 +54,6 @@ pub struct AppSaveState {
     source_color_idx: ParticleType,
     source_rate: usize,
     //mult: f32,
-    advanced: bool,
     fullscreen_inside: bool,
 
     node_graph_fn_viewed: NodeGraphFns,
@@ -123,7 +122,6 @@ impl TemplateApp {
             node_cfg,
             per_neighbor_fn,
             per_particle_fn,
-            advanced: false,
             n_colors,
             source_rate: 0,
             single_step: false,
@@ -286,22 +284,31 @@ impl TemplateApp {
         // Draw the buttons for choosing which graph to view overtop the current node graph
         let mut button_rect = button_rect;
         button_rect.set_height(0.); // Move to the top
-        ui.put(button_rect, |ui: &mut Ui| {
+        ui.put(button_rect, 
+            self.node_graph_view_buttons()
+        );
+    }
+
+    fn node_graph_view_buttons(&mut self) -> impl egui::Widget + '_ {
+        |ui: &mut Ui| {
             ui.horizontal(|ui| {
                 ui.strong("Viewing: ");
                 ui.selectable_value(
                     &mut self.save.working.node_graph_fn_viewed,
                     NodeGraphFns::PerNeighbor,
                     "Per-neighbor",
-                );
+                ).on_hover_ui(|ui| {
+                    ui.strong("This function is executed for each neighbor of each particle. The acceleration from each neighbor is summed, and then applied to the particle.");
+                });
                 ui.selectable_value(
                     &mut self.save.working.node_graph_fn_viewed,
                     NodeGraphFns::PerParticle,
                     "Per-particle",
-                )
+                ).on_hover_ui(|ui| { 
+                    ui.strong("This function is executed for each particle, and the acceleration is applied (multiplied by dt and added) to the velocity vector.");
+                })
             }).inner
-        });
-
+        }
     }
 
     fn step_sim(&mut self) {
@@ -522,6 +529,7 @@ impl TemplateApp {
         if self.save.working.tweak.particle_mode.uses_nodes() {
             ui.separator();
             ui.strong("Node graph configuration");
+            ui.add(self.node_graph_view_buttons());
             ui.horizontal(|ui| {
                 ui.label("Colors: ");
                 for color in &mut self.save.working.life.colors {
@@ -553,7 +561,6 @@ impl TemplateApp {
             ui.separator();
             ui.strong("Particle life configuration");
             let mut behav_cfg = self.save.working.life.behaviours[(0, 0)];
-            if self.save.working.advanced {
                 ui.add(labelled_dragvalue(
                     "Max interaction dist: ",
                     DragValue::new(&mut behav_cfg.max_inter_dist)
@@ -576,7 +583,6 @@ impl TemplateApp {
                         "From radius",
                     );
                 });
-            }
             if self.save.working.set_inter_dist_to_radius {
                 behav_cfg.inter_threshold = self.save.working.tweak.particle_radius * 2.;
             }
@@ -712,7 +718,6 @@ impl TemplateApp {
                 self.save.working.tweak.gravity = 0.;
             }
         });
-        if self.save.working.advanced {
             ui.add(Slider::new(&mut self.save.working.tweak.damping, 0.0..=1.0).text("Damping"));
             ui.checkbox(
                 &mut self.save.working.tweak.enable_grid_transfer,
@@ -722,7 +727,6 @@ impl TemplateApp {
                 Slider::new(&mut self.save.working.tweak.pic_apic_ratio, 0.0..=1.0)
                     .text("PIC - APIC"),
             );
-        }
 
         ui.separator();
         ui.horizontal(|ui| {
@@ -735,7 +739,6 @@ impl TemplateApp {
                 .clamp_range(1e-2..=5.0),
         ));
 
-        if self.save.working.advanced {
             ui.horizontal(|ui| {
                 ui.checkbox(
                     &mut self.save.working.tweak.enable_particle_collisions,
@@ -778,9 +781,8 @@ impl TemplateApp {
                     }
                 }
             });
-        }
 
-        if self.save.working.advanced && self.save.working.tweak.enable_grid_transfer {
+        if self.save.working.tweak.enable_grid_transfer {
             ui.separator();
             ui.horizontal(|ui| {
                 ui.strong("Incompressibility Solver");
@@ -879,11 +881,8 @@ impl TemplateApp {
         }
 
         ui.separator();
-        ui.checkbox(&mut self.save.working.advanced, "Advanced settings");
-        if self.save.working.advanced {
-            if ui.button("Reset everything (DELETES ALL SAVES)").clicked() {
-                *self = Self::new_from_ctx(ui.ctx());
-            }
+        if ui.button("Reset everything (DELETES ALL SAVES)").clicked() {
+            *self = Self::new_from_ctx(ui.ctx());
         }
         ui.hyperlink_to(
             "GitHub repository",
