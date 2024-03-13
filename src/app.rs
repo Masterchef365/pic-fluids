@@ -223,13 +223,13 @@ impl eframe::App for TemplateApp {
         if is_mobile(ctx) {
             TopBottomPanel::top("mobile_stuff").show(ctx, |ui| {
                 ui.horizontal(|ui| {
-                    ui.selectable_value(&mut self.save.working.mobile_tab, MobileTab::Main, "Main");
-                    ui.selectable_value(
+                    ui.radio_value(&mut self.save.working.mobile_tab, MobileTab::Main, "Main");
+                    ui.radio_value(
                         &mut self.save.working.mobile_tab,
                         MobileTab::Settings,
                         "Settings",
                     );
-                    ui.selectable_value(
+                    ui.radio_value(
                         &mut self.save.working.mobile_tab,
                         MobileTab::NodeGraph,
                         "NodeGraph",
@@ -474,22 +474,22 @@ impl TemplateApp {
 
         ui.strong("Particle behaviour");
         ui.horizontal(|ui| {
-            ui.selectable_value(
+            ui.radio_value(
                 &mut self.save.working.tweak.particle_mode,
                 ParticleBehaviourMode::Off,
                 "Off",
             );
-            ui.selectable_value(
+            ui.radio_value(
                 &mut self.save.working.tweak.particle_mode,
                 ParticleBehaviourMode::NodeGraph,
                 "Node graph",
             );
-            ui.selectable_value(
+            ui.radio_value(
                 &mut self.save.working.tweak.particle_mode,
                 ParticleBehaviourMode::ParticleLife,
                 "Particle life",
             );
-            ui.selectable_value(
+            ui.radio_value(
                 &mut self.save.working.tweak.particle_mode,
                 ParticleBehaviourMode::Both,
                 "Both",
@@ -501,12 +501,12 @@ impl TemplateApp {
             ui.strong("Node graph configuration");
             ui.horizontal(|ui| {
                 ui.strong("Viewing: ");
-                ui.selectable_value(
+                ui.radio_value(
                     &mut self.save.working.node_graph_fn_viewed,
                     NodeGraphFns::PerNeighbor,
                     "Per-neighbor",
                 );
-                ui.selectable_value(
+                ui.radio_value(
                     &mut self.save.working.node_graph_fn_viewed,
                     NodeGraphFns::PerParticle,
                     "Per-particle",
@@ -787,12 +787,12 @@ impl TemplateApp {
                     .clamp_range(0.0..=1.95),
             ));
             ui.horizontal(|ui| {
-                ui.selectable_value(
+                ui.radio_value(
                     &mut self.save.working.tweak.solver,
                     IncompressibilitySolver::Jacobi,
                     "Jacobi",
                 );
-                ui.selectable_value(
+                ui.radio_value(
                     &mut self.save.working.tweak.solver,
                     IncompressibilitySolver::GaussSeidel,
                     "Gauss Seidel",
