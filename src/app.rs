@@ -796,6 +796,7 @@ impl TemplateApp {
                     .clamp_range(0.0..=1.95),
             ));
             ui.horizontal(|ui| {
+                ui.label("Algorithm: ");
                 ui.radio_value(
                     &mut self.save.working.tweak.solver,
                     IncompressibilitySolver::Jacobi,
