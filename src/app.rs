@@ -760,6 +760,7 @@ impl TemplateApp {
                         .speed(1e-2)
                         .clamp_range(1e-2..=5.0),
                 );
+                ui.end_row();
 
                 ui.label("Hard collisions");
                 ui.checkbox(
@@ -767,32 +768,38 @@ impl TemplateApp {
                     "Enable",
                 );
                 ui.end_row();
+
+                let mut rest_density = self.save.working.tweak.rest_density();
+                ui.label("Rest density: ");
+                if ui
+                    .add(DragValue::new(&mut rest_density).speed(1e-2))
+                    .changed()
+                {
+                    self.save.working.tweak.rest_density = Some(rest_density);
+                }
+                ui.end_row();
+
+                ui.label("Calculate reset density");
+                let mut calc_rest_density_from_radius =
+                    self.save.working.tweak.rest_density.is_none();
+                if ui
+                    .checkbox(
+                        &mut calc_rest_density_from_radius,
+                        "From radius",
+                    ).on_hover_ui(|ui| {
+                         ui.label("Assumes optimal hexagonal packing of particles");
+                    })
+                    .changed()
+                {
+                    if calc_rest_density_from_radius {
+                        self.save.working.tweak.rest_density = None;
+                    } else {
+                        self.save.working.tweak.rest_density =
+                            Some(calc_rest_density(self.save.working.tweak.particle_radius));
+                    }
+                }
+                ui.end_row();
             });
-
-        let mut rest_density = self.save.working.tweak.rest_density();
-        ui.label("Rest density: ");
-        if ui
-            .add(DragValue::new(&mut rest_density).speed(1e-2))
-            .changed()
-        {
-            self.save.working.tweak.rest_density = Some(rest_density);
-        }
-
-        let mut calc_rest_density_from_radius = self.save.working.tweak.rest_density.is_none();
-        if ui
-            .checkbox(
-                &mut calc_rest_density_from_radius,
-                "From radius (assumes optimal packing)",
-            )
-            .changed()
-        {
-            if calc_rest_density_from_radius {
-                self.save.working.tweak.rest_density = None;
-            } else {
-                self.save.working.tweak.rest_density =
-                    Some(calc_rest_density(self.save.working.tweak.particle_radius));
-            }
-        }
 
         if self.save.working.tweak.enable_grid_transfer {
             ui.separator();
