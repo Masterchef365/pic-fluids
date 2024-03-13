@@ -39,7 +39,6 @@ pub struct AppSaveState {
     width: usize,
     height: usize,
     set_inter_dist_to_radius: bool,
-    set_hard_collisions_based_on_particle_life: bool,
     //show_arrows: bool,
     //show_grid: bool,
     //grid_vel_scale: f32,
@@ -116,7 +115,6 @@ impl TemplateApp {
 
         AppSaveState {
             n_particles,
-            set_hard_collisions_based_on_particle_life: true,
             life,
             tweak,
             node_cfg,
@@ -495,11 +493,6 @@ impl TemplateApp {
     fn settings_gui(&mut self, ui: &mut Ui) {
         let mut do_reset = false;
 
-        if self.save.working.set_hard_collisions_based_on_particle_life {
-            self.save.working.tweak.enable_particle_collisions =
-                self.save.working.tweak.particle_mode != ParticleBehaviourMode::ParticleLife;
-        }
-
         ui.strong("Particle behaviour");
         Grid::new("particle mode settings").show(ui, |ui| {
             ui.radio_value(
@@ -638,7 +631,6 @@ impl TemplateApp {
         ui.strong("Simulation state");
         let grid = Grid::new("Simulation state").striped(true).num_columns(2);
         grid.show(ui, |ui| {
-
             ui.label("Controls");
             ui.horizontal(|ui| {
                 ui.checkbox(&mut self.save.working.pause, "Pause");
@@ -697,20 +689,12 @@ impl TemplateApp {
             });
             ui.end_row();
 
-            ui.label(
-                "Grid width: ",
-            );
-            ui.add(
-                DragValue::new(&mut self.save.working.width).clamp_range(5..=usize::MAX),
-            );
+            ui.label("Grid width: ");
+            ui.add(DragValue::new(&mut self.save.working.width).clamp_range(5..=usize::MAX));
             ui.end_row();
 
-            ui.label(
-                "Grid Height: ",
-            );
-            ui.add(
-                DragValue::new(&mut self.save.working.height).clamp_range(5..=usize::MAX),
-            );
+            ui.label("Grid Height: ");
+            ui.add(DragValue::new(&mut self.save.working.height).clamp_range(5..=usize::MAX));
             ui.end_row();
         });
 
@@ -766,59 +750,49 @@ impl TemplateApp {
         });
 
         ui.separator();
-        ui.horizontal(|ui| {
-            ui.strong("Particle collisions");
-        });
-        ui.label(
-            "Particle radius: ",
-        );
-        ui.add(
-            DragValue::new(&mut self.save.working.tweak.particle_radius)
-            .speed(1e-2)
-            .clamp_range(1e-2..=5.0),
-        );
+        ui.strong("Particle collisions");
+        Grid::new("Particle collisions")
+            .striped(true)
+            .show(ui, |ui| {
+                ui.label("Particle radius: ");
+                ui.add(
+                    DragValue::new(&mut self.save.working.tweak.particle_radius)
+                        .speed(1e-2)
+                        .clamp_range(1e-2..=5.0),
+                );
 
-        ui.horizontal(|ui| {
-            ui.checkbox(
-                &mut self.save.working.tweak.enable_particle_collisions,
-                "Hard collisions",
-            );
+                ui.label("Hard collisions");
+                ui.checkbox(
+                    &mut self.save.working.tweak.enable_particle_collisions,
+                    "Enable",
+                );
+                ui.end_row();
+            });
 
-            ui.label("(");
-            ui.checkbox(
-                &mut self.save.working.set_hard_collisions_based_on_particle_life,
-                "if particle life not actv.",
-            );
-            ui.label(")");
-        });
-        ui.horizontal(|ui| {
-            let mut rest_density = self.save.working.tweak.rest_density();
-            if ui
-                .add(labelled_dragvalue(
-                        "Rest density: ",
-                        DragValue::new(&mut rest_density).speed(1e-2),
-                ))
-                    .changed()
-            {
-                self.save.working.tweak.rest_density = Some(rest_density);
+        let mut rest_density = self.save.working.tweak.rest_density();
+        ui.label("Rest density: ");
+        if ui
+            .add(DragValue::new(&mut rest_density).speed(1e-2))
+            .changed()
+        {
+            self.save.working.tweak.rest_density = Some(rest_density);
+        }
+
+        let mut calc_rest_density_from_radius = self.save.working.tweak.rest_density.is_none();
+        if ui
+            .checkbox(
+                &mut calc_rest_density_from_radius,
+                "From radius (assumes optimal packing)",
+            )
+            .changed()
+        {
+            if calc_rest_density_from_radius {
+                self.save.working.tweak.rest_density = None;
+            } else {
+                self.save.working.tweak.rest_density =
+                    Some(calc_rest_density(self.save.working.tweak.particle_radius));
             }
-
-            let mut calc_rest_density_from_radius = self.save.working.tweak.rest_density.is_none();
-            if ui
-                .checkbox(
-                    &mut calc_rest_density_from_radius,
-                    "From radius (assumes optimal packing)",
-                )
-                    .changed()
-            {
-                if calc_rest_density_from_radius {
-                    self.save.working.tweak.rest_density = None;
-                } else {
-                    self.save.working.tweak.rest_density =
-                        Some(calc_rest_density(self.save.working.tweak.particle_radius));
-                }
-            }
-        });
+        }
 
         if self.save.working.tweak.enable_grid_transfer {
             ui.separator();
@@ -827,12 +801,12 @@ impl TemplateApp {
                 ui.checkbox(&mut self.save.working.tweak.enable_incompress, "");
             });
             ui.add(labelled_dragvalue(
-                    "Solver iterations: ",
-                    DragValue::new(&mut self.save.working.tweak.solver_iters),
+                "Solver iterations: ",
+                DragValue::new(&mut self.save.working.tweak.solver_iters),
             ));
             ui.add(labelled_dragvalue(
-                    "Over-relaxation: ",
-                    DragValue::new(&mut self.save.working.tweak.over_relax)
+                "Over-relaxation: ",
+                DragValue::new(&mut self.save.working.tweak.over_relax)
                     .speed(1e-2)
                     .clamp_range(0.0..=1.95),
             ));
@@ -850,16 +824,16 @@ impl TemplateApp {
                 );
             });
             ui.add(labelled_dragvalue(
-                    "Density compensation stiffness: ",
-                    DragValue::new(&mut self.save.working.tweak.stiffness).speed(1e-2),
+                "Density compensation stiffness: ",
+                DragValue::new(&mut self.save.working.tweak.stiffness).speed(1e-2),
             ));
         }
 
         ui.separator();
         ui.strong("Particle source");
         ui.add(labelled_dragvalue(
-                "Particle inflow rate: ",
-                DragValue::new(&mut self.save.working.source_rate).speed(1e-1),
+            "Particle inflow rate: ",
+            DragValue::new(&mut self.save.working.source_rate).speed(1e-1),
         ));
         ui.horizontal(|ui| {
             ui.label("Particle inflow color: ");
@@ -878,42 +852,42 @@ impl TemplateApp {
                 .working
                 .source_color_idx
                 .min(self.save.working.life.colors.len() as u8 - 1);
-            });
+        });
         ui.checkbox(&mut self.save.working.well, "Particle well");
 
         /*
-           if ui.button("Lifeless").clicked() {
-           self.sim
-           .life
-           .behaviours
-           .data_mut()
-           .iter_mut()
-           .for_each(|b| b.inter_strength = 0.);
-           }
-           */
+        if ui.button("Lifeless").clicked() {
+        self.sim
+        .life
+        .behaviours
+        .data_mut()
+        .iter_mut()
+        .for_each(|b| b.inter_strength = 0.);
+        }
+        */
 
         /*
-           if self.save.working.advanced {
-           ui.add(DragValue::new(&mut self.save.working.mult).speed(1e-2));
-           }
-           */
+        if self.save.working.advanced {
+        ui.add(DragValue::new(&mut self.save.working.mult).speed(1e-2));
+        }
+        */
 
         /*
-           if self.save.working.advanced {
-           ui.separator();
-           ui.strong("Debug");
-           ui.checkbox(&mut self.save.working.show_grid, "Show grid");
-           ui.horizontal(|ui| {
-           ui.checkbox(&mut self.save.working.show_arrows, "Show arrows");
-           ui.add(
-           DragValue::new(&mut self.save.working.grid_vel_scale)
-           .prefix("Scale: ")
-           .speed(1e-2)
-           .clamp_range(0.0..=f32::INFINITY),
-           )
-           });
-           }
-           */
+        if self.save.working.advanced {
+        ui.separator();
+        ui.strong("Debug");
+        ui.checkbox(&mut self.save.working.show_grid, "Show grid");
+        ui.horizontal(|ui| {
+        ui.checkbox(&mut self.save.working.show_arrows, "Show arrows");
+        ui.add(
+        DragValue::new(&mut self.save.working.grid_vel_scale)
+        .prefix("Scale: ")
+        .speed(1e-2)
+        .clamp_range(0.0..=f32::INFINITY),
+        )
+        });
+        }
+        */
 
         ui.separator();
         ui.strong("Save data");
@@ -932,7 +906,7 @@ impl TemplateApp {
             "https://github.com/Masterchef365/pic-fluids",
         );
         ui.label(format!(
-                "Press {ENABLE_FULLSCREEN_KEY:?} to toggle fullscreen"
+            "Press {ENABLE_FULLSCREEN_KEY:?} to toggle fullscreen"
         ));
     }
 
@@ -949,22 +923,22 @@ impl TemplateApp {
 const ENABLE_FULLSCREEN_KEY: egui::Key = egui::Key::Tab;
 
 /*
-   const SIM_TO_MODEL_DOWNSCALE: f32 = 100.;
-   fn simspace_to_modelspace(pos: Vec2) -> [f32; 3] {
-   [
-   (pos.x / SIM_TO_MODEL_DOWNSCALE) * 2. - 1.,
-   0.,
-   (pos.y / SIM_TO_MODEL_DOWNSCALE) * 2. - 1.,
-   ]
-   }
-   */
+const SIM_TO_MODEL_DOWNSCALE: f32 = 100.;
+fn simspace_to_modelspace(pos: Vec2) -> [f32; 3] {
+[
+(pos.x / SIM_TO_MODEL_DOWNSCALE) * 2. - 1.,
+0.,
+(pos.y / SIM_TO_MODEL_DOWNSCALE) * 2. - 1.,
+]
+}
+*/
 
 /// Maps sim coordinates to/from egui coordinates
 struct CoordinateMapping {
     width: f32,
     height: f32,
     area: Rect,
-   }
+}
 
 impl CoordinateMapping {
     pub fn new(grid: &Array2D<GridCell>, area: Rect) -> Self {
