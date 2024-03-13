@@ -275,10 +275,34 @@ impl eframe::App for TemplateApp {
 
 impl TemplateApp {
     fn show_node_graph(&mut self, ui: &mut Ui) {
+        let button_rect = ui.max_rect();
+
+        // Draw whichever node graph
         match self.save.working.node_graph_fn_viewed {
             NodeGraphFns::PerNeighbor => self.save.working.per_neighbor_fn.show(ui),
             NodeGraphFns::PerParticle => self.save.working.per_particle_fn.show(ui),
-        }
+        };
+
+        // Draw the buttons for choosing which graph to view overtop the current node graph
+        let mut button_rect = button_rect;
+        button_rect.set_height(0.);
+        ui.painter().rect(button_rect, egui::Rounding::ZERO, egui::Color32::RED, egui::Stroke::NONE);
+        ui.put(button_rect, |ui: &mut Ui| {
+            ui.horizontal(|ui| {
+                ui.strong("Viewing: ");
+                ui.selectable_value(
+                    &mut self.save.working.node_graph_fn_viewed,
+                    NodeGraphFns::PerNeighbor,
+                    "Per-neighbor",
+                );
+                ui.selectable_value(
+                    &mut self.save.working.node_graph_fn_viewed,
+                    NodeGraphFns::PerParticle,
+                    "Per-particle",
+                )
+            }).inner
+        });
+
     }
 
     fn step_sim(&mut self) {
