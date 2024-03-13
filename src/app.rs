@@ -523,17 +523,10 @@ impl TemplateApp {
             ui.separator();
             ui.strong("Node graph configuration");
             ui.horizontal(|ui| {
-                ui.strong("Viewing: ");
-                ui.radio_value(
-                    &mut self.save.working.node_graph_fn_viewed,
-                    NodeGraphFns::PerNeighbor,
-                    "Per-neighbor",
-                );
-                ui.radio_value(
-                    &mut self.save.working.node_graph_fn_viewed,
-                    NodeGraphFns::PerParticle,
-                    "Per-particle",
-                );
+                ui.label("Colors: ");
+                for color in &mut self.save.working.life.colors {
+                    ui.color_edit_button_rgb(color);
+                }
             });
             ui.add(labelled_dragvalue(
                 "Neighbor_radius: ",
@@ -541,12 +534,6 @@ impl TemplateApp {
                     .clamp_range(1e-2..=20.0)
                     .speed(1e-2),
             ));
-            ui.horizontal(|ui| {
-                ui.label("Colors: ");
-                for color in &mut self.save.working.life.colors {
-                    ui.color_edit_button_rgb(color);
-                }
-            });
 
             if let Some(rt) = &self.wasm_rt {
                 if let Some((pp_src, pn_src)) = rt.last_src() {
