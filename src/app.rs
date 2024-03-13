@@ -285,8 +285,7 @@ impl TemplateApp {
 
         // Draw the buttons for choosing which graph to view overtop the current node graph
         let mut button_rect = button_rect;
-        button_rect.set_height(0.);
-        ui.painter().rect(button_rect, egui::Rounding::ZERO, egui::Color32::RED, egui::Stroke::NONE);
+        button_rect.set_height(0.); // Move to the top
         ui.put(button_rect, |ui: &mut Ui| {
             ui.horizontal(|ui| {
                 ui.strong("Viewing: ");
