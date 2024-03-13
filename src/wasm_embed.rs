@@ -97,6 +97,7 @@ impl WasmNodeRuntime {
     }
 
     fn set_code(&mut self, code: &[u8]) -> Result<()> {
+        puffin::profile_scope!("Node graph webassembly compile");
         let module = Module::new(&self.engine, code)?;
         self.instance = Instance::new(&mut self.store, &module, &[])?;
         Ok(())
@@ -110,6 +111,8 @@ impl WasmNodeRuntime {
         dt: f32,
         neighbor_radius: f32,
     ) -> Result<Vec<PerParticleOutputPayload>> {
+        puffin::profile_scope!("Node graph webassembly exec");
+
         // Casting
         let input_buf: &[u8] = bytemuck::cast_slice(inputs);
         let mut output_buf: Vec<PerParticleOutputPayload> =

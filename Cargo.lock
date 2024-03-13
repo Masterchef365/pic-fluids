@@ -1038,7 +1038,7 @@ dependencies = [
  "objc",
  "parking_lot",
  "percent-encoding",
- "puffin 0.19.0",
+ "puffin",
  "raw-window-handle 0.5.2",
  "raw-window-handle 0.6.0",
  "ron",
@@ -1064,7 +1064,7 @@ dependencies = [
  "epaint",
  "log",
  "nohash-hasher",
- "puffin 0.19.0",
+ "puffin",
  "ron",
  "serde",
 ]
@@ -1080,7 +1080,7 @@ dependencies = [
  "egui",
  "epaint",
  "log",
- "puffin 0.19.0",
+ "puffin",
  "thiserror",
  "type-map",
  "web-time",
@@ -1098,7 +1098,7 @@ dependencies = [
  "arboard",
  "egui",
  "log",
- "puffin 0.19.0",
+ "puffin",
  "raw-window-handle 0.6.0",
  "serde",
  "smithay-clipboard",
@@ -1119,7 +1119,7 @@ dependencies = [
  "glow",
  "log",
  "memoffset 0.9.0",
- "puffin 0.19.0",
+ "puffin",
  "wasm-bindgen",
  "web-sys",
 ]
@@ -1212,7 +1212,7 @@ dependencies = [
  "log",
  "nohash-hasher",
  "parking_lot",
- "puffin 0.19.0",
+ "puffin",
  "serde",
 ]
 
@@ -2317,7 +2317,7 @@ dependencies = [
  "getrandom",
  "glam",
  "log",
- "puffin 0.18.1",
+ "puffin",
  "puffin_http",
  "rand",
  "rand_distr",
@@ -2441,9 +2441,9 @@ dependencies = [
 
 [[package]]
 name = "puffin"
-version = "0.18.1"
+version = "0.19.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "02330f795caafc2007510f742624c10aa813b8c3097c77ff344b1b86eb6be846"
+checksum = "b9f76ad4bb049fded4e572df72cbb6381ff5d1f41f85c3a04b56e4eca287a02f"
 dependencies = [
  "anyhow",
  "bincode",
@@ -2456,28 +2456,16 @@ dependencies = [
 ]
 
 [[package]]
-name = "puffin"
-version = "0.19.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b9f76ad4bb049fded4e572df72cbb6381ff5d1f41f85c3a04b56e4eca287a02f"
-dependencies = [
- "anyhow",
- "byteorder",
- "cfg-if",
- "once_cell",
- "parking_lot",
-]
-
-[[package]]
 name = "puffin_http"
-version = "0.15.0"
+version = "0.16.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "fcf8e52cf00569807b02e8089a85e859c00476182730cda9718c94b12cdc31b8"
+checksum = "4936c085e48efc86f6d96609dc5086d1d236afe3ec4676f09b157a4f4be83ff6"
 dependencies = [
  "anyhow",
  "crossbeam-channel",
  "log",
- "puffin 0.18.1",
+ "parking_lot",
+ "puffin",
 ]
 
 [[package]]

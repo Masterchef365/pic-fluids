@@ -172,7 +172,7 @@ impl Sim {
         per_particle_nodes: &Rc<Node>,
         wasm_rt: Option<&mut WasmNodeRuntime>,
     ) {
-        //puffin::profile_scope!("Complete Step");
+        puffin::profile_scope!("Sim Step");
         // Step particles
         apply_global_force(&mut self.particles, Vec2::new(0., -tweak.gravity), tweak.dt);
         if tweak.particle_mode.uses_life() {
@@ -565,7 +565,7 @@ fn enforce_particle_radius(particles: &mut [Particle], radius: f32) {
 }
 
 fn particle_life_interactions(particles: &mut [Particle], cfg: &LifeConfig, dt: f32) {
-    puffin::profile_scope!("Particle interactions");
+    puffin::profile_scope!("Particle life interactions");
     let points: Vec<Vec2> = particles.iter().map(|p| p.pos).collect();
     let accel = QueryAccelerator::new(&points, cfg.max_interaction_radius());
     //accel.stats("Life");
