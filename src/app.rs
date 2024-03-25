@@ -950,6 +950,8 @@ impl TemplateApp {
         ui.label(format!(
             "Press {ENABLE_FULLSCREEN_KEY:?} to toggle fullscreen"
         ));
+        ui.label("Use SHIFT to navigate node graph");
+        ui.label("Use SCROLL in node graph to change scale");
     }
 
     fn reset_sim_state(&mut self) {
